@@ -80,6 +80,9 @@ export function newGame() {
     seen: {}, // apps the player has opened
     marks: {}, // apps with something new or changed in them
     awaiting: null, // an announcement the player has not opened yet
+    awaitingAlert: null, // a major NARC beat that must be opened before the next incident
+    answered: {}, // conversational prompts the player has answered
+    nominations: {}, // immediate nomination feedback + duplicate protection
     you: { gamed: false, covered: false },
     helper: { installed: false, on: false, luis: null },
     people: {
@@ -116,11 +119,10 @@ export function newGame() {
     subject: 'Introducing NARC Workforce Support',
     body: [
       'Hi team,',
-      'We’re introducing NARC — Networked Assessment & Risk Coordination, a new workplace support system designed to identify workflow friction, improve collaboration, and surface support needs earlier.',
-      'Beginning this week, NARC will monitor approved workplace activity signals, including workstation activity, communication patterns, scheduling information, and company tool usage.',
-      'You may occasionally receive NARC alerts or activity reviews. You’ll see NARC ACTIVE in the top-right corner of your workstation while monitoring is enabled. For transparency, NARC alerts are visible to all team members.',
-      'NARC is intended to support employees, not replace human judgment. Individual signals are considered in context. No action is required on your part, other than acknowledging this message.',
-      'Thank you for your participation,',
+      'We’re introducing NARC — Networked Assessment & Risk Coordination. It uses workstation activity, communication, scheduling, and company-tool signals to identify workflow issues and support needs.',
+      'You may receive NARC alerts or activity reviews during the week. NARC ACTIVE will appear in the top-right corner while monitoring is enabled. Alerts are visible to all team members.',
+      'NARC is intended to support, not replace, human judgment.',
+      'Please acknowledge this message to continue.',
       'People Operations',
     ],
     form: 'ack',
@@ -176,12 +178,17 @@ function deliver(s, d) {
   if (d.awaiting && s.awaiting !== d.awaiting) return;
   switch (d.k) {
     case 'msg':
-      s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach });
+      s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt });
       toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
       break;
     case 'notice':
       raise(s, { title: d.title, text: d.text });
       break;
+    case 'forecast': {
+      const a = raise(s, { title: d.title, text: d.text });
+      s.awaitingAlert = a.id;
+      break;
+    }
     case 'mail': {
       const m = addMail(s, d.mail);
       toast(s, { app: 'email', title: m.from, text: m.subject, open: `email:${m.id}` });
@@ -900,6 +907,10 @@ function open(s, ref) {
     if (!a) return false;
     a.unread = false;
     if (a.incident && s.incident?.id === a.incident) s.pulled[a.incident] = true;
+    if (s.awaitingAlert === id) {
+      s.awaitingAlert = null;
+      push(s, { at: later(s, 8), k: 'arm', id: 'e4' });
+    }
   } else {
     return false;
   }
@@ -907,33 +918,35 @@ function open(s, ref) {
   return true;
 }
 
-// What you can say in a conversation. Advice is labelled: a sincere tip or
-// polite sabotage. Telling Dana is the official route, for better or worse.
+// What you can say in a conversation. Reply chips are tied to the message that
+// actually prompted them, so choices never appear before the conversation does.
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
-  'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', branch: 'confirm' },
-  'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', branch: 'ignore' },
-  'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', branch: 'truth' },
-  'dana:covermarcus': { text: 'His calendar is missing context. There was a vendor visit that morning.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
-  'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', branch: 'stay' },
-  'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', branch: 'admit' },
-  'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', branch: 'blame' },
-  'dana:unsurehelper': { text: 'I don’t know who set it up.', when: 'e5', variant: 'g', branch: 'auto' },
-  'dana:relabel': { text: 'Could you relabel Luis’s restroom time as “unstructured ideation”?', when: 'e5', variant: 'n', branch: 'label' },
-  'dana:letluis': { text: 'I don’t have anything else to add.', when: 'e5', variant: 'n', branch: 'letit' },
-  'dana:workshop': { text: 'If the records check out, let him do the workshop.', when: 'e6', variant: 'g', branch: 'workshop' },
-  'dana:fakedocs': { text: 'Some of those documents are not real.', when: 'e6', variant: 'g', branch: 'expose' },
-  'dana:neutralworkshop': { text: 'I don’t have enough context to recommend anything.', when: 'e6', variant: 'g', branch: 'approve' },
-  'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', branch: 'vouch_trace' },
-  'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', branch: 'let' },
-  'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', branch: 'focus' },
-  'luis:badtip': { text: 'Maybe just explain it to NARC in the comment box.', when: 'e2', branch: 'badtip' },
-  'marcus:calendar': { text: 'Add the vendor visit to your calendar so there is actually a record of it.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
-  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', branch: 'badtip' },
-  'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', branch: 'approve' },
-  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', branch: 'sync' },
-  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', branch: 'quiet' },
+  'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true },
+  'dana:e1checking': { text: 'I’m checking what NARC saw.', when: 'e1', prompt: 'dana-e1', ackOnly: true },
+  'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
+  'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
+  'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
+  'dana:covermarcus': { text: 'His calendar is missing context. There was a vendor visit that morning.', when: 'e3', prompt: 'dana-e3', branch: 'paper', event: CALENDAR_TIP },
+  'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', prompt: 'dana-e3', branch: 'stay' },
+  'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'admit' },
+  'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'blame' },
+  'dana:unsurehelper': { text: 'I don’t know who set it up.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'auto' },
+  'dana:relabel': { text: 'Could you relabel Luis’s restroom time as “unstructured ideation”?', when: 'e5', variant: 'n', prompt: 'dana-e5n', branch: 'label' },
+  'dana:letluis': { text: 'I don’t have anything else to add.', when: 'e5', variant: 'n', prompt: 'dana-e5n', branch: 'letit' },
+  'dana:workshop': { text: 'If the records check out, let him do the workshop.', when: 'e6', variant: 'g', prompt: 'dana-e6g', branch: 'workshop' },
+  'dana:fakedocs': { text: 'Some of those documents are not real.', when: 'e6', variant: 'g', prompt: 'dana-e6g', branch: 'expose' },
+  'dana:neutralworkshop': { text: 'I don’t have enough context to recommend anything.', when: 'e6', variant: 'g', prompt: 'dana-e6g', branch: 'approve' },
+  'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'vouch_trace' },
+  'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
+  'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', prompt: 'luis-e2', branch: 'focus' },
+  'luis:badtip': { text: 'Maybe just explain it to NARC in the comment box.', when: 'e2', prompt: 'luis-e2', branch: 'badtip' },
+  'marcus:calendar': { text: 'Add the vendor visit to your calendar so there is actually a record of it.', when: 'e3', prompt: 'marcus-e3', branch: 'paper', event: CALENDAR_TIP },
+  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
+  'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
+  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', prompt: 'priya-e4', branch: 'sync' },
+  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', prompt: 'priya-e4', branch: 'quiet' },
 };
 
 export function replies(s, thread) {
@@ -941,7 +954,10 @@ export function replies(s, thread) {
     .filter(([key, r]) => {
       if (!key.startsWith(`${thread}:`)) return false;
       if (r.orient) return !s.oriented && s.orient.ack && !!s.seen.calendar;
-      return s.incident?.id === r.when && (!r.variant || s.incident.variant === r.variant);
+      if (s.incident?.id !== r.when || (r.variant && s.incident.variant !== r.variant)) return false;
+      if (!r.prompt) return true;
+      const promptArrived = s.threads[thread].some((m) => m.prompt === r.prompt);
+      return promptArrived && !s.answered[r.prompt];
     })
     .map(([key, r]) => ({ id: key.split(':')[1], text: r.text }));
 }
@@ -1021,8 +1037,9 @@ export function act(state, a) {
         say(s, 6, 'dana', 'Perfect. That’s everything for setup. NARC is live from here on. I’ll leave you to the Halvorsen read-through.');
         push(s, { at: later(s, ORIENT_LEAD), k: 'arm', id: 'e1' });
       } else {
+        if (spec.prompt) s.answered[spec.prompt] = true;
         if (spec.event) s.calendar.push({ id: `c${++s.uid}`, focus: false, ...spec.event });
-        resolve(s, spec.branch);
+        if (spec.branch) resolve(s, spec.branch);
       }
       changed = true;
       break;
@@ -1069,15 +1086,12 @@ export function act(state, a) {
       break;
     }
     case 'nominate':
-      if (s.incident?.id === 'e4' && PEOPLE[a.who]) {
+      if (s.incident?.id === 'e4' && PEOPLE[a.who] && !s.nominations[a.who]) {
         if (a.who === 'priya') {
+          s.nominations[a.who] = 'submitted';
           resolve(s, 'champion');
         } else {
-          mail(s, 4, {
-            from: 'Culture Team',
-            subject: `Re: nomination of ${PEOPLE[a.who].name}`,
-            body: [`Thank you for nominating ${PEOPLE[a.who].name}.`, 'Their Collaboration Index is below the nomination threshold of 90. Nomination not submitted.'],
-          });
+          s.nominations[a.who] = 'rejected';
         }
         changed = true;
       }
