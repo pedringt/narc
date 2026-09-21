@@ -392,8 +392,8 @@ A successful V1 should make a portfolio visitor:
 
 ## Current implementation note
 
-The current `prototype-v1` deployment uses the earlier structure where the player acts as NARC reviewing employees.
+The current `prototype-v1` deployment already uses the human-vs-NARC premise with six deterministic encounters, Luis/Marcus/Priya, carry-over, a NARC update, endings, and achievements.
 
-That build is a mechanical proof only. Its structure is superseded by this spec.
+The remaining major mismatch is interaction framing: it still presents the game as full-screen encounter cards with explicit story-choice buttons.
 
-The next implementation pass should reuse code only where useful and should not preserve the old loop merely to avoid rewriting it.
+The next implementation pass should preserve the working deterministic state logic where practical and reframe it around the persistent work-desktop model defined above and in `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`.
