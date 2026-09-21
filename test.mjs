@@ -650,14 +650,14 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let s = patient({}, 'e1');
   let l = leads(s, 'e1');
   ['narc', 'mark:utilities', 'mark:files', 'mark:calendar'].forEach((k) => assert.ok(l.includes(k), `e1 leads: ${l}`));
-  assert.match(texts(s, 'marcus').at(-1), /Mouse Activity Helper from Utilities/);
+  assert.match(texts(s, 'marcus').at(-1), /keepalive tool/);
 
   s = patient({ e1: 'explain' }, 'e2');
   l = leads(s, 'e2');
   ['narc', 'mark:files', 'mark:utilities'].forEach((k) => assert.ok(l.includes(k), `e2 leads: ${l}`));
-  assert.match(texts(s, 'luis').at(-1), /Mouse Activity Helper in Utilities/);
+  assert.match(texts(s, 'luis').at(-1), /keepalive/);
   assert.match(texts(s, 'luis').join(' '), /I would take any advice/, 'Luis opens the door to advice');
-  assert.match(texts(s, 'dana').at(-1), /NARC asked me whether Luis’s flag is accurate/);
+  assert.match(texts(s, 'dana').at(-1), /verify Luis’s flag/);
 
   s = patient({ e1: 'explain', e2: 'ignore' }, 'e3');
   l = leads(s, 'e3');
@@ -665,7 +665,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(texts(s, 'marcus').join(' '), /Wednesday calendar is completely empty/);
   assert.match(texts(s, 'marcus').join(' '), /Any advice/);
   assert.match(caseView(s, alertOf(s, 'e3')).observed.join(' '), /Corroborating records on file: none/);
-  assert.match(texts(s, 'dana').at(-1), /Do you know where he was\?/);
+  assert.match(texts(s, 'dana').at(-1), /verify Marcus’s location trace/);
 
   s = patient(HONEST, 'e4');
   l = leads(s, 'e4');
@@ -684,7 +684,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   l = leads(s, 'e5');
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e5 leads: ${l}`);
   assert.match(texts(s, 'dana').at(-1), /Unstructured ideation|unstructured ideation/i);
-  assert.match(texts(s, 'dana').at(-1), /send it to me/);
+  assert.match(texts(s, 'dana').at(-1), /attach evidence|send it/i);
   assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel', 'letluis']);
 
   // Direct questions from Dana never force a single report/narc route.
@@ -739,8 +739,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.inbox.filter((m) => /Culture Champion nominations/.test(m.subject)).length, 1, 'and it is not sent again');
   s = act(s, { do: 'nominate', who: 'luis' });
   assert.equal(s.incident.id, 'e4');
-  s = until(s, (x) => x.inbox.some((m) => /Re: nomination of Luis Perez/.test(m.subject)));
+  assert.equal(s.nominations.luis, 'rejected', 'an ineligible nomination gets immediate state feedback');
+  const once = s.rev;
+  s = act(s, { do: 'nominate', who: 'luis' });
+  assert.equal(s.rev, once, 'the same nomination cannot be submitted repeatedly');
+  assert.equal(s.inbox.filter((m) => /Re: nomination of Luis Perez/.test(m.subject)).length, 0, 'rejected submissions do not generate duplicate email');
   s = DO.e4.champion(s);
+  assert.equal(s.nominations.priya, 'submitted');
   assert.equal(s.people.priya.status, 'promoted');
   s = until(s, (x) => has(texts(x, 'priya'), /badge/));
   assert.ok(has(noticeTexts(s), /Exempt from Communication Load/));
@@ -773,8 +778,14 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.alerts.length, before, 'nothing lands the instant you open it');
   s = ticks(s, 5);
   assert.equal(s.alerts.length, before);
-  s = until(s, (x) => x.alerts.length > before, { reads: false });
-  assert.ok(has(noticeTexts(s), /No synthetic activity found/));
+  s = until(s, (x) => !!x.awaitingAlert, { reads: false });
+  const forecast = s.alerts.find((a) => a.id === s.awaitingAlert);
+  assert.match(forecast.title, /Behavioral forecast/);
+  assert.match(forecast.text, /Policy-workaround likelihood/);
+  const paused = ticks(s, 300);
+  assert.equal(paused.incident, null, 'Priya does not start until the forecast is opened');
+  s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
+  assert.equal(s.awaitingAlert, null);
   s = until(s, atIncident('e4'), { reads: false });
 }
 
@@ -964,9 +975,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
 {
   let s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
-  assert.ok(has(noticeTexts(s), /predicted policy-workaround likelihood/), 'NARC 2.0 generates a behavioral forecast');
-  assert.ok(has(noticeTexts(s), /calendar reclassification|tool usage|integrity history/), 'the forecast names the signals it used');
-  assert.ok(has(noticeTexts(s), /workplace baseline|differs from your established workplace pattern/), 'NARC also emits an ambient workstyle nudge');
+  assert.ok(has(noticeTexts(s), /Policy-workaround likelihood/), 'NARC 2.0 generates a behavioral forecast');
+  assert.ok(has(noticeTexts(s), /workplace baseline|unusual recent behavior/), 'the forecast reflects the player’s recent behavior without adding a second ambient notification');
 }
 
 // ------------------ pacing: nothing lands on top of anything else
