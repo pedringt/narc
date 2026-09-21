@@ -646,7 +646,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e5 leads: ${l}`);
   assert.match(texts(s, 'dana').at(-1), /Unstructured ideation|unstructured ideation/i);
   assert.match(texts(s, 'dana').at(-1), /send it to me/);
-  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel']);
+  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel', 'letluis']);
+
+  // Direct questions from Dana never force a single report/narc route.
+  let choice = patient(HONEST, 'e2');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportluis', 'noreportluis']);
+  choice = patient(HONEST, 'e3');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportmarcus', 'covermarcus', 'nomarcus']);
+  choice = patient({ ...HONEST, e2: 'script' }, 'e5');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['ownscript', 'blameluis', 'unsurehelper']);
 
   s = patient({ ...HONEST, e3: 'truth' }, 'e6');
   l = leads(s, 'e6');
@@ -658,7 +666,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   l = leads(s, 'e6');
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e6 (documented) leads: ${l}`);
   assert.match(texts(s, 'dana').at(-1), /wants a colleague’s view/);
-  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['workshop', 'fakedocs']);
+  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['workshop', 'fakedocs', 'neutralworkshop']);
 
   // Looking at an app clears its marker; hints do not appear once you have decided.
   let m = patient({}, 'e3');
@@ -868,8 +876,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const model = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
   assert.equal(ending(model).you.label, 'MODEL EMPLOYEE');
   assert.match(ending(model).you.text, /classified as collaboration/);
-  assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'ON WATCHLIST');
-  assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'TERMINATED');
   assert.equal(ending(play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).you.label, 'STILL EMPLOYED');
   assert.match(ending(play({ ...HONEST, e4: 'sync' })).roster[2].text, /happen in person, on the calendar/);
 }
@@ -902,6 +910,14 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(act(s, { do: 'open', ref: 'nowhere:1' }).rev, s.rev);
   assert.equal(act(s, { do: 'nonsense' }).rev, s.rev);
   assert.equal(act(s, { do: 'ack' }).rev, s.rev, 'acknowledging twice does nothing');
+}
+
+// ------------------ NARC 2.0 makes a forward-looking model inference
+
+{
+  let s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
+  assert.ok(has(noticeTexts(s), /predicted policy-workaround likelihood/), 'NARC 2.0 generates a behavioral forecast');
+  assert.ok(has(noticeTexts(s), /calendar reclassification|tool usage|integrity history/), 'the forecast names the signals it used');
 }
 
 // ------------------ pacing: nothing lands on top of anything else
