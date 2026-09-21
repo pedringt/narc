@@ -84,7 +84,7 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     you: { gamed: false, covered: false },
-    helper: { installed: false, on: false, luis: null },
+    helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
       marcus: { status: 'employed', trust: 0, gamed: false, cred: 38 },
@@ -205,6 +205,7 @@ function deliver(s, d) {
       break;
     case 'mark':
       s.marks[d.app] = true;
+      if (d.discoverHelper) s.helper.discovered = true;
       break;
     case 'shown':
       s.shown[d.who] = d.status;
@@ -415,7 +416,7 @@ const INCIDENTS = {
       say(s, 8, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
       mark(s, 16, 'calendar', { when: 'e1' });
       say(s, 22, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
-      mark(s, 22, 'utilities', { when: 'e1' });
+      mark(s, 22, 'utilities', { when: 'e1', discoverHelper: true });
     },
     branches: {
       wait(s) {
@@ -668,7 +669,7 @@ const INCIDENTS = {
         });
         say(s, 8, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
         say(s, 20, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
-        say(s, 28, 'marcus', 'The Mouse Activity Helper got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
+        say(s, 28, 'marcus', 'keepalive got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
         mark(s, 28, 'utilities', { when: 'e5' });
         say(s, 36, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
         if (s.helper.luis?.randomized) resolve(s, 'human');
@@ -1036,7 +1037,7 @@ export function act(state, a) {
     }
     case 'attach':
       if (a.thread === 'luis' && a.item === 'helper' && canAttachHelper(s)) {
-        s.threads.luis.push({ id: `m${++s.uid}`, from: 'me', text: 'try this', attach: 'Mouse Activity Helper.pkg' });
+        s.threads.luis.push({ id: `m${++s.uid}`, from: 'me', text: 'try this', attach: 'keepalive.pkg' });
         resolve(s, 'script');
         changed = true;
       }
@@ -1063,7 +1064,7 @@ export function act(state, a) {
     }
     case 'helper': {
       if (a.op === 'install') {
-        if (!s.helper.installed) { s.helper.installed = true; changed = true; }
+        if (s.helper.discovered && !s.helper.installed) { s.helper.installed = true; changed = true; }
       } else if (a.op === 'toggle' && s.helper.installed) {
         s.helper.on = !s.helper.on;
         if (s.helper.on && s.incident?.id === 'e1') resolve(s, 'jiggle');
