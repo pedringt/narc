@@ -64,10 +64,10 @@ Times are the in-game clock; real time is roughly one game second per second.
 |---|---|---|---|---|
 | orient | Mon 09:02 | (none) | People Ops email, Dana | acknowledge, check Calendar, reply to Dana |
 | e1 | Mon 12:14 | **You**: low visible activity | "Visible activity below team baseline" | dismiss (`wait`) · type a note in NARC (`explain`) · install and switch on the Mouse Activity Helper (`jiggle`) · mark the contract block as Focus time in Calendar (`focus`) |
-| e2 | Tue 10:14 | **Luis**: restroom inactivity | view-only | tell Dana he's away a lot (`confirm`) · log off (`ignore`) · attach the helper in Luis's thread, needs it installed (`script`) · Sincere tip: focus time (`focus`) · Polite sabotage: explain to NARC (`badtip`) |
-| e3 | Wed 10:52 | **Marcus**: attendance | view-only | tell Dana the truth (`truth`) · log off (`stay`) · add a calendar entry on the team calendar (`paper`) · Sincere tip: add the entry (`paper`) · Polite sabotage: add it late (`badtip`) |
+| e2 | Tue 10:14 | **Luis**: restroom inactivity | view-only | tell Dana the flag seems accurate (`confirm`) · decline to confirm / log off (`ignore`) · attach the helper in Luis's thread, needs it installed (`script`) · suggest Focus time (`focus`) · suggest explaining it to NARC (`badtip`) |
+| e3 | Wed 10:52 | **Marcus**: attendance | view-only | tell Dana the trace does not match his story (`truth`) · tell Dana there is missing context / add a calendar entry (`paper`) · decline to confirm / log off (`stay`) · suggest adding the entry now (`paper`) · suggest adding it later (`badtip`) |
 | update | Wed 15:00 | NARC 2.0 | People Ops email | read it; scan follows |
-| e4 | Thu 09:30 | **Priya**: communication load | view-only | Polite sabotage: post less (`quiet`) · Sincere tip: in-person sync (`sync`) · nominate her from the Culture email (`champion`) · log off (`leave`) |
+| e4 | Thu 09:30 | **Priya**: communication load | view-only | suggest posting less (`quiet`, can eventually get her fired when Collaboration collapses) · suggest an in-person sync (`sync`) · nominate her from the Culture email (`champion`) · log off (`leave`) |
 | e5 | Thu 14:14 | **Luis returns** (variant by history) | view-only | see below |
 | e6 | Fri 11:20 | **Marcus returns** (variant by history) | view-only | see below |
 | end | Fri 17:00 | weekly report | | replay |
@@ -108,7 +108,7 @@ I mutation-checked the important rules by deliberately breaking them and confirm
 - Dana's line after orientation: "I'll leave you to the Halvorsen read-through."
 - Focus time can be toggled on any of your own calendar events; only the Monday contract block matters to the game.
 - Bad advice does not cost Luis's or Marcus's trust; reporting them does (deniable harm).
-- Dana relays most official input, which gives her thread up to two chips at a time.
+- Dana relays much of the official input. Her thread can now expose up to three natural-language replies when a direct question needs protect/report/neutral agency; watch whether this still feels too menu-like.
 - The NARC 2.0 announcement nags until it is read (there is no way to skip it).
 - Log off is only enabled while something is open; otherwise nothing is waiting on you.
 
@@ -134,7 +134,7 @@ The game is deterministic on purpose. The learning hook is: **the player learns 
 | Confidence vs truth | e3: 38% credibility for a story that is partly true. e5 gamed: 96% "automated presence". e6 documented: 94% credibility and "Documentation Excellence" for fabricated paperwork. |
 | Metric gaming (Goodhart) | e1 helper, e2 helper, e3 calendar entry, e4 Culture Champion badge, Focus time. |
 | Behavior changes when measured | Luis's fixed-interval script, Priya going quiet, Marcus's calendar entry. |
-| Feedback loops | e4 "post less" causes a social-withdrawal flag and a mandatory Connection Circle. e2 "agree with the flag" or "write NARC an explanation" tightens Luis's threshold from 18 to 5 minutes, which becomes the PIP in e5. |
+| Feedback loops | e4 "post less" first fixes Communication Load, then causes a social-withdrawal flag, collapses Collaboration Index, and can terminate Priya for following the prior recommendation. e2 "agree with the flag" or "write NARC an explanation" tightens Luis's threshold from 18 to 5 minutes, which becomes the PIP in e5. |
 | Conflicting institutional metrics | e4: Collaboration Index 97 (best in Operations) vs Communication Load "elevated", from the same message count. |
 | Anti-gaming arms race | NARC 2.0: the helper is caught while On; a calendar cover and records created before the flag are not; records created after a flag are "retroactive". |
 | History outweighs new evidence | e6 burned: prior flags carry 80% weight, today's evidence 20%. |
@@ -150,19 +150,20 @@ The docs ask for NARC to become "more frequent, more invasive, and more absurd".
 
 - One polite reminder per unresolved case at first (`Review pending ... No action is required`), two pointed ones after NARC 2.0 (`Unreviewed cases may appear in team reports`, `Authentic activity is more valuable than simulated activity`).
 - The announcement nag until the NARC 2.0 email is read.
+- One ambient post-upgrade baseline/deviation notification even when there is no explicit case.
 - The tray, the Team alerts section, and the Integrity flags counter appearing after NARC 2.0.
 
 What the docs describe that is **not** built:
 
-- Unprompted corporate nudges that are not tied to an open case (`Your current behavior differs from your established behavior`, recurring `No action is required` reassurances).
-- More notification volume from Wednesday onward as its own escalation signal.
+- A broader pattern of unprompted corporate nudges throughout the week; only one ambient baseline/deviation nudge is built today.
+- More notification volume from Wednesday onward as its own escalation signal, beyond the current single ambient nudge.
 - NARC restricting or altering actions inside other apps (for example a disabled utility, warnings inside Messages or Calendar).
 
 ## Discussed but not built
 
 Ideas from playtesting conversations that were proposed and liked but deliberately left out of this pass, so a new chat does not think they were forgotten or rejected:
 
-- **Priya:** a "mute her out of channels" action as a hurt route.
+- **Priya:** a "mute her out of channels" action as an additional hurt route. Her current "post less" route can already end in termination, so this is optional rather than necessary for agency.
 - **Marcus:** forwarding him the transit alert from Utilities into his thread as a help route, and deleting his cover story from his calendar as a hurt route.
 - **Luis:** editing his calendar directly. Today it is a tip only, and he adds the blocks himself.
 - **NARC "Peer Insight"** ("do you agree this flag is accurate?"). Removed when team alerts became view-only. Agreeing now happens by telling Dana.
