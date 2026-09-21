@@ -172,12 +172,13 @@ Untested or unverified: the Focus-time toggle on your own non-contract calendar 
 
 ## Latest Paige playtest findings now implemented on `prototype-v1`
 
-- Progressive disclosure: do not show side-nav apps before the player has a reason to understand them.
+- Progressive disclosure: do not show side-nav apps before the player has a reason to understand them. Email is the only initial dock app; other surfaces appear as orientation/incidents introduce them.
 - Dana no longer corners the player into a single reporting response when she asks about Luis/Marcus; direct questions expose help/protect, report/expose, or neutral/decline choices where the scenario supports them.
 - Copy cleanup from the live run: replaced the awkward "Saw the dip..." Dana line, Priya's "lunch workflow" line, Luis's repeated "unavailable" joke, and Marcus's over-written bird-workshop exchange.
-- NARC case detail now labels the AI loop explicitly as **workplace signals → NARC inference → company action**, with "What NARC observed" / "What NARC inferred" headings.
+- NARC case detail now labels the AI loop explicitly as **workplace signals → NARC inference → company action**, with "What NARC observed" / "What NARC inferred" headings. Incident notifications themselves now also surface the inference and confidence so the AI layer is visible even if the player does not open every NARC case.
 - NARC 2.0 now emits a deterministic **Behavioral forecast** (predicted policy-workaround likelihood) based on the player's recent workaround signals, making prediction visible without adding a live model.
 - Player termination is now a real ending at 2+ integrity flags.
+- The ending action is now **Replay this week**, not "start a new week," because replay intentionally resets to the same Monday orientation so the player can try different choices.
 
 ## Suggested playtest questions
 
