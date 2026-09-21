@@ -123,6 +123,53 @@ I mutation-checked the important rules by deliberately breaking them and confirm
 - The test suite takes about 18 s because of the exhaustive routes; sample them if that becomes a problem.
 - Issue #5 tracks the rework and holds the latest playtest questions.
 
+## Which incident teaches which AI concept
+
+The game is deterministic on purpose. The learning hook is: **the player learns how an AI-like system fails by learning to exploit it.** This maps the concepts in `CORE_GAME_SPEC.md` and `RESEARCH_ALGORITHMIC_MANAGEMENT.md` to where the current slice shows them. None are explained in prose; the player infers them from the contradiction.
+
+| Concept | Where it shows up |
+|---|---|
+| Proxy metric vs the real goal | e1: NARC counts keyboard and mouse input while you read the contract on paper and caught a $40,000 error. e2: NARC sees restroom-corridor pings; the support queue shows Luis at 112% of the median. |
+| Missing context | e1, e2, e3 (the raccoon is real and covers 11 of 112 minutes), e6 burned (NARC's own location trace shows the sanctuary but is weighted at 20%). |
+| Confidence vs truth | e3: 38% credibility for a story that is partly true. e5 gamed: 96% "automated presence". e6 documented: 94% credibility and "Documentation Excellence" for fabricated paperwork. |
+| Metric gaming (Goodhart) | e1 helper, e2 helper, e3 calendar entry, e4 Culture Champion badge, Focus time. |
+| Behavior changes when measured | Luis's fixed-interval script, Priya going quiet, Marcus's calendar entry. |
+| Feedback loops | e4 "post less" causes a social-withdrawal flag and a mandatory Connection Circle. e2 "agree with the flag" or "write NARC an explanation" tightens Luis's threshold from 18 to 5 minutes, which becomes the PIP in e5. |
+| Conflicting institutional metrics | e4: Collaboration Index 97 (best in Operations) vs Communication Load "elevated", from the same message count. |
+| Anti-gaming arms race | NARC 2.0: the helper is caught while On; a calendar cover and records created before the flag are not; records created after a flag are "retroactive". |
+| History outweighs new evidence | e6 burned: prior flags carry 80% weight, today's evidence 20%. |
+| Human review is thin | Dana mostly says "I'll pass that along to NARC". A manager relaying peer input into an automated system is the oversight. |
+| Rising authority raises the stakes | NARC 2.0, then "Automatic action: Performance Improvement Plan" and "Attendance Integrity Termination" pending on a confidence score. |
+| NARC is sometimes useful | Priya's flag matches a real missed escalation and the coaching improves reply time by 2 h 40 min; Marcus's goose is real. |
+
+Not demonstrated yet (future scenario bank in the research doc): attrition-risk prediction, AI-adoption scoring, influence-network inference, sarcasm and alignment inference, compulsory wellness, physiological monitoring, preemptive intervention.
+
+## Partly built: NARC gets more annoying as the week goes on
+
+The docs ask for NARC to become "more frequent, more invasive, and more absurd". What exists:
+
+- One polite reminder per unresolved case at first (`Review pending ... No action is required`), two pointed ones after NARC 2.0 (`Unreviewed cases may appear in team reports`, `Authentic activity is more valuable than simulated activity`).
+- The announcement nag until the NARC 2.0 email is read.
+- The tray, the Team alerts section, and the Integrity flags counter appearing after NARC 2.0.
+
+What the docs describe that is **not** built:
+
+- Unprompted corporate nudges that are not tied to an open case (`Your current behavior differs from your established behavior`, recurring `No action is required` reassurances).
+- More notification volume from Wednesday onward as its own escalation signal.
+- NARC restricting or altering actions inside other apps (for example a disabled utility, warnings inside Messages or Calendar).
+
+## Discussed but not built
+
+Ideas from playtesting conversations that were proposed and liked but deliberately left out of this pass, so a new chat does not think they were forgotten or rejected:
+
+- **Priya:** a "mute her out of channels" action as a hurt route.
+- **Marcus:** forwarding him the transit alert from Utilities into his thread as a help route, and deleting his cover story from his calendar as a hurt route.
+- **Luis:** editing his calendar directly. Today it is a tip only, and he adds the blocks himself.
+- **NARC "Peer Insight"** ("do you agree this flag is accurate?"). Removed when team alerts became view-only. Agreeing now happens by telling Dana.
+- **Making Dana less of the central channel** if playtests find her chips menu-like.
+
+Untested or unverified: the Focus-time toggle on your own non-contract calendar events only changes its label. The exhaustive route test is slow enough (about 18 s) that sampling may be worth it later.
+
 ## Suggested playtest questions
 
 1. Did the first 90 seconds (email, Dana, Calendar, reply) teach the workstation without feeling like a tutorial?
