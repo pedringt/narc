@@ -99,7 +99,7 @@ Coworker statuses: employed / promoted / warning / heavily monitored / absurdly 
 
 ## Tests
 
-`node test.mjs` covers: orientation and the gate, the welcome email's four jobs, view-only team cases, persistent toasts and "closing a toast decides nothing", NARC nudges that escalate after NARC 2.0, active vs history in NARC, no hidden fallback, the helper (install then on, off means not caught), Focus-time cover surviving NARC 2.0, labelled advice, what each tip does, Send to Dana, first-contact messages standing alone, at least two leads per incident, the Culture email arriving before Priya's flag, the NARC 2.0 beat, save and fire paths, all seven achievements, ending, restart, purity, invalid actions, cadence, run length, and **all 3,120 routes reaching an ending** with no junk text ("undefined", "NaN").
+`node test.mjs` covers: orientation and the gate, the welcome email's four jobs, view-only team cases, persistent toasts and "closing a toast decides nothing", NARC nudges that escalate after NARC 2.0, active vs history in NARC, no hidden fallback, the helper (install then on, off means not caught), Focus-time cover surviving NARC 2.0, natural-language coworker choices, what each suggestion does, Send to Dana, first-contact messages standing alone, at least two leads per incident, the Culture email arriving before Priya's flag, the NARC 2.0 beat, save/fire/player-termination paths, all seven achievements, ending, restart, purity, invalid actions, cadence, run length, and **all 3,120 routes reaching an ending** with no junk text ("undefined", "NaN").
 
 I mutation-checked the important rules by deliberately breaking them and confirming the tests fail. Do the same when you change a rule.
 
@@ -194,6 +194,6 @@ A living source document now exists at `docs/CASE_STUDY_NOTES.md`. Update it whe
 3. Did the tray and "Needs attention" vs "Team alerts" tell you at a glance whether NARC wanted something from you?
 4. Did you find at least two "I gamed NARC" moments without help? Was any coworker hint too pushy?
 5. Was "see everyone's alerts, act only on your own" funny, or confusing?
-6. Did the advice labels (Sincere tip / Polite sabotage) feel right, and did the aftermath make the cause clear?
+6. Did the coworker reply choices feel like normal conversation rather than game-menu labels, and did the aftermath make the cause clear?
 7. Did Focus time vs the mouse helper read as two different exploits?
 8. Roughly how long did a first run take?
