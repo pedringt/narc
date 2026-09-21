@@ -212,7 +212,8 @@ button { cursor: pointer; }
 .narc-main .detail { padding: 18px 22px; }
 .narc-main .empty { color: var(--n-muted); }
 .case h2 { margin: 0 0 2px; font-size: 18px; }
-.case .subject { color: var(--n-muted); font-size: 13px; margin-bottom: 14px; }
+.case .subject { color: var(--n-muted); font-size: 13px; margin-bottom: 10px; }
+.model-flow { margin: 10px 0 14px; padding: 7px 9px; border: 1px dashed var(--n-line); color: var(--n-muted); font-size: 10px; letter-spacing: .08em; line-height: 1.4; }
 .sect { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; margin: 16px 0 6px; }
 .sect.observed { color: var(--n-good); }
 .sect.model { color: var(--n-warn); }
