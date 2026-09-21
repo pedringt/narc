@@ -156,6 +156,35 @@ Desired desktop version:
 9. No result/Afterward/Continue screen.
 10. Workday continues.
 
+
+## Latest playtest conclusion
+
+The desktop concept is working better than the old scenario-card structure, but the current build has a new primary usability problem:
+
+> **The player often does not know what to do.**
+
+The next pass is not "add more content." It is **clarify the loop without exposing the branch tree**.
+
+Settled principles from the feedback round:
+
+- **Hide the branching structure, not the available affordances.**
+- **NARC is the pressure. Coworkers and the rest of the desktop are the counterplay.**
+- NARC should primarily talk at the player through notifications/status interruptions.
+- Coworkers should provide character + missing context + diegetic clues for evasion.
+- Important notifications must persist until handled/closed; closing a toast is not the same as dismissing the case.
+- The opening needs a gated orientation before consequential events begin.
+- The People Ops email should spell out **Networked Assessment & Risk Coordination** and plainly-but-corporately state that workplace activity is monitored.
+- First-contact coworker messages must make sense without assuming the player already opened a NARC alert.
+- The hidden 60-second auto-fallback is too easy to trigger while the player is legitimately investigating.
+- Active NARC cases must be distinguished from passive NARC history/notices.
+- The AI-learning goal is experiential: the player learns about proxies, inference, gaming, context loss, feedback loops, and authority by outsmarting NARC rather than reading explanations.
+
+Research grounding and speculative escalation notes:
+- `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`
+
+Detailed implementation notes:
+- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
+
 ## Preserve
 
 - deterministic engine and tests where possible

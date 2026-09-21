@@ -34,6 +34,52 @@ The desktop-interaction rework is ready for Paige to play when the following are
 - [ ] Dedicated `Afterward` and `NARC updates` screens are removed or no longer necessary for the main flow.
 - [ ] The player can continue naturally after a consequence without repeatedly clicking a large `Continue` button.
 
+
+## Orientation / first-minute clarity
+
+- [ ] The initial People Operations email is open/selected at first load.
+- [ ] The email spells out **NARC — Networked Assessment & Risk Coordination**.
+- [ ] The email clearly says workplace activity is monitored while preserving bland corporate framing.
+- [ ] Dana is clearly established as the player's manager.
+- [ ] No consequential incident or auto-resolution timer starts before orientation/setup is complete.
+- [ ] The player performs at least one harmless workstation action before the first NARC case arrives.
+
+## Discoverability / knowing what to do
+
+- [ ] A first-time player can tell what is happening in each incident without already knowing the branch map.
+- [ ] Each incident exposes at least two discoverable leads/affordances through NARC, coworkers, or changed app state.
+- [ ] The player does not need to randomly click every app to find a valid action.
+- [ ] Coworker first messages make sense even if the NARC alert has not been opened.
+- [ ] Coworker hints remain in character rather than becoming tutorial instructions.
+- [ ] Thread headers make each person's role clear.
+
+## NARC as pressure
+
+- [ ] NARC primarily communicates through persistent notifications/status interruptions.
+- [ ] NARC feels increasingly annoying/intrusive as the week progresses.
+- [ ] The NARC status/tray clearly indicates when an active case needs attention.
+- [ ] Opening an alert leads naturally to the relevant NARC case detail.
+- [ ] Closing a notification toast does not resolve or dismiss the underlying case.
+- [ ] Persistent toast behavior cannot cover the desktop with an unlimited stack.
+- [ ] Active cases are visually distinguished from passive NARC history/notices.
+
+## Pacing
+
+- [ ] Important alerts do not disappear on a short timer.
+- [ ] The player has time to read a message before another unrelated event lands.
+- [ ] Exploration in Calendar/Files/Messages/Utilities is not silently treated as ignoring the case.
+- [ ] There is no surprising hidden 60-second fallback during onboarding or normal investigation.
+- [ ] NARC 2.0 is understandable before its new capabilities begin generating consequences.
+
+## AI-learning through play
+
+- [ ] At least one incident clearly demonstrates a proxy-vs-reality failure through play.
+- [ ] At least one incident lets the player deliberately game or manipulate a metric.
+- [ ] At least one later event shows NARC adapting to or detecting previous gaming.
+- [ ] Coworker/context information helps the player outsmart NARC.
+- [ ] The game communicates an AI/product concept without naming or lecturing about the concept.
+- [ ] NARC is sometimes useful/correct; the game does not reduce to "AI is always wrong."
+
 ## Preserve current game value
 
 - [ ] Human player role remains.

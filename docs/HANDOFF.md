@@ -84,24 +84,61 @@ If these conflict with the current deployed prototype, the docs/issues win.
 
 ## Current implementation
 
+**Start with [`docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`](handoffs/claude-rework/IMPLEMENTATION_STATE.md)**: a code-accurate description of what is built, the week's incidents and routes, decisions the implementer made, and known gaps. Where it disagrees with an older handoff, it describes the code and the older docs describe intent.
+
 Branch:
 - `main` — do not modify or promote without Paige explicitly naming `main`
 - `prototype-v1` — current working/prototype branch
 
-Current implementation (desktop interaction rework, on `prototype-v1`):
-- the game is a persistent fictional work laptop: menu bar with clock and a `NARC ACTIVE` tray indicator, a dock, and Messages / Email / Calendar / Files / Utilities / NARC windows; it stacks into a tab bar on phones
-- the same human-vs-NARC week (Luis, Marcus, Priya; six incidents plus one NARC 2.0 update; carry-over; endings; achievements) now runs on a workday clock. Problems arrive as NARC notifications, messages, email and calendar changes; consequences are scheduled deliveries; doing nothing (or ~60 s idle) resolves an incident on its ignore branch
+Current implementation (desktop rework + playtest clarity pass, on `prototype-v1`):
+- the game is a persistent fictional work laptop: menu bar with clock, a Log off button and the NARC tray indicator, a dock, and Messages / Email / Calendar / Files / Utilities / NARC windows; it stacks into a tab bar on phones
+- **orientation gate:** the People Operations email is open on load, spells out NARC — Networked Assessment & Risk Coordination, says it monitors activity, and asks for an acknowledgment. Dana (your manager) then asks you to check the Calendar and reply. Only after that is the first NARC case scheduled; nothing consequential runs before it
+- the same human-vs-NARC week (Luis, Marcus, Priya; six incidents plus a NARC 2.0 beat; carry-over; endings; achievements) runs on a workday clock. Problems arrive as NARC notifications, messages, email and calendar changes; consequences are scheduled deliveries, spaced so nothing lands on top of anything else
+- **NARC is the pressure:** notifications persist until opened or closed (closing one only hides it), at most 3 show at once (2 on phones), NARC nudges about an unresolved case, and nudges more pointedly after NARC 2.0. The tray reads `NARC · ACTION REQUIRED` only when a case really needs the player; NARC's window separates "Needs attention" from "Recent activity"
+- **no hidden timers:** exploring is never treated as inaction. Doing nothing is legible: "Dismiss alert", or "Log off", which says NARC will process the open case before it does
+- **you see everyone's NARC alerts but act only on your own.** Teammates' cases are view-only ("Team alerts", tray `NARC · TEAM ALERT`); helping or hurting a coworker happens in Messages (labelled Sincere tip / Polite sabotage), through Dana, or with Files, Calendar and Utilities. Calendar-based covers (Focus time) survive NARC 2.0; keystroke fakery does not
+- **counterplay is discoverable:** every first-contact coworker message carries its own setup, each incident leaves at least two leads (NARC's case, a coworker line, a "new" dot on an app), and follow-up hints disappear once you have decided
 - NARC's window shows only observed signals plus its inference and confidence; the human context lives in Calendar, Files, Messages and Utilities
-- branches are computer actions (see the README table); the mouse-jiggler is a Utilities install with an On/Off switch, and NARC 2.0 only catches it while it is On
-- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers arrival and pacing, natural inaction, NARC-vs-reality separation, carry-over, exploits and their consequences, save/fire paths, achievements, ending, restart, and all 729 routes
+- the mouse-jiggler is a Utilities install with an On/Off switch, NARC 2.0 only catches it while it is On, and it can only be shared with Luis after you have installed it. The Culture Champion email arrives before Priya's flag (nominations open Thursday). NARC 2.0's scan waits until you have read the announcement
+- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers orientation, pacing and run length, persistent notifications, active-versus-history, no auto-fallback, the NARC 2.0 beat, leads and first-contact context, carry-over, exploits, save/fire paths, achievements, ending, restart, and all 729 routes
+- run length (game clock, no exploring): a brisk player about 5–6 minutes, a player who reads every hint first about 8; exploring adds to that
 - QA aid: `?tick=150` in the URL speeds up the game clock
-- Vercel preview redeploys from `prototype-v1`
+- Vercel preview redeploys from `prototype-v1`; the public production site only changes when `prototype-v1` is merged to `main`
 
 Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 
+
+## Latest playtest conclusion
+
+The desktop concept is working better than the old scenario-card structure, but the current build has a new primary usability problem:
+
+> **The player often does not know what to do.**
+
+The next pass is not "add more content." It is **clarify the loop without exposing the branch tree**.
+
+Settled principles from the feedback round:
+
+- **Hide the branching structure, not the available affordances.**
+- **NARC is the pressure. Coworkers and the rest of the desktop are the counterplay.**
+- NARC should primarily talk at the player through notifications/status interruptions.
+- Coworkers should provide character + missing context + diegetic clues for evasion.
+- Important notifications must persist until handled/closed; closing a toast is not the same as dismissing the case.
+- The opening needs a gated orientation before consequential events begin.
+- The People Ops email should spell out **Networked Assessment & Risk Coordination** and plainly-but-corporately state that workplace activity is monitored.
+- First-contact coworker messages must make sense without assuming the player already opened a NARC alert.
+- The hidden 60-second auto-fallback is too easy to trigger while the player is legitimately investigating.
+- Active NARC cases must be distinguished from passive NARC history/notices.
+- The AI-learning goal is experiential: the player learns about proxies, inference, gaming, context loss, feedback loops, and authority by outsmarting NARC rather than reading explanations.
+
+Research grounding and speculative escalation notes:
+- `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`
+
+Detailed implementation notes:
+- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
+
 ## Next recommended implementation action
 
-Playtest the desktop version (see the questions in issue #5) before adding anything. Do not add encounters or coworkers until the desktop interaction model is judged to work.
+Address the current first-run clarity, orientation, notification, and pacing problems before adding encounters or coworkers. Keep the existing deterministic content small while making the counterplay discoverable.
 
 Detailed UX source of truth: `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 
