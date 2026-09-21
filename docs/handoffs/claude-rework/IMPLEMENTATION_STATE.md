@@ -18,9 +18,9 @@ One work week on a fictional work laptop. The player is **Employee 4417**, a hum
 
 Design rules the build follows (all from the docs, see `DESKTOP_INTERACTION_REWORK.md`):
 
-- **The desktop is the game board.** Apps: Messages, Email, Calendar, Files, Utilities, NARC. No scenario cards, no "What do you do?", no encounter numbers, no Continue buttons.
+- **The desktop is the game board.** Apps are progressively disclosed instead of all appearing at once: Email starts visible; Messages + Calendar arrive with Dana's orientation; NARC appears with the first NARC case; Files/Utilities appear when evidence or a tool is introduced. No scenario cards, no "What do you do?", no encounter numbers, no Continue buttons.
 - **Hide the branching structure, not the affordances.** Every incident leaves at least two leads (NARC's case, a coworker message, a "new" dot on an app).
-- **NARC is the pressure; coworkers and the desktop are the counterplay.**
+- **NARC is the pressure; coworkers and the desktop are the counterplay.** Direct questions from Dana now preserve visible agency instead of presenting only a report/narc reply: relevant moments include protect/help, report/expose, and neutral/decline options.
 - **NARC shows everyone's alerts to everyone, "for transparency". You can only act on your own.** Helping or hurting coworkers happens in Messages, through Dana, or with evidence and tools in the other apps.
 - **Nothing is decided by a hidden timer.** Exploring is never inaction. Doing nothing is legible: dismiss your own alert, or **Log off for the day** (a dialog says what NARC will do first).
 - NARC is sometimes right (Priya really did miss an escalation; the raccoon was real). The failure is treating partial signals as the whole truth.
@@ -51,7 +51,7 @@ Read-only helpers the UI uses: `caseView`, `replies`, `canAttachHelper`, `fileAc
 - **Incidents arrive on the clock; consequences are scheduled deliveries.** Deliveries are data in `state.pending`: `msg`, `notice`, `mail`, `score`, `cal`, `mark`, `shown`, `offline`, `nudge`, `arm`, `end`. A delivery tagged `when: 'e3'` is dropped if that incident is already resolved (used for follow-up hints and NARC nudges).
 - **`resolve(state, branch)`** closes the open incident, records `state.picked[incident]`, runs the branch (which only schedules deliveries), then arms the next incident `GAP` (14 s) after the last real delivery. Consequences start after any remaining unguarded arrival chatter (`state.base`), so nothing overlaps even for a fast player.
 - **Orientation gate:** nothing consequential is scheduled until the player acknowledges the welcome email, checks the Calendar, and replies to Dana (`oriented`). The first case then arrives `ORIENT_LEAD` (22 s) later.
-- **NARC 2.0 is a beat:** the announcement lands (`state.awaiting`), NARC nudges about it, and the scan only runs after the player opens the email.
+- **NARC 2.0 is a beat:** the announcement lands (`state.awaiting`), NARC nudges about it, and the scan only runs after the player opens the email. The scan now also generates a forward-looking behavioral forecast for Employee 4417 so the AI arc visibly moves from signals → inference → prediction.
 - **Marks** (`state.marks`) are the small blue "new" dots on the dock (Files, Calendar, Utilities, Email). Viewing the app clears it.
 - **Action vocabulary** (`act` `do:` values): `view`, `open`, `gone` (close a toast; decides nothing), `clear`, `ack`, `dismiss` (own alert only), `logoff`, `case` (only the note on your own case), `reply` (a Messages chip), `attach` (helper to Luis), `sendFile` (file to Dana), `markFocus`, `helper` (`install` / `toggle` / `randomize`), `nominate`, `addEvent`, `restart`. Invalid actions return the state unchanged.
 - **Removed on purpose:** the old idle-timeout fallback, "Look closer", result/afterward screens, the "what you know about NARC" list.
@@ -88,7 +88,7 @@ Return variants:
 
 ### Endings and achievements
 
-Coworker statuses: employed / promoted / warning / heavily monitored / absurdly rewarded / terminated. The player's own result: model employee / still employed / on watchlist / under review (from the Visible Activity Index and integrity flags). Seven achievements: Nobody Gets Fired Today, Two Fewer Problems, Technically Compliant, The Boy Who Cried Bird, Do Not Ask (never open the restroom alerts), Culture Champion, **Friendly Fire** (two bad tips that backfire).
+Coworker statuses: employed / promoted / warning / heavily monitored / absurdly rewarded / terminated. The player's own result can now also be **TERMINATED**: two or more integrity flags cause NARC to recommend separation. One flag produces an Employee Integrity Review. This allows endings where the player is fired while some or all coworkers remain employed. Seven achievements: Nobody Gets Fired Today, Two Fewer Problems, Technically Compliant, The Boy Who Cried Bird, Do Not Ask (never open the restroom alerts), Culture Champion, **Friendly Fire** (two bad tips that backfire).
 
 ## Pacing (asserted by tests)
 
@@ -117,7 +117,7 @@ I mutation-checked the important rules by deliberately breaking them and confirm
 - **Nina and Maya are not in the slice**, and no new scenarios are planned until playtesting judges the desktop model.
 - Messages has no free-text replies, only chips. There is one window at a time, no sound, no keyboard shortcuts.
 - **Real-world monitoring claims are not cited inside the game.** `RESEARCH_ALGORITHMIC_MANAGEMENT.md` distinguishes real capabilities from fictional escalation; verify against current sources before any portfolio case study.
-- Dana's chip load may still feel menu-like. Watch for that in playtests.
+- Dana's chip load may still feel menu-like. The latest pass fixes the worst case (direct questions with only one "narc on them" response), but watch whether conversational chips still feel too much like branch labels.
 - Accessibility has had only basic attention (button semantics, labels, focus restoration). It has not been audited.
 - Mobile layout was checked at 375 px in a browser pane, not on a real phone.
 - The test suite takes about 18 s because of the exhaustive routes; sample them if that becomes a problem.
@@ -169,6 +169,15 @@ Ideas from playtesting conversations that were proposed and liked but deliberate
 - **Making Dana less of the central channel** if playtests find her chips menu-like.
 
 Untested or unverified: the Focus-time toggle on your own non-contract calendar events only changes its label. The exhaustive route test is slow enough (about 18 s) that sampling may be worth it later.
+
+## Latest Paige playtest findings now implemented on `prototype-v1`
+
+- Progressive disclosure: do not show side-nav apps before the player has a reason to understand them.
+- Dana no longer corners the player into a single reporting response when she asks about Luis/Marcus; direct questions expose help/protect, report/expose, or neutral/decline choices where the scenario supports them.
+- Copy cleanup from the live run: replaced the awkward "Saw the dip..." Dana line, Priya's "lunch workflow" line, Luis's repeated "unavailable" joke, and Marcus's over-written bird-workshop exchange.
+- NARC case detail now labels the AI loop explicitly as **workplace signals → NARC inference → company action**, with "What NARC observed" / "What NARC inferred" headings.
+- NARC 2.0 now emits a deterministic **Behavioral forecast** (predicted policy-workaround likelihood) based on the player's recent workaround signals, making prediction visible without adding a live model.
+- Player termination is now a real ending at 2+ integrity flags.
 
 ## Suggested playtest questions
 
