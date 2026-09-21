@@ -506,7 +506,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(!has(noticeTexts(s), /social withdrawal/));
 
   s = DO.e4.quiet(play(HONEST, { stopAt: 'e4' }));
-  assert.ok(s.threads.priya.some((m) => m.from === 'me' && /^Polite sabotage: post less/.test(m.text)));
+  assert.ok(s.threads.priya.some((m) => m.from === 'me' && /^Maybe post less/.test(m.text)));
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
   assert.ok(!has(noticeTexts(s), /social withdrawal/), 'the backfire lands later');
   s = until(s, (x) => has(noticeTexts(x), /social withdrawal.*Collaboration Index: 97 → 31/));
@@ -922,6 +922,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
   assert.ok(has(noticeTexts(s), /predicted policy-workaround likelihood/), 'NARC 2.0 generates a behavioral forecast');
   assert.ok(has(noticeTexts(s), /calendar reclassification|tool usage|integrity history/), 'the forecast names the signals it used');
+  assert.ok(has(noticeTexts(s), /workplace baseline|differs from your established workplace pattern/), 'NARC also emits an ambient workstyle nudge');
 }
 
 // ------------------ pacing: nothing lands on top of anything else
