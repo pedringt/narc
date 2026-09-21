@@ -444,64 +444,6 @@ A useful test:
 
 > **Every major incident should give the player at least one satisfying action that changes what NARC believes.**
 
-## Playtest round: pacing, energy, and action feedback
-
-A later live playthrough exposed a deeper issue: fixing clarity was not enough. The game still felt too passive and procedural.
-
-Paige's clearest direction became:
-
-> **Make the whole thing feel more fun and hyper.**
-
-The useful interpretation was not "add more notifications." Timed notification pile-up was part of the problem.
-
-Key findings:
-- reply choices could appear before the message that prompted them
-- direct questions could sit unanswered while the game moved on
-- the NARC 2.0 scan, forecast, ambient update, and next incident could stack too quickly
-- the disabled Message field looked broken
-- Culture Champion submissions lacked immediate confirmation and could be repeated
-- the activity workaround felt too official when it lived as a normal utility
-- the NARC detail view exposed the right AI concepts but read too much like an admin/debug console
-- the game needed more "I caused that" moments and fewer "I read what happened" moments
-
-### New pacing rule
-
-> **Meaningful beats should be interaction-gated, not merely delayed.**
-
-Reply chips now wait for their actual prompting message. NARC 2.0's behavioral forecast is a major beat the player opens before the next incident begins.
-
-### Counterplay should feel discovered
-
-The activity workaround was reframed as an unverified `keepalive.pkg` shared by Marcus in Messages. The intended loop is:
-
-**hear about workaround → acquire it → install it → see NARC reward the fake signal → later watch NARC adapt**
-
-### NARC readability
-
-The case view is being simplified around:
-- **Signals**
-- **NARC assessment**
-- confidence
-- **Company response**
-- contradictions/context when they matter
-
-The lesson should come from the contradiction rather than from explicitly teaching the framework.
-
-### Immediate action feedback
-
-Culture Champion submissions now produce immediate state feedback and reject duplicate submissions.
-
-General lesson:
-
-> If an action changes game state, the interface should acknowledge it quickly enough that the player never wonders whether the click worked.
-
-### Fun / energy north star
-
-Favor shorter messages, immediate cause/effect, discoveries, visible state changes, escalating absurdity, and more moments where a workaround changes what NARC believes.
-
-A useful test:
-
-> **Every major incident should give the player at least one satisfying action that changes what NARC believes.**
 
 ## Scope decisions
 
