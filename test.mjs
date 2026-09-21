@@ -448,11 +448,25 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(sent.picked.e2, 'script');
 }
 
-// ------------ in Messages, choices read like normal conversation
+// ------------ in Messages, choices arrive with the message that prompts them
 
 {
   const opts = (s, thread) => replies(s, thread).map((r) => r.text);
-  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+
+  let s = play({}, { stopAt: 'e1' });
+  assert.deepEqual(opts(s, 'dana'), [], 'Dana reply chips do not appear before her low-activity message');
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'e1contract'));
+  assert.deepEqual(opts(s, 'dana'), [
+    'Yeah. I’m on the Halvorsen contract.',
+    'I’m checking what NARC saw.',
+  ]);
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'e1contract' });
+  assert.deepEqual(opts(s, 'dana'), [], 'answering the prompt removes its reply chips');
+
+  s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  assert.deepEqual(opts(s, 'luis'), [], 'Luis advice does not appear before he asks for it');
+  assert.deepEqual(opts(s, 'dana'), [], 'Dana choices do not appear before her verification message');
+  s = until(s, (x) => replies(x, 'luis').length && replies(x, 'dana').length);
   assert.deepEqual(opts(s, 'luis'), [
     'You could block that time as Focus time on your calendar.',
     'Maybe just explain it to NARC in the comment box.',
@@ -461,9 +475,11 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     'He is away from his desk a lot. The flag is probably accurate.',
     'I don’t think I know enough to call that flag accurate.',
   ]);
-  assert.deepEqual(opts(s, 'marcus'), []);
 
   s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  assert.deepEqual(opts(s, 'marcus'), []);
+  assert.deepEqual(opts(s, 'dana'), []);
+  s = until(s, (x) => replies(x, 'marcus').length && replies(x, 'dana').length);
   assert.deepEqual(opts(s, 'marcus'), [
     'Add the vendor visit to your calendar so there is actually a record of it.',
     'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
@@ -475,6 +491,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   ]);
 
   s = play(HONEST, { stopAt: 'e4' });
+  assert.deepEqual(opts(s, 'priya'), [], 'Priya choices do not appear before her question');
+  s = until(s, (x) => replies(x, 'priya').length);
   assert.deepEqual(opts(s, 'priya'), [
     'Could you move some of it into an in-person sync instead of chat?',
     'Maybe post less for a few days and see if it blows over.',
