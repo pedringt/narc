@@ -510,8 +510,10 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
   assert.ok(!has(noticeTexts(s), /social withdrawal/), 'the backfire lands later');
   s = until(s, (x) => has(noticeTexts(x), /social withdrawal.*Collaboration Index: 97 → 31/));
-  s = until(s, (x) => x.calendar.some((e) => /Connection Circle \(mandatory\)/.test(e.title)));
-  assert.equal(s.shown.priya, 'monitored');
+  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*termination pending/));
+  s = until(s, (x) => x.shown.priya === 'fired');
+  assert.equal(s.people.priya.status, 'fired');
+  assert.ok(has(texts(s, 'priya'), /exactly what it told me to do/));
 
   // Telling Dana is heard: she answers before NARC reacts.
   s = DO.e2.confirm(play({ e1: 'explain' }, { stopAt: 'e2' }));
@@ -880,6 +882,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'TERMINATED');
   assert.equal(ending(play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).you.label, 'STILL EMPLOYED');
   assert.match(ending(play({ ...HONEST, e4: 'sync' })).roster[2].text, /happen in person, on the calendar/);
+  assert.equal(play({ ...HONEST, e4: 'quiet' }).people.priya.status, 'fired');
+  assert.match(ending(play({ ...HONEST, e4: 'quiet' })).roster[2].text, /reducing her message volume exactly as recommended/);
 }
 
 // ----------------------------------------------------------------- restart
