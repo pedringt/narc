@@ -282,6 +282,12 @@ function resolve(s, branch) {
   if (!def.allowed(inc.variant).includes(branch)) return false;
   s.picked[inc.id] = branch;
   s.done.push(inc.id);
+  // Taking an equivalent action elsewhere counts as handling Dana's question,
+  // so an old direct prompt never lingers into the next incident.
+  Object.keys(REPLIES)
+    .map((key) => REPLIES[key])
+    .filter((r) => r.prompt === `dana-${inc.id}`)
+    .forEach((r) => { s.answered[r.prompt] = true; });
   const alert = s.alerts.find((a) => a.incident === inc.id);
   if (alert) alert.closed = true;
   s.toasts.forEach((t) => { if ((alert && t.alert === alert.id) || t.nudgeFor === inc.id) t.gone = true; });
