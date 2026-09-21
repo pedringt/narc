@@ -107,6 +107,81 @@ Deliver consequences naturally:
 - system restriction → app state
 - coworker firing/removal → account offline + human/company message
 
+
+## Current Playtest Feedback — Must Address Before Adding Scope
+
+The desktop shell is directionally successful. The new blocker is **player clarity and pacing**.
+
+Paige's main first-run reaction is:
+
+> **It is generally hard to know what to do.**
+
+Do not solve this by restoring giant story-choice menus.
+
+Use this rule:
+
+> **Hide the branching structure, not the available affordances.**
+
+The next implementation pass should prioritize:
+
+1. **Orientation gate**
+   - auto-open/select the initial People Operations email
+   - spell out NARC as **Networked Assessment & Risk Coordination**
+   - explicitly but blandly state that NARC monitors workplace activity
+   - establish Dana as the manager
+   - do not start the first consequential incident on a timer before setup is complete
+
+2. **NARC as the primary pressure/voice**
+   - NARC talks to the player mainly through persistent notifications and status changes
+   - NARC should become increasingly annoying/intrusive
+   - NARC app is for case detail/history/actions
+   - top-right status should clearly signal an active case and be an obvious way to open NARC
+
+3. **Persistent but manageable notifications**
+   - remove 9-second auto-disappearance for important alerts
+   - closing a toast only hides the toast; it must not choose the incident's ignore branch
+   - cap visible toast stack and preserve older items in badges/history
+   - separate active/actionable cases from passive NARC notices/history
+
+4. **Slower pacing**
+   - no consequential notifications during orientation
+   - do not silently resolve a case while the player is actively exploring the workstation
+   - redesign/remove the hidden 60-second fallback behavior
+   - give multi-message jokes enough spacing to read
+
+5. **Coworkers as counterplay**
+   - first message in each incident must make sense without assuming the player opened NARC first
+   - roles must be clear
+   - messages can hint at missing context/loopholes in character
+   - NARC applies pressure; coworkers and desktop evidence help the player evade/outsmart it
+
+6. **Discoverable actions**
+   - every incident should provide at least 2 plausible, discoverable leads
+   - use relevant app badges/state, coworker hints, or NARC's statement of missing evidence
+   - player should not have to randomly click every app
+
+7. **Specific cleanup**
+   - fix first-incident Halvorsen file timestamp inconsistency (12:41 file edit vs 12:14 alert)
+   - do not allow Luis helper attachment before the player has actually discovered/acquired the helper
+   - move Priya Culture Champion email earlier so the exemption can be discovered as an existing loophole
+   - let the NARC 2.0 email land/read before its consequences pile up
+   - make Messages/Slack naming consistent
+
+## Product / AI thesis
+
+This remains deterministic software by design, but the gameplay should demonstrate AI-product learning.
+
+The fun is:
+
+> **Learn what the AI-like system actually measures, then outsmart it.**
+
+NARC is not required to remain realistic forever. Begin with recognizable current monitoring and algorithmic-management ideas, then extrapolate toward dystopian monitoring, prediction, and preemptive intervention.
+
+Read:
+- `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`
+
+Do not implement all speculative ideas now. They are a scenario bank / escalation direction, not permission to expand V1 scope.
+
 ## Preserve
 
 Preserve current deterministic logic and tests where practical:
