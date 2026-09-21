@@ -183,6 +183,24 @@ Untested or unverified: the Focus-time toggle on your own non-contract calendar 
 - Coworker reply chips were rewritten to sound like normal Messages replies instead of exposing design labels such as "Sincere tip" and "Polite sabotage."
 - NARC now emits one ambient post-upgrade workstyle/baseline notification so it begins to feel like a system observing the player even between explicit cases.
 
+## Latest live-play pass: interaction-gated + higher-energy direction
+
+Implemented on `prototype-v1` after the latest live playthrough:
+
+- shortened the People Operations intro email and Dana's setup copy
+- Dana now has usable replies during the first low-activity incident
+- reply chips are tied to the specific prompting message; they no longer appear before the coworker/manager asks for input
+- NARC 2.0's behavioral forecast is now a player-gated beat: Priya's incident does not begin until the forecast is opened
+- removed the separate ambient Workstyle update from that sequence to reduce notification pile-up
+- Culture Champion nominations now give immediate inline state and cannot be submitted repeatedly
+- the activity workaround is now an unverified `keepalive.pkg` passed through Messages and cannot be installed before the player discovers it
+- the disabled Message input is replaced by contextual reply chips or a simple no-reply-needed state
+- removed the redundant blue Team pill from NARC team-alert rows
+- simplified NARC case detail to **Signals → NARC assessment → Company response**
+- opening NARC from the tray/dock prefers the current alert instead of leaving an old historical item looking stuck
+
+Current design north star from Paige: **more fun and hyper, but not more notification spam**. Energy should come from faster feedback, discovery, player-caused state changes, and escalating absurdity.
+
 ## Case-study capture
 
 A living source document now exists at `docs/CASE_STUDY_NOTES.md`. Update it when a meaningful product decision, playtest finding, failed assumption, research insight, or attribution detail emerges. It is intentionally not polished public copy.
