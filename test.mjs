@@ -590,7 +590,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(first(e3, 'marcus'), /NARC flagged me for attendance again.*raccoon/);
 
   const e4 = at(HONEST, 'e4');
-  assert.match(first(e4, 'priya'), /NARC says my “communication load” is elevated/);
+  assert.match(first(e4, 'priya'), /NARC flagged me for too much messaging/);
 
   const g = at({ ...HONEST, e2: 'script' }, 'e5');
   assert.match(g.threads.luis.at(-1).text, /NARC says my keyboard input arrives every 59 seconds/);
@@ -600,7 +600,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const b = at({ ...HONEST, e3: 'truth' }, 'e6');
   assert.match(b.threads.marcus.at(-1).text, /NARC just scheduled my termination.*bird situation/);
   const pg = at({ ...HONEST, e3: 'paper' }, 'e6');
-  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for my bird situation paperwork/);
+  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for the bird paperwork/);
 
   Object.values(THREADS).forEach((t) => assert.ok(t.role));
 }
