@@ -117,7 +117,7 @@ I mutation-checked the important rules by deliberately breaking them and confirm
 - **Nina and Maya are not in the slice**, and no new scenarios are planned until playtesting judges the desktop model.
 - Messages has no free-text replies, only chips. There is one window at a time, no sound, no keyboard shortcuts.
 - **Real-world monitoring claims are not cited inside the game.** `RESEARCH_ALGORITHMIC_MANAGEMENT.md` distinguishes real capabilities from fictional escalation; verify against current sources before any portfolio case study.
-- Dana's chip load may still feel menu-like. The latest pass fixes the worst case (direct questions with only one "narc on them" response), but watch whether conversational chips still feel too much like branch labels.
+- Dana's chip load may still feel menu-like. The latest pass fixes the worst case (direct questions with only one "narc on them" response), and coworker advice no longer exposes "Sincere tip" / "Polite sabotage" labels. Watch whether the remaining conversational chips still feel too much like branch labels.
 - Accessibility has had only basic attention (button semantics, labels, focus restoration). It has not been audited.
 - Mobile layout was checked at 375 px in a browser pane, not on a real phone.
 - The test suite takes about 18 s because of the exhaustive routes; sample them if that becomes a problem.
@@ -179,6 +179,8 @@ Untested or unverified: the Focus-time toggle on your own non-contract calendar 
 - NARC 2.0 now emits a deterministic **Behavioral forecast** (predicted policy-workaround likelihood) based on the player's recent workaround signals, making prediction visible without adding a live model.
 - Player termination is now a real ending at 2+ integrity flags.
 - The ending action is now **Replay this week**, not "start a new week," because replay intentionally resets to the same Monday orientation so the player can try different choices.
+- Coworker reply chips were rewritten to sound like normal Messages replies instead of exposing design labels such as "Sincere tip" and "Polite sabotage."
+- NARC now emits one ambient post-upgrade workstyle/baseline notification so it begins to feel like a system observing the player even between explicit cases.
 
 ## Suggested playtest questions
 
