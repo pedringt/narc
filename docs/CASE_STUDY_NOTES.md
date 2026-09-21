@@ -370,6 +370,80 @@ Tone direction:
 
 Coworker reply chips were also revised to remove explicit design labels like **Sincere tip** and **Polite sabotage**, because those exposed the branch structure.
 
+## Playtest round: fun, pacing, and action feedback
+
+A later live playthrough exposed a deeper issue: fixing clarity was not enough. The game still felt too passive and procedural.
+
+Paige's clearest direction became:
+
+> **Make the whole thing feel more fun and hyper.**
+
+The useful interpretation was not "add more notifications." In fact, the playtest showed that timed notifications were part of the problem.
+
+### What failed
+
+- Dana and coworkers could ask questions before the player had a usable response.
+- Reply chips could appear before the message that logically prompted them.
+- NARC 2.0 could stack a scan result, behavioral forecast, ambient workstyle notice, and the next coworker incident before the player had processed the first beat.
+- A fake disabled Message field looked like a broken input.
+- Culture Champion nominations had no immediate success state, so repeated clicks created duplicate responses.
+- The mouse/activity exploit was presented like normal company software in Utilities, making it feel approved rather than discovered or risky.
+- NARC's detailed case screen successfully exposed signals/inference/confidence, but became too dense and read like an admin/debug console.
+- Historical NARC details could remain selected after the system had moved on, making the interface feel stuck.
+- Even with the UX bugs fixed, the core loop still needed more "I did that" moments and fewer "I read what happened" moments.
+
+### New pacing rule
+
+> **Meaningful beats should be interaction-gated, not merely delayed.**
+
+Direct replies now wait for the actual prompting message. NARC 2.0's behavioral forecast becomes a major beat the player must open before Priya's next incident begins.
+
+This is different from simply slowing the game down: the experience can stay energetic while still waiting for player comprehension.
+
+### Counterplay should feel discovered
+
+The mouse/activity workaround was reframed from an official-looking utility into an unverified `keepalive.pkg` shared by Marcus through Messages.
+
+The intended loop is now:
+
+**hear about workaround → acquire it → decide whether to install it → see NARC reward the fake signal → later watch NARC adapt to it**
+
+This better supports the game's "reverse-engineer the system" fantasy.
+
+### NARC readability
+
+The case view is being simplified from a visible conceptual framework ("workplace signals → inference → company action") into a scan-first structure:
+
+- **Signals**
+- **NARC assessment**
+- **confidence**
+- **Company response**
+- contradictions/context when they matter
+
+The lesson should come from the contradiction, not from the interface explicitly teaching AI terminology.
+
+### Immediate action feedback
+
+The Culture Champion form now records a submission immediately and blocks duplicate submissions. Ineligible nominations return inline feedback instead of generating repeat emails.
+
+General product lesson:
+
+> If an action changes game state, the interface should acknowledge it immediately enough that the player never wonders whether the click worked.
+
+### Fun / energy north star
+
+The next iterations should favor:
+- shorter messages
+- immediate visible cause/effect
+- discoveries and unlocks
+- state changes the player causes directly
+- escalating absurdity
+- more moments where a workaround changes what NARC believes
+
+A useful test:
+
+> **Every major incident should give the player at least one satisfying action that changes what NARC believes.**
+
 ## Scope decisions
 
 Things intentionally deferred:
