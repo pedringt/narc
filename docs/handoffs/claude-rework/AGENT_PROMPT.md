@@ -1,148 +1,188 @@
-# Agent Prompt: Rework NARC Prototype Around Human-vs-AI Gameplay
+# Agent Prompt: Rework NARC Into a Natural Work-Desktop Experience
 
-You are continuing work on the GitHub repository `pedringt/narc`.
+You are continuing work on `pedringt/narc` on branch `prototype-v1`.
 
-Read these files in full before editing:
+Read these files first:
 1. `docs/handoffs/claude-rework/HANDOFF.md`
-2. `docs/CORE_GAME_SPEC.md`
-3. `docs/HANDOFF.md`
-4. `README.md`
+2. `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
+3. `docs/CORE_GAME_SPEC.md`
+4. `docs/HANDOFF.md`
 
 Then inspect:
-- `app.js`
-- `game.js`
+- `index.html`
 - `style.css`
-- `test.mjs`
-
-## Task
-
-Rework the existing `prototype-v1` browser game into the new small NARC vertical slice.
-
-The current deployed prototype is structurally superseded. Do not extend its “player is NARC reviewing employees” loop.
-
-The new player is a **human employee** trying to understand and exploit the limitations of an AI workplace-monitoring system.
-
-The core loop must become:
-
-**signal → understand the proxy → respond/exploit → result → human reaction → later carry-over**
-
-## First-Pass Scope
-
-Build a small playable vertical slice, not the whole final game.
-
-Target:
-- 5–6 encounters
-- around 5–8 minutes
-- 3 core coworkers are enough for this pass
-- at least one coworker must reappear
-- at least one earlier choice must change a later encounter
-- one NARC capability/policy update
-- one-step-at-a-time UI
-- deterministic logic
-- final outcome screen
-- at least one achievement/replay hook
-
-Prefer Luis, Marcus, and Priya for the first slice because their mechanics are visually/mechanically distinct.
-
-Keep Nina and Maya represented in the data model only if useful; do not force them into the first pass just to hit five characters.
-
-## Required Product Behavior
-
-- Player role must clearly be human.
-- NARC must observe proxies, not reality.
-- The player must discover at least one system limitation through play.
-- The player must be able to exploit at least one limitation.
-- A later screen must visibly reflect an earlier action.
-- The system should occasionally be directionally useful; do not make NARC universally stupid.
-- Corporate copy stays sincere and deadpan.
-- Humor comes from the mismatch between human behavior and reductive measurement.
-- Do not add a live LLM.
-
-## Interface Requirements
-
-The old interface exposes too much at once.
-
-Replace it with progressive disclosure:
-1. show signal
-2. let player review/inspect
-3. show only current response choices
-4. show result
-5. show coworker reaction
-6. continue
-
-Do not display all investigation, intervention, reporting, and dossier controls together.
-
-Keep the internal-tool / terminal-adjacent tone, but make it immediately readable and portfolio-friendly.
-
-## Reuse Guidance
-
-You may reuse:
-- static browser setup
-- Vercel branch deployment
-- basic style direction
-- helper functions
-- test patterns
-
-You may substantially rewrite:
 - `game.js`
 - `app.js`
 - `test.mjs`
-- layout/style structure
 
-Do not preserve old architecture if it fights the new loop.
+## Mission
 
-## Testing
+Rework the current human-vs-NARC six-encounter prototype so it feels like the player is naturally using a work laptop during a normal workday.
 
-Add/replace tests so they cover:
-- encounter progression
+The current deterministic game logic is already useful. The main problem is presentation: it still feels like a sequence of scenario cards with explicit story choices.
+
+The new rule is:
+
+> **The desktop is the game board. Choices should feel like normal computer actions.**
+
+## Required Interaction Model
+
+Create a persistent fictional corporate desktop/workspace with only the surfaces needed for the current slice, such as:
+- Messages
+- Email
+- Calendar
+- Work / Files
+- Browser / Utilities
+- NARC
+
+Keep scope small. Do not build a full operating system.
+
+### NARC presence
+
+- show a small persistent NARC-active / monitoring indicator
+- introduce NARC through a company or People Operations email/alert
+- let NARC issue notifications and open detail panels
+- keep the existing dark/monospace NARC visual identity inside NARC surfaces
+- allow NARC to become more intrusive after its mid-game update
+
+### Remove scenario-game framing
+
+Do not show player-facing:
+- `Encounter X of 6`
+- generic `Look closer`
+- generic `What do you do?`
+- dedicated `NARC updates`
+- dedicated `Afterward`
+- giant `Continue` progression buttons
+- tutorial-like `What you know about NARC`
+
+Use day/time and normal incoming events instead.
+
+### Model branches as computer actions
+
+Whenever possible, branch through concrete actions:
+- open
+- dismiss
+- reply
+- type
+- inspect
+- edit
+- attach
+- install
+- enable/disable
+- ignore
+
+Explicit controls are fine when the action naturally needs one.
+
+Example: mouse-jiggler path
+- surface it in a Utilities/Browser area or from a coworker link
+- player clicks `Install`
+- player can toggle it `On / Off`
+- later NARC's activity metric improves
+- the manager sends “Love the energy!” in Messages
+- no Afterward explanation screen
+
+### Information separation
+
+NARC should show:
+- raw observed signals
+- inferred classification
+- confidence
+
+Human reality should be found in:
+- Messages
+- Calendar
+- Work / Files
+- Email
+
+Do not explain the mismatch in tutorial prose. Let the player infer it.
+
+### Consequences
+
+Deliver consequences naturally:
+- boss/coworker reaction → Messages
+- HR/policy → Email
+- schedule change → Calendar
+- NARC judgment → notification/status
+- system restriction → app state
+- coworker firing/removal → account offline + human/company message
+
+## Preserve
+
+Preserve current deterministic logic and tests where practical:
+- player is human
+- six-event slice
+- Luis, Marcus, Priya
 - carry-over
-- exploit effect
-- unintended consequence
-- at least one save path
-- at least one firing/removal path
-- achievement
-- ending
-- restart reset
+- NARC metrics/confidence
+- mouse-jiggler exploit
+- NARC 2.0 escalation
+- endings/achievements
+- current humor where it still works
 
-Run the tests before reporting completion.
+Do not preserve the current UI flow merely because it exists.
 
-## Branch / Deployment Rules
+## Implementation Order
 
-Work only on `prototype-v1`.
+1. Inspect current code and tests.
+2. Write a short implementation plan before editing.
+3. Preserve state-machine behavior unless desktop UX requires a change.
+4. Build the desktop shell.
+5. Map the current six events into notifications/messages/email/app states.
+6. Move NARC evidence into NARC panels.
+7. Move human context into work apps.
+8. Convert abstract choices to contextual computer actions.
+9. Replace result/Afterward/Continue screens with natural consequences.
+10. Remove visible encounter numbering/tutorial framing.
+11. Run deterministic tests.
+12. Add/update tests for desktop action routing if needed.
+13. Smoke-test the complete run.
+14. Push only to `prototype-v1` if that is the established workflow and report preview status.
 
-Do not:
-- merge to `main`
-- push directly to `main`
-- promote to production
-- alter the public portfolio site
+## Acceptance Bar
 
-The `prototype-v1` Vercel preview may redeploy automatically when the branch changes. That is acceptable.
-
-## Output
-
-When implementation is complete, report:
-- concise summary of what changed
-- which encounters were implemented
-- what carry-over exists
-- tests run and result
-- preview deployment status/URL if available
-- what was deliberately deferred
-- the 3–5 most useful questions Paige should answer by playing the new version
-
-## Credential and Authority Rules
-
-Do not ask for raw credentials, tokens, cookies, API keys, session values, private keys, or `.env` contents.
-
-Use existing platform-provided or brokered GitHub/Vercel access.
-
-Do not perform destructive or externally visible promotion actions beyond the authorized `prototype-v1` preview workflow.
+The pass is successful if:
+- the player stays in one persistent desktop/workspace for most of the run
+- NARC feels like software monitoring the employee rather than the game itself
+- problems arrive as alerts/messages/email/calendar changes
+- most branches are triggered through believable computer actions
+- the mouse-jiggler path feels like installing/using a utility
+- manager “Love the energy!” arrives through Messages after the exploit works
+- NARC-sees vs human-reality is discoverable across different apps
+- the game no longer feels like six scenario cards
+- carry-over still works
+- tests pass
+- the run remains roughly 5–8 minutes
 
 ## Do Not
 
-- re-litigate the settled player-role change
-- make the player NARC again
-- turn the game into an ethics quiz
-- turn the game into a long text adventure
-- add live AI
-- add backend/auth/persistence
-- overbuild before the exploit loop is proven
+- do not build a full OS simulator
+- do not add live AI
+- do not add backend/auth/persistence
+- do not reintroduce the reviewer-player premise
+- do not make the desktop a decorative shell around unchanged choice cards
+- do not add long AI tutorial text
+- do not merge to `main`
+- do not deploy to production
+
+## Output
+
+When done, report:
+- what UI/interaction structure changed
+- which current mechanics were preserved
+- which screens were removed/reframed
+- how each major branch is now expressed as a computer action
+- tests run and results
+- preview URL/status if available
+- anything intentionally deferred
+- 3–5 focused questions Paige should answer while playtesting
+
+## Credential and Authority Rules
+
+Use existing platform-provided or brokered GitHub/Vercel access.
+
+Do not ask for or store raw credentials, tokens, cookies, API keys, session values, private keys, or `.env` contents.
+
+Work only on `prototype-v1`.
+
+Do not merge to `main` or promote to production without Paige explicitly authorizing that destination.
