@@ -50,13 +50,13 @@ The desktop-interaction rework is ready for Paige to play when the following are
 - [ ] Each incident exposes at least two discoverable leads/affordances through NARC, coworkers, or changed app state.
 - [ ] The player does not need to randomly click every app to find a valid action.
 - [ ] Coworker first messages make sense even if the NARC alert has not been opened.
-- [ ] Coworker hints remain in character rather than becoming tutorial instructions.
+- [ ] Coworker hints remain in character rather than becoming tutorial instructions or exposing labels such as "Sincere tip" / "Polite sabotage".
 - [ ] Thread headers make each person's role clear.
 
 ## NARC as pressure
 
 - [ ] NARC primarily communicates through persistent notifications/status interruptions.
-- [ ] NARC feels increasingly annoying/intrusive as the week progresses.
+- [ ] NARC feels increasingly annoying/intrusive as the week progresses, including at least one ambient post-upgrade observation that is not tied to an active case.
 - [ ] The NARC status/tray clearly indicates when an active case needs attention.
 - [ ] Opening an alert leads naturally to the relevant NARC case detail.
 - [ ] Closing a notification toast does not resolve or dismiss the underlying case.
@@ -76,6 +76,7 @@ The desktop-interaction rework is ready for Paige to play when the following are
 - [ ] At least one incident clearly demonstrates a proxy-vs-reality failure through play.
 - [ ] At least one incident lets the player deliberately game or manipulate a metric.
 - [ ] At least one later event shows NARC adapting to or detecting previous gaming.
+- [ ] At least one later NARC event makes a forward-looking prediction/forecast from prior player signals, without presenting that prediction as certain truth.
 - [ ] Coworker/context information helps the player outsmart NARC.
 - [ ] The game communicates an AI/product concept without naming or lecturing about the concept.
 - [ ] NARC is sometimes useful/correct; the game does not reduce to "AI is always wrong."
