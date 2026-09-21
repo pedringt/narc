@@ -132,7 +132,9 @@ const els = {
   modal: root.querySelector('#modal'),
   overlay: root.querySelector('#overlay'),
 };
-els.tray.addEventListener('click', () => goApp('narc'));
+els.tray.addEventListener('click', () => {
+  if (state.alerts.length || state.level >= 2 || state.seen.narc) goApp('narc');
+});
 els.logoff.addEventListener('click', () => { logoffOpen = true; render(); });
 
 // -------------------------------------------------------------- menu & dock
