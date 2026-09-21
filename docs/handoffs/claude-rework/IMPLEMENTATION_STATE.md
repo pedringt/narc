@@ -215,3 +215,21 @@ A living source document now exists at `docs/CASE_STUDY_NOTES.md`. Update it whe
 6. Did the coworker reply choices feel like normal conversation rather than game-menu labels, and did the aftermath make the cause clear?
 7. Did Focus time vs the mouse helper read as two different exploits?
 8. Roughly how long did a first run take?
+
+
+## Next design pass: strengthen the game loop without adding complexity
+
+The next implementation/design pass should focus on making the existing slice feel more like a game, while keeping it very easy to understand.
+
+Priority behavior:
+- immediate visible cause/effect when the player manipulates something NARC can see
+- simple reverse-engineering moments: the player learns what NARC rewards by trying things
+- at least one strong "I changed what NARC believes" moment per major incident where practical
+- NARC visibly adapts later to at least one earlier exploit (`keepalive.pkg` is the clearest current candidate)
+- one or two memorable reversals where following or gaming the system creates a new problem
+- shorter text, more state change
+
+Do not add a web of interacting scores. Keep each incident legible around one main judgment and one main AI/product idea.
+
+Useful progression to preserve in behavior, not chapter labels:
+**watch → infer → adapt → predict → act**.
