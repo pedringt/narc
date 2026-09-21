@@ -18,26 +18,25 @@ Core loop:
 
 The first real version should stay small:
 
-- 5–8 minute run
-- one short work week
-- 5 funny recurring coworkers
-- roughly 8 short encounters
-- 3–4 coworkers central in a typical run
+- roughly 5–15 minutes for a first run
+- one short authored work week
+- three current recurring coworkers (Luis, Marcus, Priya)
+- six main incidents plus a mid-week NARC 2.0 escalation
 - repeated characters so earlier choices matter
-- one decision step on screen at a time
-- 1–2 increasingly invasive NARC updates
-- branching coworker outcomes
+- progressive disclosure: apps appear when the player has a reason to understand them
+- choices expressed through normal workstation actions instead of story-menu buttons
+- branching coworker and player outcomes
 - final roster/outcome recap
-- a small achievement set
-- replayable extreme routes
+- seven achievements
+- replayable alternate/extreme routes
 
 ## Cast
 
 - **Luis Perez** — restroom time becomes a productivity anomaly
 - **Priya Shah** — too chatty in person and on Slack
 - **Marcus Reed** — frequent lateness and increasingly ridiculous excuses
-- **Nina Brooks** — refuses to take vacation
-- **Maya Chen** — sarcastic high performer who resists performative AI adoption
+- **Nina Brooks** — future scenario-bank character: refuses to take vacation
+- **Maya Chen** — future scenario-bank character: sarcastic high performer who resists performative AI adoption
 
 ## Realism + satire
 
@@ -65,24 +64,24 @@ The current product judgment is to keep gameplay deterministic unless a future A
 - NARC's window shows what it *observed* and what it *inferred*; the real human context is in Calendar, Files, Messages and Utilities
 - six incidents plus a mid-week NARC 2.0 update; Luis and Marcus each return, and what you did before decides what comes back
 - nothing is decided by a hidden timer: dismiss an alert, or log off and NARC processes it (the game tells you first)
-- 6 achievements and an end-of-week report
+- 7 achievements and an end-of-week report
 - deterministic, no live AI, no backend
 
-NARC shows everyone's alerts to everyone, "for transparency", but you can only act on your own. You help coworkers in Messages, and advice is labelled as a **Sincere tip** or **Polite sabotage**. Official input goes through Dana; evidence and tools live in the other apps.
+NARC shows everyone's alerts to everyone, "for transparency", but you can only act directly on your own cases. You help or hurt coworkers through natural-language Messages replies, Dana, and ordinary actions in Calendar, Files and Utilities. The branch structure stays hidden even when the available affordances are visible.
 
 | Situation | Things you can actually do |
 |---|---|
 | Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper and switch it on · show your contract block as Focus time in Calendar |
-| Luis | sincere tip (block restroom windows as focus time) · polite sabotage (write NARC an explanation) · attach the helper (once installed) · tell Dana he is away a lot · later: attribute the script or randomize his copy · relabel his time via Dana · send Dana his ticket output |
-| Marcus | sincere tip (add a calendar entry) · polite sabotage (add it late) · add the calendar entry yourself · tell Dana where he was · later: endorse or report his documents via Dana · send Dana the sanctuary slip · backdate an entry |
-| Priya | sincere tip (in-person sync) · polite sabotage (post less) · nominate her from the Culture email |
+| Luis | suggest Focus time · suggest explaining it to NARC · attach the helper (once installed) · confirm or decline Dana's question · later: attribute the script or randomize his copy · relabel his time via Dana · send Dana his ticket output |
+| Marcus | suggest adding a calendar entry now or later · add the calendar entry yourself · tell Dana the trace conflicts with his story, add missing context, or decline to confirm · later: endorse/report his documents · send Dana the sanctuary slip · backdate an entry |
+| Priya | suggest an in-person sync · suggest posting less · nominate her from the Culture email; following the wrong metric can eventually get her fired |
 | Doing nothing | log off for the day: NARC processes what is still open, and the game tells you first |
 
 Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://). Add `?tick=150` to the URL to speed up the game clock for QA.
 
 For a code-accurate picture of the build (architecture, the week's routes, decisions, known gaps), see `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`.
 
-Nina and Maya are not in this slice. See `docs/handoffs/claude-rework/` for the scope and acceptance criteria.
+Nina and Maya are not in this slice and remain future scenario-bank ideas. See `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md` for the code-accurate current build, and `docs/CASE_STUDY_NOTES.md` for the living portfolio/case-study record.
 
 ## Project rule
 
