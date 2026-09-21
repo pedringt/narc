@@ -416,7 +416,7 @@ const INCIDENTS = {
       say(s, 8, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
       mark(s, 16, 'calendar', { when: 'e1' });
       say(s, 22, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
-      mark(s, 22, 'utilities', { when: 'e1', discoverHelper: true });
+      mark(s, 22, 'utilities', { discoverHelper: true });
     },
     branches: {
       wait(s) {
