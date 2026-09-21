@@ -88,30 +88,22 @@ Branch:
 - `main` — do not modify or promote without Paige explicitly naming `main`
 - `prototype-v1` — current working/prototype branch
 
-Current implementation (first rework pass, on `prototype-v1`):
-- human-vs-NARC vertical slice: 6 encounters + 1 NARC 2.0 update, three coworkers (Luis, Marcus, Priya)
-- deterministic engine in `game.js` (`act(state, controlId)` / `view(state)`), thin renderer in `app.js`, `node test.mjs` covers progression, carry-over, exploits and their consequences, fire/save paths, achievements, ending, restart, and all 729 choice combinations
-- the old reviewer-player loop is removed
+Current implementation (desktop interaction rework, on `prototype-v1`):
+- the game is a persistent fictional work laptop: menu bar with clock and a `NARC ACTIVE` tray indicator, a dock, and Messages / Email / Calendar / Files / Utilities / NARC windows; it stacks into a tab bar on phones
+- the same human-vs-NARC week (Luis, Marcus, Priya; six incidents plus one NARC 2.0 update; carry-over; endings; achievements) now runs on a workday clock. Problems arrive as NARC notifications, messages, email and calendar changes; consequences are scheduled deliveries; doing nothing (or ~60 s idle) resolves an incident on its ignore branch
+- NARC's window shows only observed signals plus its inference and confidence; the human context lives in Calendar, Files, Messages and Utilities
+- branches are computer actions (see the README table); the mouse-jiggler is a Utilities install with an On/Off switch, and NARC 2.0 only catches it while it is On
+- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers arrival and pacing, natural inaction, NARC-vs-reality separation, carry-over, exploits and their consequences, save/fire paths, achievements, ending, restart, and all 729 routes
+- QA aid: `?tick=150` in the URL speeds up the game clock
 - Vercel preview redeploys from `prototype-v1`
 
-Deferred: Nina and Maya, the remaining encounters, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
+Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 
 ## Next recommended implementation action
 
-Rework the current six-encounter prototype into a **persistent work-desktop experience**.
+Playtest the desktop version (see the questions in issue #5) before adding anything. Do not add encounters or coworkers until the desktop interaction model is judged to work.
 
-The desktop/workspace should stay visible while:
-- NARC issues alerts
-- People Operations sends email
-- coworkers and the manager use Messages
-- Calendar/Work surfaces reveal human context
-- utilities provide concrete actions such as installing/enabling the mouse-jiggler
-- consequences arrive through notifications, Messages, Email, Calendar, or app state
-
-The deterministic branch structure can remain underneath, but the player should rarely see abstract `What do you do?` choice menus.
-
-Detailed UX source of truth:
-- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
+Detailed UX source of truth: `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 
 ## AI stance
 

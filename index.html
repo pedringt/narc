@@ -2,25 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="A short game about a workplace AI that watches what you do and guesses why." />
   <title>NARC — Networked Assessment &amp; Risk Coordination</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div>
-        <div class="brand">NARC</div>
-        <div class="subtitle">Networked Assessment &amp; Risk Coordination</div>
-      </div>
-      <div id="stageBadge" class="stage-badge">WORKFORCE SUPPORT</div>
-    </header>
-
-    <div id="strip" class="strip" hidden></div>
-    <section id="app" aria-live="polite"></section>
-    <div id="notes" class="notes-wrap"></div>
-  </main>
+  <div id="desk" class="desk"></div>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

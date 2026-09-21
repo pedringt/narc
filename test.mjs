@@ -1,244 +1,434 @@
 import assert from 'node:assert/strict';
-import { newGame, act, view, ending, achievements, NOTES, SEQUENCE } from './game.js';
+import {
+  newGame, act, tick, IDLE_LIMIT, caseView, replies, canAttachHelper, calendarAction,
+  unread, clockText, ending, achievements,
+} from './game.js';
 
 // ---------------------------------------------------------------- helpers
 
-// Play a run by encounter. `picks` maps encounter id -> choice id. `look`
-// lists encounters where the player pulls the optional evidence.
-function play(picks, { look = [], stopAt = null, from = newGame() } = {}) {
-  let s = from;
-  if (s.phase === 'intro') s = act(s, 'begin');
-  while (s.phase !== 'ending') {
-    if (s.phase === 'update') { s = act(s, 'next'); continue; }
-    const enc = SEQUENCE[s.node];
-    if (stopAt && enc === stopAt.enc && s.phase === stopAt.phase) return s;
-    if (s.phase === 'inspect' && look.includes(enc) && view(s).evidence === null) {
-      s = act(s, 'pull');
-      continue;
-    }
-    if (s.phase === 'choose') {
-      assert.ok(picks[enc], `no pick for ${enc}`);
-      s = act(s, `choose:${picks[enc]}`);
-      continue;
-    }
-    s = act(s, 'next');
-  }
+const INCIDENTS = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'];
+
+function ticks(s, n) {
+  for (let i = 0; i < n; i += 1) s = tick(s);
   return s;
 }
 
-const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' };
-const has = (rows, re) => rows.some(([, text]) => re.test(text));
+function until(s, done, max = 600) {
+  for (let i = 0; i < max; i += 1) {
+    if (done(s)) return s;
+    s = tick(s);
+  }
+  throw new Error(`condition never met (t=${s.t}, incident=${s.incident?.id}, phase=${s.phase})`);
+}
 
-// ------------------------------------------------------ opening and shape
+const atIncident = (id) => (s) => s.incident?.id === id;
+const quiet = (s) => s.pending.length === 0;
+const alertOf = (s, inc) => s.alerts.find((a) => a.incident === inc);
+const texts = (s, thread) => s.threads[thread].map((m) => m.text);
+const noticeTexts = (s) => s.alerts.map((a) => `${a.title} ${a.text}`);
+const has = (list, re) => list.some((t) => re.test(t));
+
+// What a player does on the desktop to take each branch.
+const opened = (s, inc) => act(s, { do: 'open', ref: `alert:${alertOf(s, inc).id}` });
+const DO = {
+  // e1: low visible activity
+  wait: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e1').id }),
+  explain: (s) => act(opened(s, 'e1'), { do: 'case', id: 'submitNote', text: 'I was reading a contract on paper.' }),
+  jiggle: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' }),
+  // e2: Luis
+  confirm: (s) => act(opened(s, 'e2'), { do: 'case', id: 'agree' }),
+  ignore: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e2').id }),
+  script: (s) => act(s, { do: 'attach', thread: 'luis', item: 'helper' }),
+  // e3: Marcus
+  truth: (s) => act(opened(s, 'e3'), { do: 'case', id: 'confirmTrace' }),
+  paper: (s) => act(s, { do: 'addEvent', title: 'Vendor Site Visit: Pinecrest Family Fun Center' }),
+  stay: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e3').id }),
+  // e4: Priya
+  quiet: (s) => act(s, { do: 'reply', thread: 'priya', reply: 'cutback' }),
+  champion: (s) => act(s, { do: 'nominate', who: 'priya' }),
+  leave: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e4').id }),
+  // e5: Luis returns
+  admit: (s) => act(opened(s, 'e5'), { do: 'case', id: 'attribute', who: 'me' }),
+  human: (s) => act(s, { do: 'helper', op: 'randomize', copy: 'luis' }),
+  blame: (s) => act(opened(s, 'e5'), { do: 'case', id: 'attribute', who: 'luis' }),
+  auto: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e5').id }),
+  label: (s) => act(s, { do: 'reply', thread: 'dana', reply: 'relabel' }),
+  output: (s) => act(opened(s, 'e5'), { do: 'case', id: 'attachOutput' }),
+  letit: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e5').id }),
+  // e6: Marcus returns
+  workshop: (s) => act(opened(s, 'e6'), { do: 'case', id: 'endorse' }),
+  approve: (s) => act(s, { do: 'reply', thread: 'marcus', reply: 'approve' }),
+  expose: (s) => act(opened(s, 'e6'), { do: 'case', id: 'reportDocs' }),
+  vouch_trace: (s) => act(opened(s, 'e6'), { do: 'case', id: 'attachTrace' }),
+  backdate: (s) => act(s, { do: 'addEvent', title: 'Wildlife Vendor Visit' }),
+  let: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e6').id }),
+};
+
+// Play a week. `picks` maps incident -> branch; a missing pick means the
+// player does nothing and NARC acts on its own after the idle limit.
+// `stopAt` returns the moment an incident arrives, before the player acts.
+function play(picks, { stopAt = null, from = newGame(), afterAll = true } = {}) {
+  let s = from;
+  for (const inc of INCIDENTS) {
+    if (s.phase === 'ending') break;
+    s = until(s, (x) => x.incident?.id === inc || x.done.includes(inc) || x.phase === 'ending');
+    if (stopAt === inc) return s;
+    if (s.incident?.id !== inc) continue; // resolved on arrival (helper already running)
+    if (picks[inc]) s = DO[picks[inc]](s);
+    else s = ticks(s, IDLE_LIMIT);
+    assert.equal(s.picked[inc], picks[inc] ?? s.picked[inc], `${inc} resolved as ${picks[inc]}`);
+    assert.ok(s.picked[inc], `${inc} was resolved`);
+  }
+  return afterAll ? until(s, (x) => x.phase === 'ending') : s;
+}
+
+const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' };
+
+// ------------------------------------------------------ the desktop opens
 
 {
   const s = newGame();
-  const v = view(s);
-  assert.equal(v.kind, 'intro');
-  assert.match(v.paragraphs.join(' '), /Employee 4417/, 'the player is a named human employee');
-  assert.equal(v.controls.length, 1, 'first screen offers one control');
-  assert.equal(v.strip.index, null, 'no metrics shown on the first screen');
-  assert.ok(!/you are narc/i.test(JSON.stringify(v)), 'the player is not NARC');
+  assert.equal(s.phase, 'desk');
+  assert.equal(s.level, 1);
+  assert.equal(s.incident, null, 'no problem on the very first screen');
+  assert.equal(clockText(s), 'Mon 09:02');
+  assert.equal(s.indexVisible, false, 'NARC’s score is not shown yet');
+  assert.equal(s.inbox.length, 1);
+  assert.equal(s.inbox[0].from, 'People Operations');
+  assert.match(s.inbox[0].subject, /Introducing NARC/);
+  assert.equal(s.inbox[0].unread, true, 'NARC is introduced by an unread company email');
+  assert.match(s.inbox[0].body.join(' '), /no action is required/i);
+  assert.deepEqual(unread(s), { messages: 0, email: 1, narc: 0 });
+  assert.equal(s.alerts.length, 0);
+  assert.equal(s.calendar.some((e) => /Halvorsen/.test(e.title)), true, 'Monday’s real work is already on the calendar');
 }
 
-// ------------------------------------------- one step at a time, in order
+// Nothing is forced on the player: the first alert arrives after a normal beat.
+{
+  let s = newGame();
+  s = ticks(s, 13);
+  assert.equal(s.incident, null);
+  assert.equal(s.alerts.length, 0, 'still quiet at 13 seconds');
+  s = until(s, atIncident('e1'));
+  assert.ok(s.t >= 14 && s.t <= 16, 'first alert arrives within the first minute');
+  assert.equal(clockText(s), 'Mon 12:14');
+  assert.equal(s.indexVisible, true);
+  assert.equal(s.alerts[0].incident, 'e1');
+  assert.equal(s.toasts.some((t) => t.app === 'narc' && t.incident), true, 'a NARC notification appears');
+  s = ticks(s, 4);
+  assert.deepEqual(texts(s, 'dana'), ['Just checking in! Everything okay?'], 'the manager pings through Messages');
+  assert.equal(unread(s).messages >= 1, true);
+}
+
+// ---------------------------- NARC sees signals; the human context is elsewhere
 
 {
-  let s = act(newGame(), 'begin');
-  const trail = [];
-  while (SEQUENCE[s.node] === 'e1') {
-    trail.push(s.phase);
-    s = s.phase === 'choose' ? act(s, 'choose:wait') : act(s, 'next');
+  const s = play({}, { stopAt: 'e1' });
+  const c = caseView(s, alertOf(s, 'e1'));
+  assert.ok(c.observed.some((o) => /keyboard and mouse activity/i.test(o)));
+  assert.equal(c.model.confidence, 64);
+  assert.match(c.model.label, /Engagement concern/);
+  const narcSide = JSON.stringify(c);
+  assert.ok(!/contract|Halvorsen|paper|pricing|\$40,000/i.test(narcSide), 'NARC’s page does not know what you were really doing');
+  assert.ok(s.calendar.some((e) => /Halvorsen/.test(e.title) && /printed/.test(e.where)), 'Calendar has the real context');
+  assert.ok(s.files.some((f) => /Halvorsen/.test(f.name) && /\$40,000/.test(f.body.join(' '))), 'Files has the completed work');
+  // NARC can also be right: Priya’s flag lines up with a real missed escalation.
+  const p = play(HONEST, { stopAt: 'e4' });
+  assert.ok(p.files.some((f) => /ESC-204/.test(f.name) && /3 h 10 min/.test(f.body.join(' '))));
+  // Marcus’s raccoon is real: a feed agrees with a fraction of the story.
+  const m = play(HONEST, { stopAt: 'e3' });
+  assert.equal(m.incident.id, 'e3');
+}
+
+// ------------------------- no scenario-game language anywhere in the game
+
+{
+  const banned = /Encounter \d|Look closer|What do you do|Afterward|NARC updates|What you know|Continue/;
+  for (const picks of [HONEST, { e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'quiet', e5: 'blame', e6: 'expose' }, { e1: 'wait', e2: 'confirm', e3: 'truth', e4: 'champion', e5: 'output', e6: 'vouch_trace' }]) {
+    const s = play(picks);
+    const everything = JSON.stringify({ i: s.inbox, t: s.threads, a: s.alerts, c: s.calendar, f: s.files });
+    assert.ok(!banned.test(everything), `game text is free of scenario-card framing: ${everything.match(banned)}`);
   }
-  assert.deepEqual(trail, ['signal', 'inspect', 'choose', 'result', 'reaction']);
-  assert.equal(SEQUENCE[s.node], 'e2', 'the next encounter follows');
-
-  // Each screen exposes only what belongs to its step.
-  s = act(newGame(), 'begin');
-  assert.equal(view(s).kind, 'signal');
-  assert.equal(view(s).controls.length, 1);
-  assert.equal(view(s).sees, undefined, 'signal does not show the inspect panel');
-  s = act(s, 'next');
-  assert.equal(view(s).kind, 'inspect');
-  assert.ok(view(s).sees.length > 0 && view(s).infers.length > 0);
-  assert.equal(view(s).controls.length, 2, 'inspect: optional evidence + respond');
-  s = act(s, 'next');
-  assert.equal(view(s).kind, 'choose');
-  assert.equal(view(s).rows, undefined, 'choose does not show the signal or result');
-  assert.equal(view(s).controls.length, 3);
 }
 
-// ------------------------------------------------ optional evidence: once
+// ------------------------------------------ the mouse-jiggler is a utility
 
 {
-  let s = act(act(newGame(), 'begin'), 'next');
-  assert.equal(view(s).evidence, null);
-  s = act(s, 'pull');
-  assert.match(view(s).evidence, /Halvorsen/);
-  assert.equal(view(s).controls.length, 1, 'evidence can only be pulled once');
-  assert.throws(() => act(s, 'pull'), /Unknown action/);
+  let s = play({}, { stopAt: 'e1' });
+  const before = s.score;
+  assert.equal(s.helper.installed, false);
+  s = act(s, { do: 'helper', op: 'toggle' });
+  assert.equal(s.helper.on, false, 'it cannot be switched on before it is installed');
+  s = act(s, { do: 'helper', op: 'install' });
+  assert.equal(s.helper.installed, true);
+  assert.equal(s.incident.id, 'e1', 'installing alone is not yet the exploit');
+  assert.equal(s.picked.e1, undefined);
+  s = act(s, { do: 'helper', op: 'toggle' });
+  assert.equal(s.helper.on, true);
+  assert.equal(s.picked.e1, 'jiggle', 'turning it On is the exploit');
+  assert.equal(s.you.gamed, true);
+
+  // The score improves later, quietly, and the boss reacts in Messages.
+  assert.equal(s.score, before, 'the index has not moved yet');
+  s = until(s, (x) => x.score !== before);
+  assert.equal(s.score, before + 14);
+  assert.ok(has(noticeTexts(s), /Engagement trend: positive/));
+  assert.ok(!texts(s, 'dana').includes('Love the energy!'), 'the boss has not reacted yet');
+  s = until(s, (x) => texts(x, 'dana').includes('Love the energy!'));
+  assert.ok(texts(s, 'dana').includes('Love the energy!'), '“Love the energy!” arrives through Messages');
+  assert.ok(s.toasts.some((t) => t.app === 'messages' && /Love the energy/.test(t.text)));
+
+  // The other two ways through the same alert.
+  const wait = until(DO.wait(play({}, { stopAt: 'e1' })), (x) => x.score < 61);
+  assert.equal(wait.score, 55);
+  assert.ok(texts(wait, 'dana').includes('Just checking in! Everything okay?'));
+  const note = until(DO.explain(play({}, { stopAt: 'e1' })), (x) => x.score < 61);
+  assert.equal(note.score, 58);
+  // An empty note is not a note.
+  const blank = play({}, { stopAt: 'e1' });
+  assert.equal(act(blank, { do: 'case', id: 'submitNote', text: '   ' }).picked.e1, undefined);
+  assert.ok(replies(blank, 'dana').length === 0);
 }
 
-// ------------------------------------------------- progressive interface
-
+// The helper can also be found ahead of time; NARC never raises the alert.
 {
-  const s0 = act(newGame(), 'begin');
-  assert.equal(view(s0).strip.index, null, 'index hidden until the first inspect');
-  const s1 = act(s0, 'next');
-  assert.equal(view(s1).strip.index, 61, 'Visible Activity Index appears after the first signal');
-  assert.equal(view(s1).strip.flags, null, 'integrity flags are not shown yet');
-  assert.equal(view(s1).level, 1);
-
-  const s2 = play(HONEST, { stopAt: { enc: 'e4', phase: 'signal' } });
-  assert.equal(view(s2).level, 2, 'NARC 2.0 changes the interface level');
-  assert.equal(view(s2).strip.flags, 0, 'integrity flags appear after the update');
+  let s = newGame();
+  s = act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' });
+  s = until(s, (x) => x.done.includes('e1'));
+  assert.equal(s.picked.e1, 'jiggle');
+  assert.equal(alertOf(s, 'e1'), undefined, 'no low-activity alert when the helper is already running');
 }
 
-// ---------------------------------- carry-over: earlier choice, later scene
+// -------------------------------------- natural inaction: dismiss or ignore
 
 {
-  // Luis: script -> caught by NARC 2.0 -> different return encounter.
-  const scripted = play({ ...HONEST, e2: 'script', e5: 'admit' }, { stopAt: { enc: 'e5', phase: 'signal' } });
-  const v = view(scripted);
-  assert.ok(has(v.rows, /input every 59 seconds/), 'Luis’s script is what NARC flags on his return');
-  assert.ok(has(v.rows, /Innovation Council/), 'the earlier reward is reused as evidence');
+  // Dismissing and going idle land on the same branch.
+  const idle = play({});
+  assert.deepEqual(idle.picked, { e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'letit', e6: 'let' });
+  assert.equal(idle.people.luis.status, 'fired', 'ignoring Luis twice ends his job');
+  assert.equal(idle.people.marcus.status, 'fired');
+  const dismissed = play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'letit', e6: 'let' });
+  assert.deepEqual(dismissed.picked, idle.picked);
+  assert.deepEqual(dismissed.people, idle.people);
 
-  const ignored = play({ ...HONEST, e2: 'ignore' }, { stopAt: { enc: 'e5', phase: 'signal' } });
-  assert.ok(has(view(ignored).rows, /Performance Improvement Plan/));
-  assert.ok(!has(view(ignored).rows, /59 seconds/));
-
-  const confirmed = play({ ...HONEST, e2: 'confirm' }, { stopAt: { enc: 'e5', phase: 'signal' } });
-  assert.ok(has(view(confirmed).rows, /5 minutes/), 'a confirmed flag leaves a tighter threshold behind');
-
-  // Marcus: paper trail vs. history.
-  const paper = play({ ...HONEST, e3: 'paper' }, { stopAt: { enc: 'e6', phase: 'signal' } });
-  assert.ok(has(view(paper).rows, /Documentation Excellence/));
-  const burned = play({ ...HONEST, e3: 'truth' }, { stopAt: { enc: 'e6', phase: 'signal' } });
-  assert.ok(has(view(burned).rows, /Prior flags weight: 80%/));
-  assert.ok(has(view(burned).rows, /credibility: 12%/), 'the earlier warning sets today’s credibility');
-  const stayed = play({ ...HONEST, e3: 'stay' }, { stopAt: { enc: 'e6', phase: 'signal' } });
-  assert.ok(has(view(stayed).rows, /credibility: 38%/));
-
-  // Two coworkers reappear.
-  const appearances = { luis: 0, marcus: 0 };
-  let s = act(newGame(), 'begin');
-  while (s.phase !== 'ending') {
-    if (s.phase === 'signal') {
-      const t = view(s).subtitle;
-      if (/Luis/.test(t)) appearances.luis += 1;
-      if (/Marcus/.test(t)) appearances.marcus += 1;
-    }
-    if (s.phase === 'choose') s = act(s, `choose:${HONEST[SEQUENCE[s.node]]}`);
-    else s = act(s, 'next');
-  }
-  assert.deepEqual(appearances, { luis: 2, marcus: 2 });
+  // Nothing resolves early: 59 idle seconds is not enough.
+  let s = play({}, { stopAt: 'e2' });
+  s = ticks(s, IDLE_LIMIT - 1);
+  assert.equal(s.incident?.id, 'e2');
+  // Any action counts as being at the computer and restarts the wait.
+  s = act(s, { do: 'open', ref: `alert:${alertOf(s, 'e2').id}` });
+  s = ticks(s, IDLE_LIMIT - 1);
+  assert.equal(s.incident?.id, 'e2');
+  s = ticks(s, 1);
+  assert.equal(s.picked.e2, 'ignore');
 }
 
-// -------------------------------------- exploit changes a NARC metric
+// ---------------------------------------------------- consequences by app
 
 {
-  const before = act(act(newGame(), 'begin'), 'next');
-  const after = act(act(before, 'next'), 'choose:jiggle');
-  assert.equal(after.score, before.score + 14, 'the jiggler raises the Visible Activity Index');
-  assert.equal(after.you.gamed, true);
-  assert.ok(has(view(after).rows, /61 → 75/));
+  // Luis: a keep-alive script arrives via Messages, then he is “rewarded” by
+  // the boss in Messages. Nothing appears on a results page.
+  let s = play({}, { stopAt: 'e2' });
+  assert.equal(canAttachHelper(s), true);
+  s = DO.script(s);
+  assert.ok(s.threads.luis.some((m) => m.from === 'me' && m.attach), 'you sent Luis the utility in Messages');
+  assert.equal(canAttachHelper(s), false, 'and it is not offered again');
+  s = until(s, (x) => has(texts(x, 'dana'), /Innovation Council/));
+  assert.ok(has(noticeTexts(s), /340% of baseline/));
+  assert.ok(has(texts(s, 'luis'), /never been more productive/));
 
-  const honest = act(act(before, 'next'), 'choose:wait');
-  assert.equal(honest.score, before.score - 6, 'doing nothing lowers it');
+  // Marcus, saved on paper: the calendar entry is real and NARC believes it.
+  let m = play({}, { stopAt: 'e3' });
+  assert.deepEqual(calendarAction(m), { day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
+  m = DO.paper(m);
+  assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title)));
+  m = until(m, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
+  assert.equal(m.people.marcus.cred, 91);
+  assert.equal(calendarAction(m), null, 'the calendar form goes away once it is done');
+  assert.equal(act(m, { do: 'addEvent', title: 'again' }).calendar.length, m.calendar.length, 'no second attempt');
+  // A blank title creates nothing.
+  const blank = play({}, { stopAt: 'e3' });
+  assert.equal(act(blank, { do: 'addEvent', title: '  ' }).picked.e3, undefined);
+
+  // Firings end in an email, an offline account, and a human reaction.
+  const f = play({ ...HONEST, e5: 'letit' });
+  assert.equal(f.people.luis.status, 'fired');
+  assert.equal(f.online.luis, false);
+  assert.ok(f.inbox.some((e) => e.subject === 'Team update' && /Luis Perez is no longer/.test(e.body[0])));
+  assert.ok(f.threads.luis.some((x) => x.from === 'system' && /no longer active/.test(x.text)));
+  assert.ok(has(texts(f, 'luis'), /restroom when the email arrived/));
 }
 
-// ----------------------------- exploit → unintended later consequence
+// -------------------------------------------- carry-over into later events
 
 {
-  // The jiggler pays off Monday and costs you Wednesday.
-  const s = play({ ...HONEST, e1: 'jiggle' }, { stopAt: { enc: 'e4', phase: 'signal' } });
-  assert.equal(s.flags, 1, 'NARC 2.0 flags the repeating input');
-  assert.ok(s.score < 61, 'the recalculated index falls below where you started');
-  assert.equal(s.score, 50);
+  const g = play({ ...HONEST, e2: 'script' }, { stopAt: 'e5' });
+  assert.equal(g.incident.variant, 'g');
+  const v = caseView(g, alertOf(g, 'e5'));
+  assert.ok(v.observed.some((o) => /every 59 seconds/.test(o)), 'Luis’s script is what NARC flags on his return');
+  assert.ok(v.observed.some((o) => /Innovation Council/.test(o)), 'the earlier reward is reused as evidence');
+  assert.equal(v.model.confidence, 96);
 
-  // Luis's exploit is rewarded, then caught.
-  const luis = play({ ...HONEST, e2: 'script' }, { stopAt: { enc: 'e4', phase: 'signal' } });
+  const n = play({ ...HONEST, e2: 'ignore' }, { stopAt: 'e5' });
+  assert.equal(n.incident.variant, 'n');
+  assert.ok(caseView(n, alertOf(n, 'e5')).model.label.match(/productivity loss/));
+  const c = play({ ...HONEST, e2: 'confirm' }, { stopAt: 'e5' });
+  assert.ok(caseView(c, alertOf(c, 'e5')).observed.some((o) => /5 minutes/.test(o)), 'a confirmed flag leaves a tighter threshold behind');
+
+  const paper = play({ ...HONEST, e3: 'paper' }, { stopAt: 'e6' });
+  assert.equal(paper.incident.variant, 'g');
+  assert.equal(caseView(paper, alertOf(paper, 'e6')).model.confidence, 94);
+  const burned = play({ ...HONEST, e3: 'truth' }, { stopAt: 'e6' });
+  assert.equal(burned.incident.variant, 'b');
+  assert.match(alertOf(burned, 'e6').text, /credibility 12%.*Prior flags weight: 80%/);
+  const stayed = play({ ...HONEST, e3: 'stay' }, { stopAt: 'e6' });
+  assert.match(alertOf(stayed, 'e6').text, /credibility 38%/);
+  assert.ok(stayed.files.some((f) => /Wingspan/.test(f.name)), 'the goose slip shows up in Files');
+  assert.ok(has(texts(stayed, 'marcus'), /^There was a bird situation/), 'Marcus messages before NARC acts');
+}
+
+// Luis and Marcus each appear twice, in different apps.
+{
+  const s = play(HONEST);
+  assert.ok(texts(s, 'luis').length >= 2 && has(texts(s, 'luis'), /digestive/) && has(texts(s, 'luis'), /chart/));
+  assert.ok(has(texts(s, 'marcus'), /raccoon/) && has(texts(s, 'marcus'), /bird situation/));
+}
+
+// --------------------------------- exploits with unintended consequences
+
+{
+  // The jiggler pays off Monday and costs you on Wednesday, once NARC 2.0 lands.
+  let s = play({ ...HONEST, e1: 'jiggle' }, { stopAt: 'e4' });
+  assert.equal(s.level, 2, 'NARC gained new capabilities mid-week');
+  assert.equal(s.flags, 1);
+  assert.equal(s.score, 50, 'the index is recalculated down');
+  assert.ok(has(noticeTexts(s), /input repeats every 59 seconds.*recalculated: 75 → 50/));
+  const update = s.inbox.find((m) => /NARC 2\.0/.test(m.subject));
+  assert.ok(update && update.from === 'People Operations', 'the update comes from People Operations');
+
+  // ...unless you had switched it Off. On/Off matters.
+  let off = play({}, { stopAt: 'e1' });
+  off = DO.jiggle(off);
+  off = act(off, { do: 'helper', op: 'toggle' });
+  assert.equal(off.helper.on, false);
+  off = play({ ...HONEST, e1: undefined }, { from: off, stopAt: 'e4' });
+  assert.equal(off.flags, 0, 'a helper that is off is not caught');
+  assert.equal(off.score > 50, true);
+
+  // Luis’s copy is caught; Marcus’s paper trail is believed.
+  const luis = play({ ...HONEST, e2: 'script' }, { stopAt: 'e4' });
   assert.equal(luis.people.luis.caught, true);
-
-  // Marcus's paper trail survives the update: the “right” exploit.
-  const marcus = play({ ...HONEST, e3: 'paper' }, { stopAt: { enc: 'e4', phase: 'signal' } });
+  assert.ok(has(noticeTexts(luis), /Luis Perez: synthetic activity detected/));
+  const marcus = play({ ...HONEST, e3: 'paper' }, { stopAt: 'e4' });
   assert.equal(marcus.flags, 0);
-  assert.ok(marcus.notes.includes('synthetic'));
+  assert.ok(has(noticeTexts(marcus), /3 supporting documents verified/));
+  const clean = play(HONEST, { stopAt: 'e4' });
+  assert.ok(has(noticeTexts(clean), /No synthetic activity found/));
 
-  // Priya: suppressing one metric triggers another.
-  let p = play({ ...HONEST }, { stopAt: { enc: 'e4', phase: 'choose' } });
-  p = act(p, 'choose:quiet');
-  assert.ok(has(view(p).rows, /Communication Load: elevated → normal/));
-  p = act(p, 'next');
-  assert.equal(view(p).kind, 'reaction');
-  assert.ok(has(view(p).rows, /Social withdrawal/), 'the backfire appears one step later');
+  // The interface itself escalates.
+  const before = play(HONEST, { stopAt: 'e3' });
+  assert.equal(before.level, 1);
+  assert.equal(clean.level, 2);
+
+  // Priya: suppress one metric and NARC produces the opposite problem, twice over.
+  let p = play(HONEST, { stopAt: 'e4' });
+  assert.deepEqual(replies(p, 'priya').map((r) => r.id), ['cutback']);
+  p = DO.quiet(p);
+  assert.ok(p.threads.priya.some((m) => m.from === 'me' && /three channels/.test(m.text)));
+  p = until(p, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
+  assert.ok(!has(noticeTexts(p), /social withdrawal/), 'the backfire lands later');
+  p = until(p, (x) => has(noticeTexts(x), /social withdrawal.*Collaboration Index: 97 → 31/));
+  p = until(p, (x) => x.calendar.some((e) => /Connection Circle \(mandatory\)/.test(e.title)));
   assert.equal(p.people.priya.status, 'monitored');
+  assert.equal(p.shown.priya, 'monitored');
 }
 
-// ---------------------------------------- update happens mid-run
+// ------------------------------- NARC’s team panel lags reality, like a report
 
 {
-  const order = [];
-  let s = act(newGame(), 'begin');
-  while (s.phase !== 'ending') {
-    const id = s.phase === 'update' ? 'update' : SEQUENCE[s.node];
-    if (order.at(-1) !== id) order.push(id);
-    s = s.phase === 'choose' ? act(s, `choose:${HONEST[SEQUENCE[s.node]]}`) : act(s, 'next');
-  }
-  assert.deepEqual(order, ['e1', 'e2', 'e3', 'update', 'e4', 'e5', 'e6']);
-
-  const u = act(play(HONEST, { stopAt: { enc: 'e3', phase: 'reaction' } }), 'next');
-  assert.equal(u.phase, 'update');
-  assert.match(view(u).title, /NARC 2\.0/);
-  assert.equal(view(u).controls.length, 1);
-  assert.ok(has(view(u).rows, /No synthetic activity found/), 'a clean run is congratulated on authenticity');
+  let s = play({ ...HONEST, e5: 'letit' }, { stopAt: 'e5' });
+  s = DO.letit(s);
+  assert.equal(s.people.luis.status, 'fired');
+  assert.equal(s.shown.luis, 'employed', 'NARC’s panel has not caught up yet');
+  s = until(s, (x) => x.shown.luis === 'fired');
+  assert.equal(s.shown.luis, 'fired');
 }
 
-// --------------------------------------- save paths and removal paths
+// -------------------------------------------- Priya: champion and coaching
 
 {
-  const saved = play({ e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' });
-  assert.equal(saved.people.luis.status, 'employed', 'Luis can be saved by relabelling');
-  assert.equal(saved.people.priya.status, 'promoted');
+  let s = ticks(play(HONEST, { stopAt: 'e4' }), 2);
+  assert.ok(s.inbox.some((m) => m.form === 'nominate'), 'nominations arrive as an email form');
+  // Nominating someone below the threshold is answered, and changes nothing.
+  s = act(s, { do: 'nominate', who: 'luis' });
+  assert.equal(s.incident.id, 'e4');
+  s = until(s, (x) => x.inbox.some((m) => /Re: nomination of Luis Perez/.test(m.subject)));
+  s = DO.champion(s);
+  assert.equal(s.people.priya.champion, true);
+  assert.equal(s.people.priya.status, 'promoted');
+  s = until(s, (x) => has(texts(x, 'priya'), /badge/));
+  assert.ok(has(noticeTexts(s), /Exempt from Communication Load/));
 
-  const bird = play({ e1: 'explain', e2: 'ignore', e3: 'truth', e4: 'leave', e5: 'label', e6: 'vouch_trace' });
-  assert.equal(bird.people.marcus.status, 'warning', 'Marcus is saved with a final warning');
-
-  const fired = play({ e1: 'wait', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
-  assert.equal(fired.people.luis.status, 'fired');
-  assert.equal(fired.people.marcus.status, 'fired');
-
-  const blamed = play({ e1: 'explain', e2: 'script', e3: 'paper', e4: 'leave', e5: 'blame', e6: 'expose' });
-  assert.equal(blamed.people.luis.status, 'fired');
-  assert.equal(blamed.people.marcus.status, 'fired');
-  assert.ok(blamed.flags >= 1, 'exposing Marcus’s paperwork puts your name on it');
-
-  const rewarded = play({ e1: 'explain', e2: 'script', e3: 'paper', e4: 'leave', e5: 'human', e6: 'workshop' });
-  assert.equal(rewarded.people.luis.status, 'rewarded');
-  assert.equal(rewarded.people.marcus.status, 'rewarded');
-  assert.equal(rewarded.flags, 0, 'randomized input and existing documents slip past NARC 2.0');
-
-  // Materially worse outcomes exist for the player too.
-  const backdate = play({ e1: 'explain', e2: 'ignore', e3: 'truth', e4: 'leave', e5: 'label', e6: 'backdate' });
-  assert.equal(backdate.people.marcus.status, 'fired');
-  assert.ok(backdate.notes.includes('timing'));
+  const leave = until(DO.leave(play(HONEST, { stopAt: 'e4' })), (x) => has(noticeTexts(x), /Client reply time improves/));
+  assert.ok(has(noticeTexts(leave), /Concise Communication Coaching/), 'the flag led to a real improvement');
+  assert.ok(has(texts(leave, 'priya'), /summaries are better than my messages/));
 }
 
-// ------------------------------------------- NARC is not always wrong
+// -------------------------------------- Luis and Marcus: save and fire paths
 
 {
-  // NARC’s Communication Load flag correlates with a real missed escalation,
-  // and the coaching it triggers improves client reply time.
-  const s = play(HONEST, { look: ['e4'] });
-  assert.ok(s.pulled.e4);
-  const at = play(HONEST, { look: ['e4'], stopAt: { enc: 'e4', phase: 'choose' } });
-  assert.ok(at.notes.includes('twoMetrics'));
-  const after = act(act(at, 'choose:leave'), 'next');
-  assert.ok(has(view(after).rows, /Client reply time improves/), 'the flag led to a real improvement');
+  const at = (picks, inc) => play(picks, { stopAt: inc });
 
-  // Marcus’s raccoon and goose are real. The record is what is wrong.
-  const raccoon = play(HONEST, { look: ['e3'], stopAt: { enc: 'e3', phase: 'choose' } });
-  assert.ok(raccoon.notes.includes('feeds'));
+  // Luis, gamed
+  assert.deepEqual(replies(at({ ...HONEST, e2: 'script' }, 'e5'), 'dana'), []);
+  const admit = play({ ...HONEST, e2: 'script', e5: 'admit' });
+  assert.equal(admit.people.luis.status, 'warning');
+  assert.equal(admit.flags, 1);
+  const human = play({ ...HONEST, e2: 'script', e5: 'human' });
+  assert.equal(human.people.luis.status, 'rewarded');
+  assert.equal(human.flags, 0);
+  const blame = play({ ...HONEST, e2: 'script', e5: 'blame' });
+  assert.equal(blame.people.luis.status, 'fired');
+  const auto = play({ ...HONEST, e2: 'script', e5: undefined });
+  assert.equal(auto.picked.e5, 'auto');
+  assert.equal(auto.people.luis.status, 'monitored', 'doing nothing while caught leaves Luis heavily monitored');
+
+  // Randomizing Luis’s copy early skips the review.
+  let early = at({ ...HONEST, e2: 'script' }, 'e4');
+  early = act(early, { do: 'helper', op: 'randomize', copy: 'luis' });
+  assert.equal(early.helper.luis.randomized, true);
+  early = play({ ...HONEST, e2: 'script', e4: 'leave' }, { from: early, afterAll: false });
+  assert.equal(early.picked.e5, 'human');
+
+  // Luis, not gamed
+  assert.equal(play({ ...HONEST, e5: 'label' }).people.luis.status, 'employed');
+  assert.equal(play({ ...HONEST, e5: 'output' }).people.luis.status, 'monitored');
+  assert.equal(play({ ...HONEST, e5: 'letit' }).people.luis.status, 'fired');
+  const relabel = until(DO.label(at(HONEST, 'e5')), (x) => has(noticeTexts(x), /Unstructured Ideation/));
+  assert.ok(relabel.threads.dana.some((m) => m.from === 'me' && /unstructured ideation/.test(m.text)));
+
+  // Marcus, gamed
+  assert.equal(play({ ...HONEST, e3: 'paper', e6: 'workshop' }).people.marcus.status, 'rewarded');
+  assert.equal(play({ ...HONEST, e3: 'paper', e6: 'approve' }).people.marcus.status, 'employed');
+  const expose = play({ ...HONEST, e3: 'paper', e6: 'expose' });
+  assert.equal(expose.people.marcus.status, 'fired');
+  assert.equal(expose.flags, 1, 'exposing his paperwork puts your name on it');
+  assert.ok(has(noticeTexts(expose), /3 of 6 last edited by Employee 4417/));
+  const ws = play({ ...HONEST, e3: 'paper', e6: 'workshop' });
+  assert.ok(ws.inbox.some((m) => /Attendance Best Practices/.test(m.subject)));
+  assert.ok(ws.calendar.some((e) => /Attendance Best Practices/.test(e.title)));
+
+  // Marcus, burned by his own history
+  const bird = play({ ...HONEST, e3: 'truth', e6: 'vouch_trace' });
+  assert.equal(bird.people.marcus.status, 'warning');
+  assert.equal(bird.people.marcus.cred, 67);
+  assert.equal(play({ ...HONEST, e3: 'truth', e6: 'let' }).people.marcus.status, 'fired');
+  const back = play({ ...HONEST, e3: 'truth', e6: 'backdate' });
+  assert.equal(back.people.marcus.status, 'fired');
+  assert.equal(back.flags, 1);
+  assert.ok(has(noticeTexts(back), /created 11:26, after the flag at 11:20/));
+  const forced = at({ ...HONEST, e3: 'truth' }, 'e6');
+  assert.deepEqual(calendarAction(forced), { day: 'Fri', slot: '08:30–11:00', who: 'Marcus Reed' });
 }
 
 // ---------------------------------------------------------- achievements
@@ -246,13 +436,12 @@ const has = (rows, re) => rows.some(([, text]) => re.test(text));
 {
   const names = (s) => achievements(s).earned.map((a) => a.id).sort();
 
-  const none = play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' });
-  assert.ok(!names(none).includes('nobody'), 'Marcus is fired, so not “Nobody”');
+  const marcusOut = play({ e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' });
+  assert.ok(!names(marcusOut).includes('nobody'));
 
   const nobody = play({ e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'vouch_trace' });
-  assert.ok(nobody.people.marcus.status !== 'fired');
-  assert.deepEqual(names(nobody), ['bird', 'donotask', 'nobody'].sort(), 'Luis kept, nothing pulled, Marcus saved by the goose');
-  assert.ok(nobody.achievements.includes('bird'), 'achievements are stored on the ending state');
+  assert.deepEqual(names(nobody), ['bird', 'donotask', 'nobody'].sort());
+  assert.ok(nobody.achievements.includes('bird'), 'stored on the ending state');
 
   const fewer = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
   assert.ok(names(fewer).includes('fewer'));
@@ -261,8 +450,14 @@ const has = (rows, re) => rows.some(([, text]) => re.test(text));
   assert.ok(names(technical).includes('technically'));
   assert.ok(names(technical).includes('champion'));
 
-  const looked = play({ e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' }, { look: ['e2'] });
-  assert.ok(!names(looked).includes('donotask'), 'pulling Luis’s data forfeits Do Not Ask');
+  // Never opening Luis’s restroom alerts keeps Do Not Ask; opening one forfeits it.
+  assert.ok(names(play(HONEST)).includes('donotask'));
+  const looked = play({}, { stopAt: 'e2', from: DO.explain(play({}, { stopAt: 'e1' })) });
+  const opens = act(looked, { do: 'open', ref: `alert:${alertOf(looked, 'e2').id}` });
+  assert.equal(opens.pulled.e2, true);
+  const forfeited = play({ e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' }, { from: opens });
+  assert.ok(!names(forfeited).includes('donotask'), 'opening the restroom data forfeits it');
+  assert.equal(forfeited.people.luis.status, 'employed');
 }
 
 // ------------------------------------------------------------------ ending
@@ -270,27 +465,22 @@ const has = (rows, re) => rows.some(([, text]) => re.test(text));
 {
   const s = play(HONEST);
   assert.equal(s.phase, 'ending');
-  const v = view(s);
-  assert.equal(v.kind, 'ending');
-  assert.equal(v.ending.roster.length, 3);
-  for (const r of v.ending.roster) {
-    assert.ok(r.label && r.text, `${r.id} has a status and an epilogue`);
-  }
-  assert.ok(v.ending.you.label);
-  assert.ok(v.ending.company.length >= 2);
-  assert.equal(v.ending.achievements.earned.length + v.ending.achievements.locked.length, 6);
-  assert.ok(v.ending.achievements.locked.every((a) => a.hint), 'locked achievements carry a replay hint');
-  assert.equal(v.ending.noteTotal, Object.keys(NOTES).length);
-  assert.deepEqual(v.controls.map((c) => c.id), ['restart']);
+  assert.equal(clockText(s), 'Fri 17:00');
+  const e = ending(s);
+  assert.equal(e.roster.length, 3);
+  e.roster.forEach((r) => assert.ok(r.label && r.text, `${r.id} has a status and an epilogue`));
+  assert.ok(e.you.label && e.company.length >= 2);
+  assert.equal(e.achievements.earned.length + e.achievements.locked.length, 6);
+  assert.ok(e.achievements.locked.every((a) => a.hint), 'locked achievements carry a replay hint');
+  assert.equal(tick(s), s, 'time stops at the end of the week');
+  assert.equal(act(s, { do: 'open', ref: 'email:x' }), s);
 
-  // Player result varies with behavior.
   const model = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
   assert.equal(ending(model).you.label, 'MODEL EMPLOYEE', 'informing on everyone is rewarded');
   assert.match(ending(model).you.text, /classified as collaboration/);
-  const watched = play({ e1: 'jiggle', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' });
-  assert.equal(ending(watched).you.label, 'ON WATCHLIST');
-  const reviewed = play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' });
-  assert.equal(ending(reviewed).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'ON WATCHLIST');
+  assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).you.label, 'STILL EMPLOYED');
 }
 
 // ----------------------------------------------------------------- restart
@@ -298,68 +488,68 @@ const has = (rows, re) => rows.some(([, text]) => re.test(text));
 {
   const ended = play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'champion', e5: 'human', e6: 'workshop' });
   assert.notDeepEqual(ended, newGame());
-  const again = act(ended, 'restart');
+  const again = act(ended, { do: 'restart' });
   assert.deepEqual(again, newGame(), 'restart returns a clean initial state');
-  assert.equal(view(again).kind, 'intro');
-  assert.throws(() => act(newGame(), 'restart'), /Unknown action/);
+  assert.equal(again.phase, 'desk');
+  assert.equal(again.helper.installed, false);
+  assert.equal(act(newGame(), { do: 'restart' }).rev, newGame().rev, 'restart mid-week does nothing');
 }
 
-// ------------------------------------ purity: act never mutates its input
+// ------------------------------- purity, and actions that make no sense
 
 {
-  const s = act(newGame(), 'begin');
+  const s = play({}, { stopAt: 'e2' });
   const snapshot = JSON.stringify(s);
-  act(act(s, 'next'), 'next');
-  assert.equal(JSON.stringify(s), snapshot);
+  act(s, { do: 'attach', thread: 'luis', item: 'helper' });
+  tick(s);
+  assert.equal(JSON.stringify(s), snapshot, 'act and tick never mutate their input');
+
+  const still = act(s, { do: 'case', id: 'endorse' });
+  assert.equal(still.picked.e2, undefined, 'an action from another problem does nothing');
+  assert.equal(still.rev, s.rev);
+  assert.equal(act(s, { do: 'reply', thread: 'priya', reply: 'cutback' }).picked.e2, undefined);
+  assert.equal(act(s, { do: 'nominate', who: 'priya' }).picked.e2, undefined);
+  assert.equal(act(s, { do: 'helper', op: 'randomize' }).helper.luis, null);
+  assert.equal(act(s, { do: 'open', ref: 'nowhere:1' }).rev, s.rev);
+  assert.equal(act(s, { do: 'nonsense' }).rev, s.rev);
 }
 
-// ---------------- every route reaches an ending, with no dead ends or junk
+// -------- every route through the week finishes, with no dead ends or junk
 
 {
-  const CHOICES = {
-    e1: ['wait', 'explain', 'jiggle'],
-    e2: ['confirm', 'ignore', 'script'],
-    e3: ['truth', 'paper', 'stay'],
-    e4: ['quiet', 'champion', 'leave'],
-  };
-  // e5 and e6 vary with earlier choices, so their options are read from the view.
-  let paths = 0;
-  let maxScreens = 0;
-  const seenEndings = new Set();
-  const seenChoiceSets = new Set();
+  const pick = (from, ids) => from.flatMap((c) => ids.map((id) => [...c, id]));
+  let paths = [[]];
+  paths = pick(paths, ['wait', 'explain', 'jiggle']);
+  paths = pick(paths, ['confirm', 'ignore', 'script']);
+  paths = pick(paths, ['truth', 'paper', 'stay']);
+  paths = pick(paths, ['quiet', 'champion', 'leave']);
+  const e5 = { g: ['admit', 'human', 'blame'], n: ['label', 'output', 'letit'] };
+  const e6 = { g: ['workshop', 'approve', 'expose'], b: ['vouch_trace', 'backdate', 'let'] };
 
-  const walk = (s, screens) => {
-    while (s.phase !== 'ending') {
-      const v = view(s);
-      const json = JSON.stringify(v);
-      assert.ok(!/undefined|NaN|\[object/.test(json), `bad text in ${s.phase} ${SEQUENCE[s.node]}: ${json.slice(0, 200)}`);
-      assert.ok(v.controls.length >= 1, `dead end at ${s.phase} ${SEQUENCE[s.node]}`);
-      screens += 1;
-      if (s.phase === 'choose') {
-        const enc = SEQUENCE[s.node];
-        const ids = v.controls.map((c) => c.id.replace('choose:', ''));
-        seenChoiceSets.add(`${enc}:${ids.join(',')}`);
-        assert.equal(ids.length, 3, `${enc} offers three choices`);
-        if (enc === 'e5' || enc === 'e6') {
-          for (const id of ids) walk(act(s, `choose:${id}`), screens);
-          return;
-        }
-        for (const id of CHOICES[enc]) walk(act(s, `choose:${id}`), screens);
-        return;
+  let count = 0;
+  let longest = 0;
+  const outcomes = new Set();
+  const junk = /undefined|NaN|\[object|null/;
+
+  for (const [a, b, c, d] of paths) {
+    const luisGamed = b === 'script';
+    const marcusGamed = c === 'paper';
+    for (const x of e5[luisGamed ? 'g' : 'n']) {
+      for (const y of e6[marcusGamed ? 'g' : 'b']) {
+        const s = play({ e1: a, e2: b, e3: c, e4: d, e5: x, e6: y });
+        assert.equal(s.phase, 'ending', `${[a, b, c, d, x, y]} reaches the ending`);
+        assert.ok(quiet(s) || s.pending.every((p) => p.k !== 'arm'), 'nothing left waiting to arrive');
+        const surfaces = JSON.stringify({ i: s.inbox, t: s.threads, a: s.alerts, c: s.calendar, e: ending(s) });
+        assert.ok(!junk.test(surfaces.replace(/"(when|attach|variant|form|incident)":null/g, '')), `bad text on route ${[a, b, c, d, x, y]}: ${surfaces.match(junk)}`);
+        longest = Math.max(longest, s.t);
+        outcomes.add(JSON.stringify([s.people.luis.status, s.people.marcus.status, s.people.priya.status, s.flags]));
+        count += 1;
       }
-      s = act(s, v.controls.find((c) => c.primary).id);
     }
-    paths += 1;
-    maxScreens = Math.max(maxScreens, screens);
-    const v = view(s);
-    assert.ok(!/undefined|NaN|\[object/.test(JSON.stringify(v)));
-    seenEndings.add(JSON.stringify(s.people));
-  };
-  walk(act(newGame(), 'begin'), 1);
-  assert.equal(paths, 3 * 3 * 3 * 3 * 3 * 3, 'all 729 choice combinations reach an ending');
-  assert.ok(seenChoiceSets.size >= 8, 'both variants of both return encounters are exercised');
-  assert.ok(maxScreens <= 40, `a run is at most ~${maxScreens} screens`);
-  assert.ok(seenEndings.size > 20, 'endings differ meaningfully across routes');
+  }
+  assert.equal(count, 3 * 3 * 3 * 3 * 3 * 3, 'all 729 routes reach an ending');
+  assert.ok(outcomes.size >= 20, `endings differ across routes (${outcomes.size})`);
+  assert.ok(longest < 60 * 8, `an active run stays under eight minutes of clock time (${longest}s)`);
 }
 
 console.log('NARC tests passed');

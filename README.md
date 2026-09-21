@@ -57,17 +57,25 @@ The current product judgment is to keep gameplay deterministic unless a future A
 
 ## Current implementation status
 
-`prototype-v1` is now a human-vs-NARC vertical slice: you are Employee 4417, and NARC watches you and three coworkers (Luis, Marcus, Priya) across one work week.
+`prototype-v1` is a human-vs-NARC vertical slice played on a fictional work laptop. You are Employee 4417. NARC is monitoring software on that laptop, and it watches you and three coworkers (Luis, Marcus, Priya) across one work week.
 
-- 6 encounters plus one mid-week NARC 2.0 update; Luis and Marcus each return once
-- what you did to a coworker (and whether NARC 2.0 can detect it) changes their return encounter
-- one step per screen: signal, look closer (one optional evidence pull), choose, result, reaction
-- 6 achievements, a per-coworker outcome screen, and a "what you know about NARC" list
+- there are no scenario cards: problems arrive as NARC notifications, messages, email and calendar changes, and consequences arrive the same way
+- NARC's window shows what it *observed* and what it *inferred*; the real human context is in Calendar, Files, Messages and Utilities
+- six incidents plus a mid-week NARC 2.0 update; Luis and Marcus each return, and what you did before decides what comes back
+- doing nothing is a choice: dismiss an alert, or leave it, and NARC acts on its own
+- 6 achievements and an end-of-week report
 - deterministic, no live AI, no backend
 
-Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://).
+| Situation | Things you can actually do |
+|---|---|
+| Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper in Utilities and switch it on |
+| Luis | agree with NARC's flag · dismiss it · attach the helper in Messages · (later) attribute the script, randomize his copy, or ask your manager to relabel his time |
+| Marcus | confirm the location trace · dismiss · add a calendar event on the team calendar · (later) endorse, report documents, or attach the trace |
+| Priya | ask her to cut back in Messages · nominate her in the Culture email · dismiss |
 
-Nina and Maya are not in this slice. See `docs/handoffs/claude-rework/` for the scope and acceptance criteria this pass followed.
+Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://). Add `?tick=150` to the URL to speed up the game clock for QA.
+
+Nina and Maya are not in this slice. See `docs/handoffs/claude-rework/` for the scope and acceptance criteria.
 
 ## Project rule
 
