@@ -2,7 +2,7 @@
 
 This describes what is actually built on `prototype-v1` / `main`, why it works the way it does, and what is still open. It is written for a fresh chat or agent. Where it disagrees with an older handoff, **this file describes the code; the design docs describe intent**. When you change behavior, update this file.
 
-Last updated after the "view-only team alerts / advice in Messages / calendar covers" pass.
+Last updated after the latest playtest-driven agency, AI-visibility, progressive-disclosure, and documentation pass.
 
 ## Status
 
