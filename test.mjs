@@ -368,7 +368,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(late.toasts.filter((t) => t.nudgeFor === 'e4' && !t.gone)[0].text, /Authentic activity is more valuable than simulated activity/);
 }
 
-// --------------------------------------------------- the mouse-jiggler
+// --------------------------------------------------- the keepalive exploit
 
 {
   let s = play({}, { stopAt: 'e1' });
@@ -376,6 +376,12 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'helper', op: 'toggle' });
   assert.equal(s.helper.on, false, 'it cannot be switched on before it is installed');
   s = act(s, { do: 'helper', op: 'install' });
+  assert.equal(s.helper.installed, false, 'it cannot be installed before Marcus shares it');
+
+  s = until(s, (x) => x.helper.discovered);
+  assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')));
+  s = act(s, { do: 'helper', op: 'install' });
+  assert.equal(s.helper.installed, true);
   assert.equal(s.incident.id, 'e1', 'installing alone is not yet the exploit');
   s = act(s, { do: 'helper', op: 'toggle' });
   assert.equal(s.picked.e1, 'jiggle', 'turning it On is the exploit');
@@ -393,14 +399,6 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(until(DO.e1.explain(play({}, { stopAt: 'e1' })), (x) => x.score < 61).score, 58);
   const blank = play({}, { stopAt: 'e1' });
   assert.equal(act(blank, { do: 'case', id: 'submitNote', text: '   ' }).picked.e1, undefined, 'an empty note is not a note');
-}
-
-{
-  let s = oriented();
-  s = act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' });
-  s = until(s, (x) => x.done.includes('e1'));
-  assert.equal(s.picked.e1, 'jiggle');
-  assert.equal(alertOf(s, 'e1'), undefined, 'no low-activity alert when the helper is already running');
 }
 
 // ------------------------- a calendar cover NARC does not catch (yours)
