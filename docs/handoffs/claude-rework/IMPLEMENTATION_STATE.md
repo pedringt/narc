@@ -182,6 +182,10 @@ Untested or unverified: the Focus-time toggle on your own non-contract calendar 
 - Coworker reply chips were rewritten to sound like normal Messages replies instead of exposing design labels such as "Sincere tip" and "Polite sabotage."
 - NARC now emits one ambient post-upgrade workstyle/baseline notification so it begins to feel like a system observing the player even between explicit cases.
 
+## Case-study capture
+
+A living source document now exists at `docs/CASE_STUDY_NOTES.md`. Update it when a meaningful product decision, playtest finding, failed assumption, research insight, or attribution detail emerges. It is intentionally not polished public copy.
+
 ## Suggested playtest questions
 
 1. Did the first 90 seconds (email, Dana, Calendar, reply) teach the workstation without feeling like a tutorial?
