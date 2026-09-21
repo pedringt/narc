@@ -59,17 +59,19 @@ The current product judgment is to keep gameplay deterministic unless a future A
 
 `prototype-v1` is a human-vs-NARC vertical slice played on a fictional work laptop. You are Employee 4417. NARC is monitoring software on that laptop, and it watches you and three coworkers (Luis, Marcus, Priya) across one work week.
 
+- you start with a short orientation: the People Operations email introducing NARC, then your manager Dana asking you to check your Calendar
 - there are no scenario cards: problems arrive as NARC notifications, messages, email and calendar changes, and consequences arrive the same way
+- NARC is the pressure (persistent, increasingly pushy notifications); coworkers and the other apps are the counterplay
 - NARC's window shows what it *observed* and what it *inferred*; the real human context is in Calendar, Files, Messages and Utilities
 - six incidents plus a mid-week NARC 2.0 update; Luis and Marcus each return, and what you did before decides what comes back
-- doing nothing is a choice: dismiss an alert, or leave it, and NARC acts on its own
+- nothing is decided by a hidden timer: dismiss an alert, or log off and NARC processes it (the game tells you first)
 - 6 achievements and an end-of-week report
 - deterministic, no live AI, no backend
 
 | Situation | Things you can actually do |
 |---|---|
 | Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper in Utilities and switch it on |
-| Luis | agree with NARC's flag · dismiss it · attach the helper in Messages · (later) attribute the script, randomize his copy, or ask your manager to relabel his time |
+| Luis | agree with NARC's flag · dismiss it · attach the helper in Messages (once you have installed it) · (later) attribute the script, randomize his copy, or ask your manager to relabel his time |
 | Marcus | confirm the location trace · dismiss · add a calendar event on the team calendar · (later) endorse, report documents, or attach the trace |
 | Priya | ask her to cut back in Messages · nominate her in the Culture email · dismiss |
 

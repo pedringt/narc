@@ -88,14 +88,19 @@ Branch:
 - `main` — do not modify or promote without Paige explicitly naming `main`
 - `prototype-v1` — current working/prototype branch
 
-Current implementation (desktop interaction rework, on `prototype-v1`):
-- the game is a persistent fictional work laptop: menu bar with clock and a `NARC ACTIVE` tray indicator, a dock, and Messages / Email / Calendar / Files / Utilities / NARC windows; it stacks into a tab bar on phones
-- the same human-vs-NARC week (Luis, Marcus, Priya; six incidents plus one NARC 2.0 update; carry-over; endings; achievements) now runs on a workday clock. Problems arrive as NARC notifications, messages, email and calendar changes; consequences are scheduled deliveries; doing nothing (or ~60 s idle) resolves an incident on its ignore branch
+Current implementation (desktop rework + playtest clarity pass, on `prototype-v1`):
+- the game is a persistent fictional work laptop: menu bar with clock, a Log off button and the NARC tray indicator, a dock, and Messages / Email / Calendar / Files / Utilities / NARC windows; it stacks into a tab bar on phones
+- **orientation gate:** the People Operations email is open on load, spells out NARC — Networked Assessment & Risk Coordination, says it monitors activity, and asks for an acknowledgment. Dana (your manager) then asks you to check the Calendar and reply. Only after that is the first NARC case scheduled; nothing consequential runs before it
+- the same human-vs-NARC week (Luis, Marcus, Priya; six incidents plus a NARC 2.0 beat; carry-over; endings; achievements) runs on a workday clock. Problems arrive as NARC notifications, messages, email and calendar changes; consequences are scheduled deliveries, spaced so nothing lands on top of anything else
+- **NARC is the pressure:** notifications persist until opened or closed (closing one only hides it), at most 3 show at once (2 on phones), NARC nudges about an unresolved case, and nudges more pointedly after NARC 2.0. The tray reads `NARC · ACTION REQUIRED` only when a case really needs the player; NARC's window separates "Needs attention" from "Recent activity"
+- **no hidden timers:** exploring is never treated as inaction. Doing nothing is legible: "Dismiss alert", or "Log off", which says NARC will process the open case before it does
+- **counterplay is discoverable:** every first-contact coworker message carries its own setup, each incident leaves at least two leads (NARC's case, a coworker line, a "new" dot on an app), and follow-up hints disappear once you have decided
 - NARC's window shows only observed signals plus its inference and confidence; the human context lives in Calendar, Files, Messages and Utilities
-- branches are computer actions (see the README table); the mouse-jiggler is a Utilities install with an On/Off switch, and NARC 2.0 only catches it while it is On
-- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers arrival and pacing, natural inaction, NARC-vs-reality separation, carry-over, exploits and their consequences, save/fire paths, achievements, ending, restart, and all 729 routes
+- the mouse-jiggler is a Utilities install with an On/Off switch, NARC 2.0 only catches it while it is On, and it can only be shared with Luis after you have installed it. The Culture Champion email arrives before Priya's flag (nominations open Thursday). NARC 2.0's scan waits until you have read the announcement
+- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers orientation, pacing and run length, persistent notifications, active-versus-history, no auto-fallback, the NARC 2.0 beat, leads and first-contact context, carry-over, exploits, save/fire paths, achievements, ending, restart, and all 729 routes
+- run length (game clock, no exploring): a brisk player about 6 minutes, a player who reads every hint first about 8; exploring adds to that
 - QA aid: `?tick=150` in the URL speeds up the game clock
-- Vercel preview redeploys from `prototype-v1`
+- Vercel preview redeploys from `prototype-v1`; the public production site only changes when `prototype-v1` is merged to `main`
 
 Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 

@@ -2,8 +2,8 @@
 // actions; every rule lives in game.js.
 
 import {
-  newGame, tick, act, unread, clockText, caseView, replies, canAttachHelper,
-  calendarAction, ending, THREADS, PEOPLE,
+  newGame, tick, act, unread, attention, narcSections, logoffInfo, clockText, caseView,
+  replies, canAttachHelper, calendarAction, ending, THREADS, PEOPLE,
 } from './game.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -26,15 +26,15 @@ const APPS = [
 ];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-let state = newGame();
+let state;
 let ui;
-const toastEls = new Map();
+let logoffOpen = false;
 const shownToasts = new Set();
 
 function freshUi() {
   return {
     app: 'email',
-    detail: false,
+    detail: true, // the welcome email is already open
     sel: { email: null, messages: null, files: null, narc: null },
     day: 'Mon',
     dayTouched: false,
@@ -42,7 +42,18 @@ function freshUi() {
     draft: { note: '', title: '', attribute: '', nominee: '' },
   };
 }
-ui = freshUi();
+
+// A fresh week: the People Operations email is already open in front of you.
+function begin() {
+  state = newGame();
+  ui = freshUi();
+  ui.sel.email = state.inbox[0].id;
+  state = act(state, { do: 'open', ref: `email:${ui.sel.email}` });
+  state = act(state, { do: 'view', app: 'email' });
+  logoffOpen = false;
+  shownToasts.clear();
+}
+begin();
 
 // ----------------------------------------------------------------- helpers
 
@@ -73,6 +84,7 @@ function openRef(ref) {
   if (kind === 'email') { ui.app = 'email'; ui.sel.email = id; ui.detail = true; }
   if (kind === 'thread') { ui.app = 'messages'; ui.sel.messages = id; ui.detail = true; }
   if (kind === 'alert') { ui.app = 'narc'; ui.sel.narc = id; ui.detail = true; }
+  state = act(state, { do: 'view', app: ui.app });
   dispatch({ do: 'open', ref });
 }
 
@@ -80,7 +92,7 @@ function goApp(id) {
   ui.app = id;
   ui.detail = false;
   if (!ui.dayTouched) ui.day = state.clock.day;
-  render();
+  dispatch({ do: 'view', app: id });
 }
 
 // -------------------------------------------------------------- skeleton
@@ -89,34 +101,54 @@ const root = document.getElementById('desk');
 root.innerHTML = `
   <header class="menubar">
     <div class="left"><span class="company">MERIDIAN<span class="co-rest"> SUPPLY CO.</span></span><span class="who">Employee 4417 · Operations Associate</span></div>
-    <div class="right"><span class="clock" id="clock"></span><button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"></span></button></div>
+    <div class="right">
+      <span class="clock" id="clock"></span>
+      <button class="logoff" id="logoff" type="button">Log off</button>
+      <button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full"></span><span class="short"></span></span></button>
+    </div>
   </header>
   <div class="stage">
     <nav class="dock" id="dock" aria-label="Apps"></nav>
     <main class="workarea"><section class="window" id="win"></section></main>
   </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div id="modal"></div>
   <div id="overlay"></div>`;
 const els = {
   clock: root.querySelector('#clock'),
   tray: root.querySelector('#tray'),
   trayText: root.querySelector('#trayText'),
+  logoff: root.querySelector('#logoff'),
   dock: root.querySelector('#dock'),
   win: root.querySelector('#win'),
   toasts: root.querySelector('#toasts'),
+  modal: root.querySelector('#modal'),
   overlay: root.querySelector('#overlay'),
 };
 els.tray.addEventListener('click', () => goApp('narc'));
+els.logoff.addEventListener('click', () => { logoffOpen = true; render(); });
 
 // -------------------------------------------------------------- menu & dock
+
+function trayLabel() {
+  if (attention(state)) return ['NARC · ACTION REQUIRED', 'NARC · ACTION'];
+  return state.level >= 2 ? ['NARC · ENHANCED', 'NARC · 2.0'] : ['NARC ACTIVE', 'NARC ACTIVE'];
+}
 
 function renderChrome() {
   els.clock.textContent = clockText(state);
   const u = unread(state);
-  els.trayText.textContent = state.level >= 2 ? 'NARC · ENHANCED' : 'NARC ACTIVE';
+  const need = attention(state) > 0;
+  const [fullLabel, shortLabel] = trayLabel();
+  els.trayText.querySelector('.full').textContent = fullLabel;
+  els.trayText.querySelector('.short').textContent = shortLabel;
   els.tray.classList.toggle('enhanced', state.level >= 2);
-  els.tray.classList.toggle('alert', u.narc > 0);
-  els.tray.setAttribute('aria-label', `${els.trayText.textContent}. ${u.narc} unread alerts. Open NARC.`);
+  els.tray.classList.toggle('action', need);
+  els.tray.setAttribute('aria-label', need ? 'NARC has a case that needs your attention. Open NARC.' : `${fullLabel}. Open NARC.`);
+
+  const info = logoffInfo(state);
+  els.logoff.disabled = !info;
+  els.logoff.title = info ? 'Log off for now. NARC will process the open case.' : 'Nothing is waiting on you.';
 
   els.dock.replaceChildren(...APPS.map((a) => {
     const count = u[a.id] || 0;
@@ -124,8 +156,9 @@ function renderChrome() {
     b.firstChild.innerHTML = ICON[a.id];
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === a.id));
-    if (count) b.append(h('span', 'badge', count));
-    b.setAttribute('aria-label', count ? `${a.label}, ${count} unread` : a.label);
+    if (count) b.append(h('span', a.id === 'narc' ? 'badge action' : 'badge', count));
+    else if (state.marks[a.id]) b.append(h('span', 'mark', ''));
+    b.setAttribute('aria-label', count ? `${a.label}, ${count} ${a.id === 'narc' ? 'needs attention' : 'unread'}` : state.marks[a.id] ? `${a.label}, something new` : a.label);
     b.addEventListener('click', () => goApp(a.id));
     return b;
   }));
@@ -179,16 +212,27 @@ function renderEmail() {
   } else {
     detail.append(h('h2', null, m.subject), h('div', 'from', `From: ${m.from}`));
     m.body.forEach((p) => detail.append(h('p', null, p)));
+    if (m.form === 'ack') detail.append(ackForm());
     if (m.form === 'nominate') detail.append(nominateForm());
   }
   return windowShell('Email', h('div', 'body', list, detail));
+}
+
+function ackForm() {
+  const box = h('div', 'form');
+  if (state.orient.ack) {
+    box.append(h('div', 'acked', 'Acknowledged. Thank you for your participation.'));
+  } else {
+    box.append(btn('Acknowledge receipt', 'btn primary', () => dispatch({ do: 'ack' })));
+  }
+  return box;
 }
 
 function nominateForm() {
   const box = h('div', 'form');
   const open = state.incident?.id === 'e4';
   if (!open) {
-    box.append(h('div', null, state.picked.e4 ? 'Nominations are now closed.' : 'Nominations open shortly.'));
+    box.append(h('div', null, state.picked.e4 ? 'Nominations are now closed.' : 'Nominations open Thursday at 09:00.'));
     return box;
   }
   Object.entries(PEOPLE).forEach(([id, p]) => {
@@ -236,6 +280,7 @@ function renderMessages() {
     const scroll = h('div', 'scroll');
     scroll.dataset.scroll = `thread-${id}`;
     scroll.dataset.stick = '1';
+    if (!state.threads[id].length) scroll.append(h('div', 'empty', 'No messages yet.'));
     state.threads[id].forEach((m) => {
       const b = h('div', `bubble ${m.from === 'me' ? 'me' : m.from === 'system' ? 'system' : ''}`, m.text);
       if (m.attach) b.append(h('span', 'attach', m.attach));
@@ -274,12 +319,14 @@ function renderCalendar() {
   const head = h('div', 'cal-head');
   const tabs = h('div', 'tabs');
   DAYS.forEach((d) => {
-    const t = btn(d, `tab${d === state.clock.day ? ' today' : ''}`, () => { ui.day = d; ui.dayTouched = true; render(); }, { 'aria-pressed': String(ui.day === d) });
-    tabs.append(t);
+    tabs.append(btn(d, `tab${d === state.clock.day ? ' today' : ''}`, () => { ui.day = d; ui.dayTouched = true; render(); }, { 'aria-pressed': String(ui.day === d) }));
   });
+  const slot = calendarAction(state);
+  const teamTab = btn('Team calendar', 'tab', () => { ui.team = true; render(); }, { 'aria-pressed': String(ui.team) });
+  if (slot && !ui.team) teamTab.append(h('span', 'tabdot', ''));
   const which = h('div', 'tabs',
     btn('My calendar', 'tab', () => { ui.team = false; render(); }, { 'aria-pressed': String(!ui.team) }),
-    btn('Team calendar', 'tab', () => { ui.team = true; render(); }, { 'aria-pressed': String(ui.team) }));
+    teamTab);
   head.append(tabs, which);
   pane.append(head);
 
@@ -289,7 +336,6 @@ function renderCalendar() {
     if (!mine.length) pane.append(h('div', 'empty', 'Nothing scheduled.'));
     mine.forEach((e) => pane.append(eventRow(e, false)));
   } else {
-    const slot = calendarAction(state);
     ['marcus', 'team'].forEach((who) => {
       const evs = state.calendar.filter((e) => e.who === who && e.day === ui.day).sort(byStart);
       if (who === 'marcus') {
@@ -331,7 +377,7 @@ function renderFiles() {
     const row = h('button', 'row', h('div', 'name', f.name), h('div', 'sub', f.meta));
     row.type = 'button';
     row.setAttribute('aria-current', String(ui.sel.files === f.id));
-    row.addEventListener('click', () => { ui.sel.files = f.id; ui.detail = true; dispatch({ do: 'touch' }); });
+    row.addEventListener('click', () => { ui.sel.files = f.id; ui.detail = true; render(); });
     list.append(row);
   });
   const detail = h('div', 'detail file-body');
@@ -384,22 +430,30 @@ function renderUtilities() {
 
 // -------------------------------------------------------------------- NARC
 
+function alertRow(a) {
+  const active = a.incident && !a.closed;
+  const row = h('button', `row${active ? ' active' : ''}${a.closed ? ' closed' : ''}`,
+    h('div', 'top', h('span', 'name', a.title), active ? h('span', 'pill', 'Action') : null),
+    h('div', 'sub', a.text));
+  row.type = 'button';
+  row.setAttribute('aria-current', String(ui.sel.narc === a.id));
+  row.addEventListener('click', () => openRef(`alert:${a.id}`));
+  return row;
+}
+
 function renderNarc() {
   const top = h('div', 'narc-top', h('span', 'brand', 'NARC'));
   if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', h('b', null, state.score)));
   if (state.level >= 2) top.append(h('span', 'flag', 'Integrity flags ', h('b', null, state.flags)));
 
+  const { active, history } = narcSections(state);
   const list = h('div', 'list');
-  if (!state.alerts.length) list.append(h('div', 'empty', 'No alerts.'));
-  state.alerts.forEach((a) => {
-    const row = h('button', `row${a.unread ? ' unread' : ''}${a.closed ? ' closed' : ''}`,
-      h('div', 'top', h('span', 'name', a.title), a.unread ? h('span', 'pill', '●') : null),
-      h('div', 'sub', a.text));
-    row.type = 'button';
-    row.setAttribute('aria-current', String(ui.sel.narc === a.id));
-    row.addEventListener('click', () => openRef(`alert:${a.id}`));
-    list.append(row);
-  });
+  list.append(h('div', 'sect-h need', 'Needs attention'));
+  if (!active.length) list.append(h('div', 'none', 'Nothing needs your attention.'));
+  active.forEach((a) => list.append(alertRow(a)));
+  list.append(h('div', 'sect-h', 'Recent activity'));
+  if (!history.length) list.append(h('div', 'none', 'No activity yet.'));
+  history.forEach((a) => list.append(alertRow(a)));
   if (state.level >= 2) {
     const team = h('div', 'team', h('div', 'sect', 'Team status'));
     Object.entries(PEOPLE).forEach(([id, p]) => {
@@ -412,9 +466,7 @@ function renderNarc() {
   const detail = h('div', 'detail');
   const a = state.alerts.find((x) => x.id === ui.sel.narc);
   if (!a) {
-    detail.append(state.alerts.length
-      ? h('div', 'empty', 'Select an alert.')
-      : h('div', 'about', 'NARC Workforce Support is active on this workstation. Approved activity signals are analyzed to help you succeed. No action is required.'));
+    detail.append(h('div', 'about', 'NARC Workforce Support is active on this workstation. Approved activity signals are analyzed to help you succeed. No action is required.'));
   } else {
     detail.append(caseNode(a));
   }
@@ -475,37 +527,55 @@ function caseNode(a) {
 
 // ------------------------------------------------------------------ toasts
 
+// NARC talks until someone listens. Notifications stay until they are opened
+// or closed; closing one only hides it. A few show at a time and the rest wait
+// in the app badges and NARC's history.
 function renderToasts() {
-  for (const [id, el] of toastEls) {
-    const t = state.toasts.find((x) => x.id === id);
-    if (!t || t.gone) { el.remove(); toastEls.delete(id); }
+  const live = state.phase === 'ending' ? [] : state.toasts.filter((t) => !t.gone);
+  const max = matchMedia('(max-width: 760px)').matches ? 2 : 3;
+  const shown = live.slice(-max);
+  const more = live.length - shown.length;
+  els.toasts.replaceChildren();
+  if (more > 0) {
+    els.toasts.append(h('div', 'more',
+      h('span', null, `${more} earlier notification${more === 1 ? '' : 's'}`),
+      btn('Clear all', 'clear', () => dispatch({ do: 'clear' }))));
   }
-  state.toasts.forEach((t) => {
-    if (t.gone || shownToasts.has(t.id)) return;
-    shownToasts.add(t.id);
+  shown.forEach((t) => {
     const label = { narc: 'NARC', messages: 'Messages', email: 'Email' }[t.app];
-    const el = h('div', `toast ${t.app === 'narc' ? 'narc' : ''}`);
-    const body = h('button', 'open', h('span', 'app', label), h('b', null, t.title), h('span', 'text', t.text));
+    const fresh = !shownToasts.has(t.id);
+    shownToasts.add(t.id);
+    const el = h('div', `toast ${t.app === 'narc' ? 'narc' : ''}${t.app === 'narc' && state.level >= 2 ? ' enhanced' : ''}${fresh ? ' enter' : ''}`);
+    const body = h('button', 'open', h('span', 'app', label), h('b', null, t.title), h('span', 'text', t.text),
+      t.app === 'narc' ? h('span', 'cta', 'Open in NARC ›') : null);
     body.type = 'button';
     body.addEventListener('click', () => openRef(t.open));
-    const x = btn('×', 'x', () => dispatch(t.incident ? { do: 'dismiss', alert: t.alert } : { do: 'gone', id: t.id }), { 'aria-label': 'Dismiss notification' });
+    const x = btn('×', 'x', () => dispatch({ do: 'gone', id: t.id }), { 'aria-label': 'Close notification' });
     el.append(body, x);
     els.toasts.append(el);
-    toastEls.set(t.id, el);
-    const max = matchMedia('(max-width: 760px)').matches ? 2 : 3;
-    while (toastEls.size > max) {
-      const [oldId, old] = toastEls.entries().next().value;
-      old.remove();
-      toastEls.delete(oldId);
-    }
-    setTimeout(() => {
-      el.classList.add('leaving');
-      setTimeout(() => { el.remove(); toastEls.delete(t.id); }, 320);
-    }, 9000);
   });
 }
 
-// ------------------------------------------------------------------ ending
+// ------------------------------------------------------------- log off, ending
+
+function renderModal() {
+  els.modal.replaceChildren();
+  const info = logoffInfo(state);
+  if (!logoffOpen || !info) { logoffOpen = false; return; }
+  const box = h('div', 'dialog',
+    h('h2', null, 'Log off for now?'),
+    h('p', null, `NARC review pending: ${info.title}.`),
+    h('p', null, `If you log off, ${info.text}`));
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  const actions = h('div', 'ctl');
+  const stay = btn('Keep working', 'nbtn', () => { logoffOpen = false; render(); });
+  const go = btn('Log off', 'nbtn dismiss', () => { logoffOpen = false; dispatch({ do: 'logoff' }); });
+  actions.append(stay, go);
+  box.append(actions);
+  els.modal.append(h('div', 'overlay', box));
+  stay.focus({ preventScroll: true });
+}
 
 function renderOverlay() {
   els.overlay.replaceChildren();
@@ -532,9 +602,8 @@ function renderOverlay() {
   locked.forEach((a) => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', a.hint))));
   r.append(ach);
 
-  const again = btn('Log off and start a new week', 'nbtn', restart);
+  const again = btn('Log off and start a new week', 'nbtn primary', restart);
   again.style.marginTop = '20px';
-  again.classList.add('primary');
   r.append(again);
   const layer = h('div', 'overlay', r);
   els.overlay.append(layer);
@@ -543,11 +612,7 @@ function renderOverlay() {
 }
 
 function restart() {
-  toastEls.forEach((el) => el.remove());
-  toastEls.clear();
-  shownToasts.clear();
-  state = act(state, { do: 'restart' });
-  ui = freshUi();
+  begin();
   render();
 }
 
@@ -572,6 +637,7 @@ function render() {
   renderChrome();
   renderWindow();
   renderToasts();
+  renderModal();
   renderOverlay();
   restoreFocus(f);
 }
@@ -589,13 +655,11 @@ setInterval(() => {
     // A message that lands in the conversation you are reading is already read.
     const open = ui.app === 'messages' && ui.sel.messages;
     if (open && state.threads[open].some((m) => m.unread)) dispatch({ do: 'open', ref: `thread:${open}` });
+    // Something new in the app you are already looking at is not "new" to you.
+    if (state.marks[ui.app]) dispatch({ do: 'view', app: ui.app });
   } else {
     els.clock.textContent = clockText(state);
   }
 }, TICK_MS);
-
-// Any click or keystroke means the player is at the computer.
-const touch = () => { state = act(state, { do: 'touch' }); };
-['click', 'keydown', 'input'].forEach((type) => root.addEventListener(type, touch, true));
 
 render();
