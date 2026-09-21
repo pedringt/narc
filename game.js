@@ -363,6 +363,14 @@ function scan(s) {
     'Behavioral forecast generated',
     `Employee 4417: predicted policy-workaround likelihood ${risk}%. Basis: recent activity patterns, calendar reclassification, tool usage, and integrity history. Forecasts may inform future monitoring.`,
   );
+  notice(
+    s,
+    n + 10,
+    'Workstyle update',
+    risk >= 56
+      ? 'Your recent behavior differs from your established workplace pattern. No action is required. NARC will continue observing.'
+      : 'NARC has established a workplace baseline for Employee 4417. No action is required.',
+  );
   const last = settledAt(s);
   push(s, { at: last + GAP, k: 'arm', id: 'e4' });
 }
@@ -919,13 +927,13 @@ const REPLIES = {
   'dana:neutralworkshop': { text: 'I don’t have enough context to recommend anything.', when: 'e6', variant: 'g', branch: 'approve' },
   'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', branch: 'vouch_trace' },
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', branch: 'let' },
-  'luis:focus': { text: 'Sincere tip: block your restroom windows as focus time on your calendar.', when: 'e2', branch: 'focus' },
-  'luis:badtip': { text: 'Polite sabotage: just write NARC an explanation in the comment box.', when: 'e2', branch: 'badtip' },
-  'marcus:calendar': { text: 'Sincere tip: add a Wednesday calendar entry for the vendor visit.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
-  'marcus:latecalendar': { text: 'Polite sabotage: wait for HR to answer, then add the calendar entry so it looks natural.', when: 'e3', branch: 'badtip' },
+  'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', branch: 'focus' },
+  'luis:badtip': { text: 'Maybe just explain it to NARC in the comment box.', when: 'e2', branch: 'badtip' },
+  'marcus:calendar': { text: 'Add the vendor visit to your calendar so there is actually a record of it.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
+  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', branch: 'badtip' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', branch: 'approve' },
-  'priya:sync': { text: 'Sincere tip: move the chatter into an in-person sync instead of chat.', when: 'e4', branch: 'sync' },
-  'priya:quiet': { text: 'Polite sabotage: post less for a few days, it will blow over.', when: 'e4', branch: 'quiet' },
+  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', branch: 'sync' },
+  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', branch: 'quiet' },
 };
 
 export function replies(s, thread) {
