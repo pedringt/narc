@@ -39,6 +39,7 @@ function freshUi() {
     day: 'Mon',
     dayTouched: false,
     team: false,
+    narcHistoryPinned: false,
     draft: { note: '', title: '', attribute: '', nominee: '' },
   };
 }
@@ -91,6 +92,12 @@ function openRef(ref) {
 function goApp(id) {
   ui.app = id;
   ui.detail = false;
+  if (id === 'narc') {
+    ui.narcHistoryPinned = false;
+    const { active, team } = narcSections(state);
+    const current = active[0] || team[0];
+    if (current) ui.sel.narc = current.id;
+  }
   if (!ui.dayTouched) ui.day = state.clock.day;
   dispatch({ do: 'view', app: id });
 }
@@ -253,22 +260,37 @@ function ackForm() {
 
 function nominateForm() {
   const box = h('div', 'form');
+  const entries = Object.entries(state.nominations || {});
+  const submitted = entries.find(([, status]) => status === 'submitted');
+  if (submitted) {
+    box.append(h('div', 'acked', `Nomination submitted: ${PEOPLE[submitted[0]].name}`));
+    return box;
+  }
+
   const open = state.incident?.id === 'e4';
   if (!open) {
     box.append(h('div', null, state.picked.e4 ? 'Nominations are now closed.' : 'Nominations open Thursday at 09:00.'));
     return box;
   }
+
   Object.entries(PEOPLE).forEach(([id, p]) => {
     const input = h('input');
     input.type = 'radio';
     input.name = 'nominee';
     input.value = id;
     input.checked = ui.draft.nominee === id;
+    input.disabled = !!state.nominations[id];
     input.addEventListener('change', () => { ui.draft.nominee = id; render(); });
-    box.append(h('label', null, input, `${p.name} · ${p.role}`));
+    const status = state.nominations[id] === 'rejected' ? ' · below threshold' : '';
+    box.append(h('label', null, input, `${p.name} · ${p.role}${status}`));
   });
+
+  const pickedStatus = state.nominations[ui.draft.nominee];
+  if (pickedStatus === 'rejected') {
+    box.append(h('div', 'acked', `${PEOPLE[ui.draft.nominee].name} is below the Collaboration Index threshold. Nomination not submitted.`));
+  }
   const send = btn('Submit nomination', 'btn primary', () => dispatch({ do: 'nominate', who: ui.draft.nominee }));
-  send.disabled = !ui.draft.nominee;
+  send.disabled = !ui.draft.nominee || !!pickedStatus;
   send.style.marginTop = '10px';
   box.append(send);
   return box;
@@ -317,12 +339,11 @@ function renderMessages() {
     if (id === 'luis' && canAttachHelper(state)) {
       chips.append(btn('Attach: Mouse Activity Helper.pkg', 'chip', () => dispatch({ do: 'attach', thread: 'luis', item: 'helper' })));
     }
-    if (chips.childNodes.length) compose.append(chips);
-    const input = h('input');
-    input.placeholder = state.online[id] === false ? 'This account is no longer active' : 'Message';
-    input.disabled = true;
-    input.setAttribute('aria-label', 'Message');
-    compose.append(input);
+    if (chips.childNodes.length) {
+      compose.append(chips);
+    } else {
+      compose.append(h('div', 'compose-state', state.online[id] === false ? 'This account is no longer active.' : 'No reply needed right now.'));
+    }
     wrap.append(compose);
     detail.append(wrap);
   }
@@ -425,18 +446,22 @@ function renderUtilities() {
   const cards = h('div', 'cards');
   const hp = state.helper;
 
-  const helper = h('div', 'card');
-  helper.append(h('h3', null, 'Mouse Activity Helper'), h('p', null, 'Keeps workstation active during long tasks.'));
+  const helper = h('div', 'card sketchy');
+  helper.append(
+    h('div', 'utility-kicker', hp.installed ? 'UNVERIFIED TOOL · INSTALLED' : 'UNVERIFIED DOWNLOAD'),
+    h('h3', null, 'keepalive.pkg'),
+    h('p', null, hp.installed ? 'Simulates workstation activity. Source: Messages.' : 'Shared by Marcus in Messages. Publisher unknown.')
+  );
   if (!hp.installed) {
-    helper.append(btn('Install', 'btn primary', () => dispatch({ do: 'helper', op: 'install' })));
+    helper.append(btn('Install anyway', 'btn primary', () => dispatch({ do: 'helper', op: 'install' })));
   } else {
     const sw = h('button', 'switch');
     sw.type = 'button';
     sw.setAttribute('role', 'switch');
     sw.setAttribute('aria-checked', String(hp.on));
-    sw.setAttribute('aria-label', 'Mouse Activity Helper on or off');
+    sw.setAttribute('aria-label', 'Keepalive on or off');
     sw.addEventListener('click', () => dispatch({ do: 'helper', op: 'toggle' }));
-    helper.append(h('div', 'line', h('span', null, 'This workstation'), h('span', hp.on ? 'status-on' : '', hp.on ? 'Running' : 'Stopped'), sw));
+    helper.append(h('div', 'line', h('span', null, 'This workstation'), h('span', hp.on ? 'status-on' : '', hp.on ? 'Simulating activity' : 'Stopped'), sw));
     if (hp.luis) {
       const r = hp.luis;
       const rowL = h('div', 'line', h('span', null, 'Luis Perez · ', r.randomized ? 'interval: random' : 'interval: fixed (59 s)'));
@@ -463,11 +488,14 @@ function alertRow(a) {
   const open = a.incident && !a.closed;
   const mine = open && caseView(state, a).own;
   const row = h('button', `row${mine ? ' active' : ''}${open && !mine ? ' teamrow' : ''}${a.closed ? ' closed' : ''}`,
-    h('div', 'top', h('span', 'name', a.title), mine ? h('span', 'pill', 'Action') : open ? h('span', 'pill team', 'Team') : null),
+    h('div', 'top', h('span', 'name', a.title), mine ? h('span', 'pill', 'Action') : null),
     h('div', 'sub', a.text));
   row.type = 'button';
   row.setAttribute('aria-current', String(ui.sel.narc === a.id));
-  row.addEventListener('click', () => openRef(`alert:${a.id}`));
+  row.addEventListener('click', () => {
+    ui.narcHistoryPinned = !open;
+    openRef(`alert:${a.id}`);
+  });
   return row;
 }
 
@@ -498,7 +526,12 @@ function renderNarc() {
   }
 
   const detail = h('div', 'detail');
-  const a = state.alerts.find((x) => x.id === ui.sel.narc);
+  const current = active[0] || team[0];
+  let a = state.alerts.find((x) => x.id === ui.sel.narc);
+  if (current && !ui.narcHistoryPinned && (!a || a.closed || !a.incident)) {
+    a = current;
+    ui.sel.narc = current.id;
+  }
   if (!a) {
     detail.append(h('div', 'about', 'NARC Workforce Support is active on this workstation. Approved activity signals are analyzed to help you succeed. No action is required.'));
   } else {
@@ -511,21 +544,40 @@ function caseNode(a) {
   const c = caseView(state, a);
   const box = h('div', 'case');
   box.append(h('h2', null, c.title));
+
   if (c.notice) {
-    box.append(h('p', null, c.text));
+    box.append(h('div', 'history-tag', 'RECENT ACTIVITY'), h('p', 'notice-copy', c.text));
     return box;
   }
+
   box.append(h('div', 'subject', c.subject));
-  box.append(h('div', 'model-flow', 'WORKPLACE SIGNALS  →  NARC INFERENCE  →  COMPANY ACTION'));
-  box.append(h('div', 'sect observed', 'What NARC observed'), h('ul', null, c.observed.map((o) => h('li', null, o))));
-  box.append(h('div', 'sect model', 'What NARC inferred'), h('div', 'model-box', h('div', null, c.model.label), h('div', 'conf', `Model confidence: ${c.model.confidence}%`)));
-  if (c.metrics.length) box.append(h('div', 'metrics', c.metrics.map(([k, v]) => h('div', null, `${k}: `, h('b', null, v)))));
+  box.append(h('div', 'sect observed', 'Signals'));
+  box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
+
+  box.append(
+    h('div', 'sect model', 'NARC assessment'),
+    h('div', 'model-box',
+      h('div', 'assessment', c.model.label),
+      h('div', 'conf', `${c.model.confidence}% confidence`)
+    )
+  );
+
+  const context = c.metrics.filter(([k]) => !/Recommended action|Automatic action|Company response/i.test(k));
+  const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
+  if (context.length) {
+    box.append(h('div', 'context-facts', context.map(([k, v]) => h('div', null, h('span', null, k), h('b', null, v)))));
+  }
+  if (action) {
+    box.append(h('div', 'company-action', h('span', null, 'Company response'), h('b', null, action[1])));
+  }
+
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
-  if (c.note) box.append(h('div', 'viewonly', c.note));
+  if (c.note) box.append(h('div', 'viewonly', 'This is a team alert. Act through Messages, Files, Calendar, or Utilities if you want to intervene.'));
   if (c.closed) {
-    box.append(h('div', 'closed-line', 'Status: closed.'));
+    box.append(h('div', 'closed-line', 'Recent activity · closed'));
     return box;
   }
+
   const ctl = h('div', 'ctl');
   c.controls.forEach((k) => {
     if (k.type === 'button') {
