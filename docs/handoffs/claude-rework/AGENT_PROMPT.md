@@ -227,7 +227,7 @@ The pass is successful if:
 - the game no longer feels like six scenario cards
 - carry-over still works
 - tests pass
-- the run remains roughly 5–8 minutes
+- the run remains a compact portfolio experience: roughly 5–15 minutes overall, with ~8–10 minutes as the healthy first-run target
 
 ## Do Not
 
