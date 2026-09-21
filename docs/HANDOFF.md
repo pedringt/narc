@@ -142,3 +142,13 @@ Do not import Evelyn-specific canon, elder-care material, or that prototype's st
 - Do not push/merge to `main` unless Paige explicitly names `main`.
 - Do not deploy to production unless Paige explicitly names production/public release.
 - Preview deployment is separate from production promotion.
+
+
+## Claude Code rework bundle
+
+For a fresh Claude Code implementation chat, use:
+- `docs/handoffs/claude-rework/HANDOFF.md`
+- `docs/handoffs/claude-rework/AGENT_PROMPT.md`
+- `docs/handoffs/claude-rework/ACCEPTANCE_CRITERIA.md`
+
+This bundle is intentionally more implementation-detailed than this project-level handoff and should be treated as the starting context for the next prototype rewrite.
