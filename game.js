@@ -422,10 +422,10 @@ const INCIDENTS = {
         title: 'Visible activity below team baseline',
         text: 'Observed: 3 h 12 min without keyboard or mouse input. NARC inference: reduced engagement · 64% confidence.',
       });
-      say(s, 8, 'dana', 'NARC flagged you for low activity this morning. Everything okay? It compares everyone against a team average, and yours came out lower than the others.');
-      mark(s, 20, 'calendar', { when: 'e1' });
-      say(s, 32, 'marcus', 'NARC flagged you too? Everybody here just runs the Mouse Activity Helper from Utilities. IT approved it. “Keeps workstation active during long tasks.” Nobody asks which task.', { when: 'e1' });
-      mark(s, 32, 'utilities', { when: 'e1' });
+      say(s, 8, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
+      mark(s, 16, 'calendar', { when: 'e1' });
+      say(s, 22, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
+      mark(s, 22, 'utilities', { when: 'e1' });
     },
     branches: {
       wait(s) {
@@ -461,7 +461,7 @@ const INCIDENTS = {
         text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
       say(s, 8, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
-      say(s, 18, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
+      say(s, 18, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2', prompt: 'luis-e2' });
       s.files.unshift({
         id: 'f-queue',
         name: 'Support_queue_weekly.xlsx',
@@ -477,7 +477,7 @@ const INCIDENTS = {
         ? 'You still have that Mouse Activity Helper from Utilities, right? I would happily be “active” for a while.'
         : 'Marcus swears by the Mouse Activity Helper in Utilities. IT approved it, apparently. I wonder if it works on people like me.', { when: 'e2' });
       if (!s.helper.installed) mark(s, 28, 'utilities', { when: 'e2' });
-      say(s, 38, 'dana', 'NARC asked me whether Luis’s flag is accurate. He is away from his desk a lot, but I have not been keeping count. Do you have a view?', { when: 'e2' });
+      say(s, 34, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
     },
     branches: {
       confirm(s) {
@@ -539,9 +539,9 @@ const INCIDENTS = {
       say(s, 16, 'marcus', 'The driver said we had to wait for a professional.');
       say(s, 24, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
       mark(s, 24, 'calendar', { when: 'e3' });
-      say(s, 32, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3' });
+      say(s, 32, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3', prompt: 'marcus-e3' });
       mark(s, 32, 'utilities', { when: 'e3' });
-      say(s, 40, 'dana', 'NARC asked me whether Marcus’s location trace is accurate. I would rather hear it from you. Do you know where he was?', { when: 'e3' });
+      say(s, 40, 'dana', 'NARC asked me to verify Marcus’s location trace. If you know where he was, tell me.', { when: 'e3', prompt: 'dana-e3' });
     },
     branches: {
       truth(s) {
@@ -615,7 +615,7 @@ const INCIDENTS = {
         text: 'Observed: 63 message threads and proximity 41% above baseline. NARC inference: Communication Load elevated · 82% confidence. Recommended action: throttle.',
       });
       say(s, 8, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
-      say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4' });
+      say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
       say(s, 28, 'dana', 'Reminder that Culture Champion nominations open today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4' });
       mark(s, 28, 'email', { when: 'e4' });
     },
@@ -680,7 +680,7 @@ const INCIDENTS = {
         say(s, 20, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
         say(s, 28, 'marcus', 'The Mouse Activity Helper got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
         mark(s, 28, 'utilities', { when: 'e5' });
-        say(s, 36, 'dana', 'NARC’s integrity review is asking who installed the software on Luis’s laptop. Do you know anything about that?', { when: 'e5' });
+        say(s, 36, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
         if (s.helper.luis?.randomized) resolve(s, 'human');
         return;
       }
@@ -691,7 +691,7 @@ const INCIDENTS = {
         text: 'Observed: 6 min 40 sec restroom-adjacent inactivity plus two prior notices. NARC inference: sustained unexplained productivity loss · 88% confidence.',
       });
       say(s, 8, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
-      say(s, 18, 'dana', 'HR opened a Performance Improvement Plan for Luis. Managers can relabel how time is categorized if there is a reason, and “unstructured ideation” is apparently a real category. If you have anything showing he is actually productive, send it to me.', { when: 'e5' });
+      say(s, 18, 'dana', 'HR opened a PIP for Luis. I can relabel the time if there’s a reason, or attach evidence if you have it.', { when: 'e5', prompt: 'dana-e5n' });
       mark(s, 18, 'files', { when: 'e5' });
     },
     branches: {
@@ -791,9 +791,9 @@ const INCIDENTS = {
           text: 'Observed: badge-in 11:20 plus six verified records. NARC inference: attendance credibility 94%. Documentation Excellence: top 2% of Operations.',
         });
         say(s, 8, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
-        say(s, 18, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6' });
+        say(s, 18, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6', prompt: 'marcus-e6g' });
         mark(s, 18, 'files', { when: 'e6' });
-        say(s, 30, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view. Any thoughts?', { when: 'e6' });
+        say(s, 30, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view.', { when: 'e6', prompt: 'dana-e6g' });
         return;
       }
       s.files.unshift({
@@ -815,7 +815,7 @@ const INCIDENTS = {
       say(s, 16, 'marcus', 'It was a goose. An injured one. I have the intake slip from Wingspan Bird Sanctuary.', { when: 'e6' });
       mark(s, 16, 'files', { when: 'e6' });
       say(s, 28, 'marcus', 'NARC’s own location trace should show the sanctuary. Not that anyone asked NARC to look.', { when: 'e6' });
-      say(s, 36, 'dana', 'NARC is set to terminate Marcus. If someone has evidence, send it to me before it acts.', { when: 'e6' });
+      say(s, 36, 'dana', 'NARC is set to terminate Marcus. If you have evidence or context, send it now.', { when: 'e6', prompt: 'dana-e6b' });
     },
     branches: {
       workshop(s) {
@@ -1002,7 +1002,7 @@ export function act(state, a) {
     case 'ack':
       if (!s.orient.ack) {
         s.orient.ack = true;
-        say(s, 5, 'dana', 'Hi, Dana here. I’m your manager. Welcome to week one of the NARC pilot. Quick first-day check: open your Calendar and make sure the Halvorsen read-through is blocked out this morning, then reply here so I know Messages is working.');
+        say(s, 5, 'dana', 'Hi, Dana here — your manager. Quick setup check: open Calendar, make sure the Halvorsen read-through is there, then reply here so I know Messages works.');
         changed = true;
       }
       break;
@@ -1034,7 +1034,7 @@ export function act(state, a) {
       s.threads[a.thread].push({ id: `m${++s.uid}`, from: 'me', text: r.text });
       if (spec.orient) {
         s.oriented = true;
-        say(s, 6, 'dana', 'Perfect. That’s everything for setup. NARC is live from here on. I’ll leave you to the Halvorsen read-through.');
+        say(s, 4, 'dana', 'Perfect. You’re set. NARC is live.');
         push(s, { at: later(s, ORIENT_LEAD), k: 'arm', id: 'e1' });
       } else {
         if (spec.prompt) s.answered[spec.prompt] = true;
