@@ -360,26 +360,16 @@ function scan(s) {
     notice(s, n, 'Scan complete', 'Marcus Reed: 3 supporting documents verified. No anomalies.');
     n += 8;
   }
-  if (!found) notice(s, n, 'Scan complete', 'No synthetic activity found. NARC congratulates the team on its authenticity.');
-  n += 10;
   const workaroundSignals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
   const risk = workaroundSignals >= 2 ? 78 : workaroundSignals === 1 ? 56 : 24;
-  notice(
-    s,
-    n,
-    'Behavioral forecast generated',
-    `Employee 4417: predicted policy-workaround likelihood ${risk}%. Basis: recent activity patterns, calendar reclassification, tool usage, and integrity history. Forecasts may inform future monitoring.`,
-  );
-  notice(
-    s,
-    n + 10,
-    'Workstyle update',
-    risk >= 56
-      ? 'Your recent behavior differs from your established workplace pattern. No action is required. NARC will continue observing.'
-      : 'NARC has established a workplace baseline for Employee 4417. No action is required.',
-  );
-  const last = settledAt(s);
-  push(s, { at: last + GAP, k: 'arm', id: 'e4' });
+  push(s, {
+    at: later(s, n + 8),
+    k: 'forecast',
+    title: 'Behavioral forecast',
+    text: found
+      ? `Policy-workaround likelihood: ${risk}%. NARC detected unusual recent behavior and will use this forecast for future monitoring.`
+      : `Policy-workaround likelihood: ${risk}%. No synthetic activity detected. NARC has established your workplace baseline.`,
+  });
 }
 
 function finish(s) {
