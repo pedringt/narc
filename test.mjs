@@ -19,6 +19,7 @@ function until(s, done, { max = 2000, reads = true } = {}) {
   for (let i = 0; i < max; i += 1) {
     if (done(s)) return s;
     if (reads && s.awaiting) s = act(s, { do: 'open', ref: `email:${s.awaiting}` });
+    else if (reads && s.awaitingAlert) s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
     else s = tick(s);
   }
   throw new Error(`condition never met (t=${s.t}, incident=${s.incident?.id}, phase=${s.phase})`);
@@ -44,13 +45,19 @@ function oriented(s = newGame()) {
 // (e1) can be handled in NARC; everything else is Messages, Calendar, Files,
 // Utilities or Email. Doing nothing about a team alert means logging off.
 const opened = (s, inc) => act(s, { do: 'open', ref: `alert:${alertOf(s, inc).id}` });
-const reply = (thread, id) => (s) => act(s, { do: 'reply', thread, reply: id });
+const reply = (thread, id) => (s) => {
+  s = until(s, (x) => replies(x, thread).some((r) => r.id === id));
+  return act(s, { do: 'reply', thread, reply: id });
+};
 const logoff = (s) => act(s, { do: 'logoff' });
 const DO = {
   e1: {
     wait: (s) => act(s, { do: 'dismiss', alert: alertOf(s, 'e1').id }),
     explain: (s) => act(opened(s, 'e1'), { do: 'case', id: 'submitNote', text: 'I was reading a contract on paper.' }),
-    jiggle: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' }),
+    jiggle: (s) => {
+      s = until(s, (x) => x.helper.discovered);
+      return act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' });
+    },
     focus: (s) => act(s, { do: 'markFocus', event: 'c1' }),
   },
   e2: {
@@ -125,11 +132,11 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(m.unread, true, 'NARC is introduced by an unread company email');
   const body = m.body.join(' ');
   assert.match(body, /NARC — Networked Assessment & Risk Coordination/, 'the email spells out NARC');
-  assert.match(body, /monitor approved workplace activity/, 'and says it monitors workplace activity');
+  assert.match(body, /workstation activity.*communication.*scheduling.*company-tool signals/, 'and says which workplace signals it uses');
   assert.match(body, /alerts or activity reviews/);
   assert.match(body, /NARC ACTIVE/, 'and says where NARC shows up');
-  assert.match(body, /NARC alerts are visible to all team members/, 'and, for transparency, that everyone sees everyone’s alerts');
-  assert.match(body, /no action is required/i);
+  assert.match(body, /Alerts are visible to all team members/, 'and says that everyone sees everyone’s alerts');
+  assert.match(body, /Please acknowledge this message to continue/i);
   assert.equal(m.form, 'ack', 'with a harmless action to take');
   assert.equal(s.oriented, false);
   assert.equal(s.indexVisible, false, 'NARC’s score is not shown yet');
@@ -425,15 +432,20 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // ------------------- the helper is knowledge you acquire before you can share it
 
 {
+  let monday = play({}, { stopAt: 'e1' });
+  assert.equal(monday.helper.discovered, false);
+  assert.equal(act(monday, { do: 'helper', op: 'install' }).helper.installed, false, 'the exploit cannot be installed before Marcus shares it');
+  monday = until(monday, (x) => x.helper.discovered);
+  assert.match(texts(monday, 'marcus').join(' '), /keepalive tool/);
+  assert.ok(monday.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')), 'Marcus shares the unverified package');
+
   let s = play({ e1: 'explain' }, { stopAt: 'e2' });
-  assert.equal(canAttachHelper(s), false, 'you have not found the helper yet');
-  assert.equal(act(s, { do: 'attach', thread: 'luis', item: 'helper' }).picked.e2, undefined, 'so you cannot hand it to Luis');
+  assert.equal(canAttachHelper(s), false, 'you still have to install the discovered tool before sharing it');
   s = act(s, { do: 'helper', op: 'install' });
-  assert.equal(canAttachHelper(s), true, 'once you have it you can');
+  assert.equal(canAttachHelper(s), true, 'once installed you can pass it to Luis');
   const sent = act(s, { do: 'attach', thread: 'luis', item: 'helper' });
-  assert.ok(sent.threads.luis.some((m) => m.from === 'me' && /Mouse Activity Helper/.test(m.attach)));
+  assert.ok(sent.threads.luis.some((m) => m.from === 'me' && /keepalive\.pkg/.test(m.attach)));
   assert.equal(sent.picked.e2, 'script');
-  assert.equal(canAttachHelper(act(play({}, { stopAt: 'e1' }), { do: 'helper', op: 'install' })), false, 'not on Monday');
 }
 
 // ------------ in Messages, choices read like normal conversation
@@ -581,7 +593,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   const e1 = at({}, 'e1');
   assert.match(texts(e1, 'dana').at(-1), /NARC flagged you for low activity/);
-  assert.match(texts(e1, 'dana').at(-1), /Everything okay\?/);
+  assert.match(texts(e1, 'dana').at(-1), /working off-screen, let me know/);
 
   const e2 = at({}, 'e2');
   assert.match(texts(e2, 'luis')[0], /^NARC flagged me for “restroom-adjacent inactivity\.” Did you see\? I am not discussing my digestive system with software\.$/);
