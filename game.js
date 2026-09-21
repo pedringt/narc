@@ -354,6 +354,23 @@ function scan(s) {
     n += 8;
   }
   if (!found) notice(s, n, 'Scan complete', 'No synthetic activity found. NARC congratulates the team on its authenticity.');
+  n += 10;
+  const workaroundSignals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
+  const risk = workaroundSignals >= 2 ? 78 : workaroundSignals === 1 ? 56 : 24;
+  notice(
+    s,
+    n,
+    'Behavioral forecast generated',
+    `Employee 4417: predicted policy-workaround likelihood ${risk}%. Basis: recent activity patterns, calendar reclassification, tool usage, and integrity history. Forecasts may inform future monitoring.`,
+  );
+  notice(
+    s,
+    n + 10,
+    'Workstyle update',
+    risk >= 56
+      ? 'Your recent behavior differs from your established workplace pattern. No action is required. NARC will continue observing.'
+      : 'NARC has established a workplace baseline for Employee 4417. No action is required.',
+  );
   const last = settledAt(s);
   push(s, { at: last + GAP, k: 'arm', id: 'e4' });
 }
@@ -396,7 +413,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e1',
         title: 'Visible activity below team baseline',
-        text: 'Review recommended. Employee 4417: 3 h 12 min without keyboard or mouse input this morning.',
+        text: 'Observed: 3 h 12 min without keyboard or mouse input. NARC inference: reduced engagement · 64% confidence.',
       });
       say(s, 8, 'dana', 'NARC flagged you for low activity this morning. Everything okay? It compares everyone against a team average, and yours came out lower than the others.');
       mark(s, 20, 'calendar', { when: 'e1' });
@@ -406,7 +423,7 @@ const INCIDENTS = {
     branches: {
       wait(s) {
         score(s, 4, -6, 'Visible activity', 'Index {from} → {to}. Recommended action: increase visible activity.');
-        say(s, 12, 'dana', 'Saw the dip! No pressure. Maybe a little more… on Messages?');
+        say(s, 12, 'dana', 'NARC says your activity is still low. If you’re buried in something off-screen, just keep me posted.');
       },
       explain(s) {
         score(s, 4, -3, 'Note archived', 'Visible Activity Index: {from} → {to}. Notes are archived. They are not scored.');
@@ -434,7 +451,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e2',
         title: 'Restroom-adjacent inactivity',
-        text: 'Review recommended. Luis Perez: 47 minutes this week. Team baseline: 18.',
+        text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
       say(s, 8, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
       say(s, 18, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
@@ -509,7 +526,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e3',
         title: 'Attendance integrity',
-        text: 'Review recommended. Marcus Reed: badge-in 10:52 (scheduled 09:00). Corroborating records on file: none.',
+        text: 'Observed: badge-in 10:52, scheduled 09:00, no corroborating records. NARC inference: attendance credibility 38%.',
       });
       say(s, 8, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
       say(s, 16, 'marcus', 'The driver said we had to wait for a professional.');
@@ -588,9 +605,9 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e4',
         title: 'Communication load: elevated',
-        text: 'Review recommended. Priya Shah: 63 message threads this week. In-person proximity 41% above baseline. Recommended action: throttle.',
+        text: 'Observed: 63 message threads and proximity 41% above baseline. NARC inference: Communication Load elevated · 82% confidence. Recommended action: throttle.',
       });
-      say(s, 8, 'priya', 'NARC says my “communication load” is elevated. In my defense, I asked Claire what she was having for lunch, and it was a workflow.');
+      say(s, 8, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
       say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4' });
       say(s, 28, 'dana', 'Reminder that Culture Champion nominations open today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4' });
       mark(s, 28, 'email', { when: 'e4' });
@@ -599,13 +616,16 @@ const INCIDENTS = {
       quiet(s) {
         const p = s.people.priya;
         p.suppressed = true;
-        p.status = 'monitored';
+        p.status = 'fired';
         notice(s, 4, 'Communication load', 'Communication Load: elevated → normal. Priya Shah’s message volume: −71%.');
         say(s, 12, 'priya', 'I am fine. I am being efficient.');
         say(s, 20, 'priya', '(whispering) did you hear about Claire?');
-        notice(s, 30, 'Behavioral deviation', 'Priya Shah: social withdrawal. 71% below personal baseline. Collaboration Index: 97 → 31. Enrolled in mandatory Connection Circle.');
-        cal(s, 30, { who: 'team', day: 'Fri', start: '09:00', end: '10:00', title: 'Connection Circle (mandatory): Priya Shah', where: 'Assigned by NARC' });
-        catchUp(s, 30, 'priya');
+        notice(s, 30, 'Behavioral deviation', 'Priya Shah: social withdrawal. 71% below personal baseline. Collaboration Index: 97 → 31.');
+        notice(s, 40, 'Automatic action', 'Collaboration Index below role threshold. Priya Shah: termination pending.');
+        say(s, 48, 'priya', 'I did exactly what it told me to do.');
+        goOffline(s, 58, 'priya');
+        teamUpdate(s, 58, 'priya');
+        catchUp(s, 58, 'priya');
       },
       champion(s) {
         const p = s.people.priya;
@@ -647,7 +667,7 @@ const INCIDENTS = {
           incident: 'e5',
           variant: v,
           title: 'Synthetic activity: integrity review',
-          text: 'Review required. Luis Perez: input every 59 seconds, including 41 minutes while the badge shows the restroom corridor.',
+          text: 'Observed: input every 59 seconds, including 41 min while badge location shows the restroom corridor. NARC inference: automated presence · 96% confidence.',
         });
         say(s, 8, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
         say(s, 20, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
@@ -661,7 +681,7 @@ const INCIDENTS = {
         incident: 'e5',
         variant: v,
         title: 'Time-on-task: Performance Improvement Plan',
-        text: 'Review required. Luis Perez: 6 min 40 sec of restroom-adjacent inactivity at 14:14. Notice history: 2.',
+        text: 'Observed: 6 min 40 sec restroom-adjacent inactivity plus two prior notices. NARC inference: sustained unexplained productivity loss · 88% confidence.',
       });
       say(s, 8, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
       say(s, 18, 'dana', 'HR opened a Performance Improvement Plan for Luis. Managers can relabel how time is categorized if there is a reason, and “unstructured ideation” is apparently a real category. If you have anything showing he is actually productive, send it to me.', { when: 'e5' });
@@ -671,7 +691,7 @@ const INCIDENTS = {
       covered(s) {
         s.people.luis.status = 'employed';
         notice(s, 4, 'Focus time recognized', 'Luis Perez: 4 calendar blocks marked Focus Time. Behavioral deviation: none. No review needed.');
-        say(s, 14, 'luis', 'NARC 2.0 says I have excellent boundaries. I have never been so unavailable.');
+        say(s, 14, 'luis', 'NARC 2.0 says I have excellent boundaries. That’s one interpretation.');
         catchUp(s, 5, 'luis');
       },
       admit(s) {
@@ -761,10 +781,10 @@ const INCIDENTS = {
           incident: 'e6',
           variant: v,
           title: 'Attendance integrity',
-          text: 'Review recommended. Marcus Reed: badge-in 11:20 (scheduled 09:00). Documentation Excellence: top 2% of Operations.',
+          text: 'Observed: badge-in 11:20 plus six verified records. NARC inference: attendance credibility 94%. Documentation Excellence: top 2% of Operations.',
         });
-        say(s, 8, 'marcus', 'NARC gave me “Documentation Excellence” for my bird situation paperwork and now wants me to teach a workshop. I have never been so afraid.');
-        say(s, 18, 'marcus', 'The paperwork is in Files if you want to check my work. I mean, the bird’s work.', { when: 'e6' });
+        say(s, 8, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
+        say(s, 18, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6' });
         mark(s, 18, 'files', { when: 'e6' });
         say(s, 30, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view. Any thoughts?', { when: 'e6' });
         return;
@@ -825,7 +845,7 @@ const INCIDENTS = {
         p.status = 'warning';
         p.cred = 67;
         say(s, 6, 'dana', 'Thank you. I’ll get this to NARC before it acts.');
-        notice(s, 14, 'Trace attached', 'Marcus Reed: credibility 12% → 67%. Prior-flag weighting under review. Termination withdrawn. Final written warning issued.');
+        notice(s, 14, 'Trace reviewed', 'Marcus Reed: credibility 12% → 67%. NARC’s location evidence conflicts with the historical flag. Termination withdrawn. Final written warning issued.');
         say(s, 22, 'marcus', 'It was a goose. I don’t want to talk about the goose.');
         notice(s, 32, 'Outlier noted', 'Marcus Reed: first corroborated excuse on record. Classified as an outlier.');
         catchUp(s, 15, 'marcus');
@@ -892,20 +912,28 @@ function open(s, ref) {
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
-  'dana:reportluis': { text: 'Luis is away from his desk a lot.', when: 'e2', branch: 'confirm' },
-  'dana:reportmarcus': { text: 'Marcus was at the mini-golf place, not on the bus.', when: 'e3', branch: 'truth' },
-  'dana:ownscript': { text: 'The script was mine.', when: 'e5', variant: 'g', branch: 'admit' },
+  'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', branch: 'confirm' },
+  'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', branch: 'ignore' },
+  'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', branch: 'truth' },
+  'dana:covermarcus': { text: 'His calendar is missing context. There was a vendor visit that morning.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
+  'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', branch: 'stay' },
+  'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', branch: 'admit' },
   'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', branch: 'blame' },
+  'dana:unsurehelper': { text: 'I don’t know who set it up.', when: 'e5', variant: 'g', branch: 'auto' },
   'dana:relabel': { text: 'Could you relabel Luis’s restroom time as “unstructured ideation”?', when: 'e5', variant: 'n', branch: 'label' },
-  'dana:workshop': { text: 'Marcus should run that workshop.', when: 'e6', variant: 'g', branch: 'workshop' },
-  'dana:fakedocs': { text: 'Those documents aren’t real.', when: 'e6', variant: 'g', branch: 'expose' },
-  'luis:focus': { text: 'Sincere tip: block your restroom windows as focus time on your calendar.', when: 'e2', branch: 'focus' },
-  'luis:badtip': { text: 'Polite sabotage: just write NARC an explanation in the comment box.', when: 'e2', branch: 'badtip' },
-  'marcus:calendar': { text: 'Sincere tip: add a Wednesday calendar entry for the vendor visit.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
-  'marcus:latecalendar': { text: 'Polite sabotage: wait for HR to answer, then add the calendar entry so it looks natural.', when: 'e3', branch: 'badtip' },
+  'dana:letluis': { text: 'I don’t have anything else to add.', when: 'e5', variant: 'n', branch: 'letit' },
+  'dana:workshop': { text: 'If the records check out, let him do the workshop.', when: 'e6', variant: 'g', branch: 'workshop' },
+  'dana:fakedocs': { text: 'Some of those documents are not real.', when: 'e6', variant: 'g', branch: 'expose' },
+  'dana:neutralworkshop': { text: 'I don’t have enough context to recommend anything.', when: 'e6', variant: 'g', branch: 'approve' },
+  'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', branch: 'vouch_trace' },
+  'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', branch: 'let' },
+  'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', branch: 'focus' },
+  'luis:badtip': { text: 'Maybe just explain it to NARC in the comment box.', when: 'e2', branch: 'badtip' },
+  'marcus:calendar': { text: 'Add the vendor visit to your calendar so there is actually a record of it.', when: 'e3', branch: 'paper', event: CALENDAR_TIP },
+  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', branch: 'badtip' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', branch: 'approve' },
-  'priya:sync': { text: 'Sincere tip: move the chatter into an in-person sync instead of chat.', when: 'e4', branch: 'sync' },
-  'priya:quiet': { text: 'Polite sabotage: post less for a few days, it will blow over.', when: 'e4', branch: 'quiet' },
+  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', branch: 'sync' },
+  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', branch: 'quiet' },
 };
 
 export function replies(s, thread) {
@@ -1259,6 +1287,8 @@ function epilogue(s, id) {
   switch (p.status) {
     case 'promoted':
       return 'Culture Champion. Hosts six Connection Circles a week. Has scheduled a seventh.';
+    case 'fired':
+      return 'Terminated for low collaboration after reducing her message volume exactly as recommended.';
     case 'monitored':
       return 'Enrolled in a mandatory Connection Circle. Perfect attendance. Sole attendee.';
     default:
@@ -1332,10 +1362,10 @@ function playerResult(s) {
   const informed = s.picked.e2 === 'confirm' || s.picked.e3 === 'truth'
     || s.picked.e5 === 'blame' || s.picked.e6 === 'expose';
   if (s.flags >= 2) {
-    return { label: 'UNDER REVIEW', text: `Integrity flags: ${s.flags}. NARC has questions about your keyboard.` };
+    return { label: 'TERMINATED', text: `Integrity flags: ${s.flags}. NARC recommends separation for repeated manipulation of monitored workplace signals.` };
   }
   if (s.flags === 1) {
-    return { label: 'ON WATCHLIST', text: 'One integrity flag. NARC is “keeping an open mind.”' };
+    return { label: 'UNDER REVIEW', text: 'One integrity flag. NARC has opened an Employee Integrity Review.' };
   }
   if (s.score >= 65) {
     return {

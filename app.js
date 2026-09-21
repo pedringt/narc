@@ -137,6 +137,24 @@ function trayLabel() {
   return state.level >= 2 ? ['NARC · ENHANCED', 'NARC · 2.0'] : ['NARC ACTIVE', 'NARC ACTIVE'];
 }
 
+// Progressive disclosure: the workstation only reveals apps once the workday
+// has given the player a reason to understand them. Email is the starting
+// surface. Messages + Calendar arrive with Dana's orientation. NARC appears
+// with the first NARC case. Files/Utilities appear when evidence or a tool is
+// actually introduced. Keep the current app visible so notification deep-links
+// never strand the player.
+function visibleApps() {
+  const ids = new Set(['email', ui.app]);
+  if (state.threads.dana.length || state.seen.messages) {
+    ids.add('messages');
+    ids.add('calendar');
+  }
+  if (state.alerts.length || state.seen.narc || state.level >= 2) ids.add('narc');
+  if (state.marks.files || state.seen.files || state.files.some((f) => f.id.startsWith('f-') && !['f1', 'f2'].includes(f.id))) ids.add('files');
+  if (state.marks.utilities || state.seen.utilities || state.helper.installed) ids.add('utilities');
+  return ids;
+}
+
 function renderChrome() {
   els.clock.textContent = clockText(state);
   const u = unread(state);
@@ -154,7 +172,8 @@ function renderChrome() {
   els.logoff.disabled = !info;
   els.logoff.title = info ? 'Log off for the day. NARC will process whatever is still open.' : 'Nothing is waiting on you.';
 
-  els.dock.replaceChildren(...APPS.map((a) => {
+  const visible = visibleApps();
+  els.dock.replaceChildren(...APPS.filter((a) => visible.has(a.id)).map((a) => {
     const count = u[a.id] || 0;
     const b = h('button', a.id === 'narc' ? 'narc' : '', h('span'), a.label);
     b.firstChild.innerHTML = ICON[a.id];
@@ -497,8 +516,9 @@ function caseNode(a) {
     return box;
   }
   box.append(h('div', 'subject', c.subject));
-  box.append(h('div', 'sect observed', 'Observed'), h('ul', null, c.observed.map((o) => h('li', null, o))));
-  box.append(h('div', 'sect model', 'Model'), h('div', 'model-box', h('div', null, c.model.label), h('div', 'conf', `Confidence: ${c.model.confidence}%`)));
+  box.append(h('div', 'model-flow', 'WORKPLACE SIGNALS  →  NARC INFERENCE  →  COMPANY ACTION'));
+  box.append(h('div', 'sect observed', 'What NARC observed'), h('ul', null, c.observed.map((o) => h('li', null, o))));
+  box.append(h('div', 'sect model', 'What NARC inferred'), h('div', 'model-box', h('div', null, c.model.label), h('div', 'conf', `Model confidence: ${c.model.confidence}%`)));
   if (c.metrics.length) box.append(h('div', 'metrics', c.metrics.map(([k, v]) => h('div', null, `${k}: `, h('b', null, v)))));
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
   if (c.note) box.append(h('div', 'viewonly', c.note));
@@ -618,8 +638,9 @@ function renderOverlay() {
   locked.forEach((a) => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', a.hint))));
   r.append(ach);
 
-  const again = btn('Log off and start a new week', 'nbtn primary', restart);
-  again.style.marginTop = '20px';
+  r.append(h('p', 'replay-note', 'Want to see what changes if you make different choices?'));
+  const again = btn('Replay this week', 'nbtn primary', restart);
+  again.style.marginTop = '12px';
   r.append(again);
   const layer = h('div', 'overlay', r);
   els.overlay.append(layer);

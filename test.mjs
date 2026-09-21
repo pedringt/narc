@@ -436,31 +436,38 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(canAttachHelper(act(play({}, { stopAt: 'e1' }), { do: 'helper', op: 'install' })), false, 'not on Monday');
 }
 
-// ------------ in Messages, advice is labelled: a sincere tip, or polite sabotage
+// ------------ in Messages, choices read like normal conversation
 
 {
   const opts = (s, thread) => replies(s, thread).map((r) => r.text);
   let s = play({ e1: 'explain' }, { stopAt: 'e2' });
   assert.deepEqual(opts(s, 'luis'), [
-    'Sincere tip: block your restroom windows as focus time on your calendar.',
-    'Polite sabotage: just write NARC an explanation in the comment box.',
+    'You could block that time as Focus time on your calendar.',
+    'Maybe just explain it to NARC in the comment box.',
   ]);
-  assert.deepEqual(opts(s, 'dana'), ['Luis is away from his desk a lot.'], 'telling Dana is the official route');
+  assert.deepEqual(opts(s, 'dana'), [
+    'He is away from his desk a lot. The flag is probably accurate.',
+    'I don’t think I know enough to call that flag accurate.',
+  ]);
   assert.deepEqual(opts(s, 'marcus'), []);
 
   s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
   assert.deepEqual(opts(s, 'marcus'), [
-    'Sincere tip: add a Wednesday calendar entry for the vendor visit.',
-    'Polite sabotage: wait for HR to answer, then add the calendar entry so it looks natural.',
+    'Add the vendor visit to your calendar so there is actually a record of it.',
+    'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
   ]);
-  assert.deepEqual(opts(s, 'dana'), ['Marcus was at the mini-golf place, not on the bus.']);
+  assert.deepEqual(opts(s, 'dana'), [
+    'The location record does not match what he told us.',
+    'His calendar is missing context. There was a vendor visit that morning.',
+    'I don’t know enough to confirm the location trace.',
+  ]);
 
   s = play(HONEST, { stopAt: 'e4' });
   assert.deepEqual(opts(s, 'priya'), [
-    'Sincere tip: move the chatter into an in-person sync instead of chat.',
-    'Polite sabotage: post less for a few days, it will blow over.',
+    'Could you move some of it into an in-person sync instead of chat?',
+    'Maybe post less for a few days and see if it blows over.',
   ]);
-  assert.ok(replies(s, 'priya').every((r) => /^(Sincere tip|Polite sabotage): /.test(r.text)), 'every advice option says which it is');
+  assert.ok(replies(s, 'priya').every((r) => !/^(Sincere tip|Polite sabotage): /.test(r.text)), 'advice stays diegetic instead of exposing branch labels');
 
   // Options only exist while the problem does.
   assert.deepEqual(opts(DO.e4.leave(s), 'priya'), []);
@@ -470,8 +477,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // -------------------------------------- what the advice does (and who is thanked)
 
 {
-  // Luis: the sincere tip is a calendar cover that survives NARC 2.0. The bad
-  // tip walks him into the PIP. Both come back through Messages and NARC.
+  // Luis: the calendar suggestion survives NARC 2.0. The explanation suggestion
+  // walks him into the PIP. Both come back through Messages and NARC.
   let s = DO.e2.focus(play({ e1: 'explain' }, { stopAt: 'e2' }));
   assert.equal(s.picked.e2, 'focus');
   s = until(s, (x) => has(texts(x, 'luis'), /never been so unavailable/));
@@ -506,12 +513,14 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(!has(noticeTexts(s), /social withdrawal/));
 
   s = DO.e4.quiet(play(HONEST, { stopAt: 'e4' }));
-  assert.ok(s.threads.priya.some((m) => m.from === 'me' && /^Polite sabotage: post less/.test(m.text)));
+  assert.ok(s.threads.priya.some((m) => m.from === 'me' && /^Maybe post less/.test(m.text)));
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
   assert.ok(!has(noticeTexts(s), /social withdrawal/), 'the backfire lands later');
   s = until(s, (x) => has(noticeTexts(x), /social withdrawal.*Collaboration Index: 97 → 31/));
-  s = until(s, (x) => x.calendar.some((e) => /Connection Circle \(mandatory\)/.test(e.title)));
-  assert.equal(s.shown.priya, 'monitored');
+  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*termination pending/));
+  s = until(s, (x) => x.shown.priya === 'fired');
+  assert.equal(s.people.priya.status, 'fired');
+  assert.ok(has(texts(s, 'priya'), /exactly what it told me to do/));
 
   // Telling Dana is heard: she answers before NARC reacts.
   s = DO.e2.confirm(play({ e1: 'explain' }, { stopAt: 'e2' }));
@@ -581,7 +590,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(first(e3, 'marcus'), /NARC flagged me for attendance again.*raccoon/);
 
   const e4 = at(HONEST, 'e4');
-  assert.match(first(e4, 'priya'), /NARC says my “communication load” is elevated/);
+  assert.match(first(e4, 'priya'), /NARC flagged me for too much messaging/);
 
   const g = at({ ...HONEST, e2: 'script' }, 'e5');
   assert.match(g.threads.luis.at(-1).text, /NARC says my keyboard input arrives every 59 seconds/);
@@ -591,7 +600,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const b = at({ ...HONEST, e3: 'truth' }, 'e6');
   assert.match(b.threads.marcus.at(-1).text, /NARC just scheduled my termination.*bird situation/);
   const pg = at({ ...HONEST, e3: 'paper' }, 'e6');
-  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for my bird situation paperwork/);
+  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for the bird paperwork/);
 
   Object.values(THREADS).forEach((t) => assert.ok(t.role));
 }
@@ -646,7 +655,19 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e5 leads: ${l}`);
   assert.match(texts(s, 'dana').at(-1), /Unstructured ideation|unstructured ideation/i);
   assert.match(texts(s, 'dana').at(-1), /send it to me/);
-  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel']);
+  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel', 'letluis']);
+
+  // Direct questions from Dana never force a single report/narc route.
+  let choice = patient(HONEST, 'e2');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportluis', 'noreportluis']);
+  choice = patient(HONEST, 'e3');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportmarcus', 'covermarcus', 'nomarcus']);
+  choice = patient({ ...HONEST, e2: 'script' }, 'e5');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['ownscript', 'blameluis', 'unsurehelper']);
+  choice = patient({ ...HONEST, e3: 'truth' }, 'e6');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['tracehelp', 'letgoose']);
+  choice = patient({ ...HONEST, e3: 'paper' }, 'e6');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['workshop', 'fakedocs', 'neutralworkshop']);
 
   s = patient({ ...HONEST, e3: 'truth' }, 'e6');
   l = leads(s, 'e6');
@@ -658,7 +679,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   l = leads(s, 'e6');
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e6 (documented) leads: ${l}`);
   assert.match(texts(s, 'dana').at(-1), /wants a colleague’s view/);
-  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['workshop', 'fakedocs']);
+  assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['workshop', 'fakedocs', 'neutralworkshop']);
 
   // Looking at an app clears its marker; hints do not appear once you have decided.
   let m = patient({}, 'e3');
@@ -868,10 +889,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const model = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
   assert.equal(ending(model).you.label, 'MODEL EMPLOYEE');
   assert.match(ending(model).you.text, /classified as collaboration/);
-  assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'ON WATCHLIST');
-  assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'UNDER REVIEW');
+  assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'TERMINATED');
+  const playerOnly = play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'approve' });
+  assert.equal(ending(playerOnly).you.label, 'TERMINATED');
+  assert.ok(Object.values(playerOnly.people).every((p) => p.status !== 'fired'), 'the player can be fired while every coworker remains employed');
   assert.equal(ending(play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).you.label, 'STILL EMPLOYED');
   assert.match(ending(play({ ...HONEST, e4: 'sync' })).roster[2].text, /happen in person, on the calendar/);
+  assert.equal(play({ ...HONEST, e4: 'quiet' }).people.priya.status, 'fired');
+  assert.match(ending(play({ ...HONEST, e4: 'quiet' })).roster[2].text, /reducing her message volume exactly as recommended/);
 }
 
 // ----------------------------------------------------------------- restart
@@ -902,6 +928,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(act(s, { do: 'open', ref: 'nowhere:1' }).rev, s.rev);
   assert.equal(act(s, { do: 'nonsense' }).rev, s.rev);
   assert.equal(act(s, { do: 'ack' }).rev, s.rev, 'acknowledging twice does nothing');
+}
+
+// ------------------ NARC 2.0 makes a forward-looking model inference
+
+{
+  let s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
+  assert.ok(has(noticeTexts(s), /predicted policy-workaround likelihood/), 'NARC 2.0 generates a behavioral forecast');
+  assert.ok(has(noticeTexts(s), /calendar reclassification|tool usage|integrity history/), 'the forecast names the signals it used');
+  assert.ok(has(noticeTexts(s), /workplace baseline|differs from your established workplace pattern/), 'NARC also emits an ambient workstyle nudge');
 }
 
 // ------------------ pacing: nothing lands on top of anything else

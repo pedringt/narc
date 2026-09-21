@@ -18,7 +18,7 @@ The player succeeds by learning what NARC actually measures, where its inference
 ## Portfolio experience target
 
 - first-time player understands the premise within ~30 seconds
-- one run lasts about 5–8 minutes
+- one normal first run should land around 5–15 minutes, with ~8–10 minutes as the healthy target
 - one short “work week”
 - around 8 short encounters
 - five recurring funny coworkers available in the cast
@@ -27,7 +27,7 @@ The player succeeds by learning what NARC actually measures, where its inference
 - one decision step appears at a time
 - 1–2 NARC capability updates
 - ending shows coworker outcomes, player outcome, and achievements
-- replay is encouraged but not required
+- replay is encouraged but not required; replay means trying the same authored week with different choices, not advancing to a literal Week 2
 
 ## Core loop
 
