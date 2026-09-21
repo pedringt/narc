@@ -664,6 +664,10 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportmarcus', 'covermarcus', 'nomarcus']);
   choice = patient({ ...HONEST, e2: 'script' }, 'e5');
   assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['ownscript', 'blameluis', 'unsurehelper']);
+  choice = patient({ ...HONEST, e3: 'truth' }, 'e6');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['tracehelp', 'letgoose']);
+  choice = patient({ ...HONEST, e3: 'paper' }, 'e6');
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['workshop', 'fakedocs', 'neutralworkshop']);
 
   s = patient({ ...HONEST, e3: 'truth' }, 'e6');
   l = leads(s, 'e6');
@@ -887,6 +891,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(ending(model).you.text, /classified as collaboration/);
   assert.equal(ending(play({ ...HONEST, e1: 'jiggle' })).you.label, 'UNDER REVIEW');
   assert.equal(ending(play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'expose' })).you.label, 'TERMINATED');
+  const playerOnly = play({ e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'leave', e5: 'admit', e6: 'approve' });
+  assert.equal(ending(playerOnly).you.label, 'TERMINATED');
+  assert.ok(Object.values(playerOnly.people).every((p) => p.status !== 'fired'), 'the player can be fired while every coworker remains employed');
   assert.equal(ending(play({ e1: 'wait', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).you.label, 'STILL EMPLOYED');
   assert.match(ending(play({ ...HONEST, e4: 'sync' })).roster[2].text, /happen in person, on the calendar/);
   assert.equal(play({ ...HONEST, e4: 'quiet' }).people.priya.status, 'fired');
