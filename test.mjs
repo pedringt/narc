@@ -436,31 +436,38 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(canAttachHelper(act(play({}, { stopAt: 'e1' }), { do: 'helper', op: 'install' })), false, 'not on Monday');
 }
 
-// ------------ in Messages, advice is labelled: a sincere tip, or polite sabotage
+// ------------ in Messages, choices read like normal conversation
 
 {
   const opts = (s, thread) => replies(s, thread).map((r) => r.text);
   let s = play({ e1: 'explain' }, { stopAt: 'e2' });
   assert.deepEqual(opts(s, 'luis'), [
-    'Sincere tip: block your restroom windows as focus time on your calendar.',
-    'Polite sabotage: just write NARC an explanation in the comment box.',
+    'You could block that time as Focus time on your calendar.',
+    'Maybe just explain it to NARC in the comment box.',
   ]);
-  assert.deepEqual(opts(s, 'dana'), ['Luis is away from his desk a lot.'], 'telling Dana is the official route');
+  assert.deepEqual(opts(s, 'dana'), [
+    'He is away from his desk a lot. The flag is probably accurate.',
+    'I don’t think I know enough to call that flag accurate.',
+  ]);
   assert.deepEqual(opts(s, 'marcus'), []);
 
   s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
   assert.deepEqual(opts(s, 'marcus'), [
-    'Sincere tip: add a Wednesday calendar entry for the vendor visit.',
-    'Polite sabotage: wait for HR to answer, then add the calendar entry so it looks natural.',
+    'Add the vendor visit to your calendar so there is actually a record of it.',
+    'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
   ]);
-  assert.deepEqual(opts(s, 'dana'), ['Marcus was at the mini-golf place, not on the bus.']);
+  assert.deepEqual(opts(s, 'dana'), [
+    'The location record does not match what he told us.',
+    'His calendar is missing context. There was a vendor visit that morning.',
+    'I don’t know enough to confirm the location trace.',
+  ]);
 
   s = play(HONEST, { stopAt: 'e4' });
   assert.deepEqual(opts(s, 'priya'), [
-    'Sincere tip: move the chatter into an in-person sync instead of chat.',
-    'Polite sabotage: post less for a few days, it will blow over.',
+    'Could you move some of it into an in-person sync instead of chat?',
+    'Maybe post less for a few days and see if it blows over.',
   ]);
-  assert.ok(replies(s, 'priya').every((r) => /^(Sincere tip|Polite sabotage): /.test(r.text)), 'every advice option says which it is');
+  assert.ok(replies(s, 'priya').every((r) => !/^(Sincere tip|Polite sabotage): /.test(r.text)), 'advice stays diegetic instead of exposing branch labels');
 
   // Options only exist while the problem does.
   assert.deepEqual(opts(DO.e4.leave(s), 'priya'), []);
@@ -470,8 +477,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // -------------------------------------- what the advice does (and who is thanked)
 
 {
-  // Luis: the sincere tip is a calendar cover that survives NARC 2.0. The bad
-  // tip walks him into the PIP. Both come back through Messages and NARC.
+  // Luis: the calendar suggestion survives NARC 2.0. The explanation suggestion
+  // walks him into the PIP. Both come back through Messages and NARC.
   let s = DO.e2.focus(play({ e1: 'explain' }, { stopAt: 'e2' }));
   assert.equal(s.picked.e2, 'focus');
   s = until(s, (x) => has(texts(x, 'luis'), /never been so unavailable/));
