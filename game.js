@@ -1203,7 +1203,7 @@ export function caseView(s, alert) {
         subject: 'Priya Shah',
         observed: ['Message threads this week: 63', 'In-person proximity pings: 41% above baseline', 'Reply time on ESC-204: 3 h 10 min'],
         model: { label: 'Communication Load: elevated', confidence: 82 },
-        metrics: [['Collaboration Index', 97], ['Recommended action', 'Throttle']],
+        metrics: [['Collaboration Index', 97], ['Company response', 'Reduce message volume']],
       };
     case 'e5g':
       return {
@@ -1223,7 +1223,7 @@ export function caseView(s, alert) {
           'Notice history: Time-on-Task Advisory',
         ],
         model: { label: 'Sustained unexplained productivity loss', confidence: 88 },
-        metrics: [['Automatic action', 'Performance Improvement Plan']],
+        metrics: [['Company response', 'Performance Improvement Plan']],
       };
     case 'e6g':
       return {
@@ -1239,7 +1239,7 @@ export function caseView(s, alert) {
         subject: 'Marcus Reed',
         observed: ['Badge-in: 11:20. Scheduled: 09:00', 'Device location 08:14–10:55: Wingspan Bird Sanctuary (weight 20%)', 'Flag history: 1 prior notice (weight 80%)'],
         model: { label: 'Attendance credibility', confidence: p.marcus.cred },
-        metrics: [['Automatic action', 'Attendance Integrity Termination']],
+        metrics: [['Company response', 'Attendance Integrity Termination']],
       };
     default:
       return { ...base, notice: true, text: alert.text };
