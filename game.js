@@ -465,8 +465,8 @@ const INCIDENTS = {
       });
       mark(s, 18, 'files', { when: 'e2' });
       say(s, 28, 'luis', s.helper.installed
-        ? 'You still have that Mouse Activity Helper from Utilities, right? I would happily be “active” for a while.'
-        : 'Marcus swears by the Mouse Activity Helper in Utilities. IT approved it, apparently. I wonder if it works on people like me.', { when: 'e2' });
+        ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
+        : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2' });
       if (!s.helper.installed) mark(s, 28, 'utilities', { when: 'e2' });
       say(s, 34, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
     },
