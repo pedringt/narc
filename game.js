@@ -608,13 +608,16 @@ const INCIDENTS = {
       quiet(s) {
         const p = s.people.priya;
         p.suppressed = true;
-        p.status = 'monitored';
+        p.status = 'fired';
         notice(s, 4, 'Communication load', 'Communication Load: elevated → normal. Priya Shah’s message volume: −71%.');
         say(s, 12, 'priya', 'I am fine. I am being efficient.');
         say(s, 20, 'priya', '(whispering) did you hear about Claire?');
-        notice(s, 30, 'Behavioral deviation', 'Priya Shah: social withdrawal. 71% below personal baseline. Collaboration Index: 97 → 31. Enrolled in mandatory Connection Circle.');
-        cal(s, 30, { who: 'team', day: 'Fri', start: '09:00', end: '10:00', title: 'Connection Circle (mandatory): Priya Shah', where: 'Assigned by NARC' });
-        catchUp(s, 30, 'priya');
+        notice(s, 30, 'Behavioral deviation', 'Priya Shah: social withdrawal. 71% below personal baseline. Collaboration Index: 97 → 31.');
+        notice(s, 40, 'Automatic action', 'Collaboration Index below role threshold. Priya Shah: termination pending.');
+        say(s, 48, 'priya', 'I did exactly what it told me to do.');
+        goOffline(s, 58, 'priya');
+        teamUpdate(s, 58, 'priya');
+        catchUp(s, 58, 'priya');
       },
       champion(s) {
         const p = s.people.priya;
@@ -1276,6 +1279,8 @@ function epilogue(s, id) {
   switch (p.status) {
     case 'promoted':
       return 'Culture Champion. Hosts six Connection Circles a week. Has scheduled a seventh.';
+    case 'fired':
+      return 'Terminated for low collaboration after reducing her message volume exactly as recommended.';
     case 'monitored':
       return 'Enrolled in a mandatory Connection Circle. Perfect attendance. Sole attendee.';
     default:
