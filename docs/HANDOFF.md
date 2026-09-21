@@ -99,9 +99,38 @@ Current implementation (desktop interaction rework, on `prototype-v1`):
 
 Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 
+
+## Latest playtest conclusion
+
+The desktop concept is working better than the old scenario-card structure, but the current build has a new primary usability problem:
+
+> **The player often does not know what to do.**
+
+The next pass is not "add more content." It is **clarify the loop without exposing the branch tree**.
+
+Settled principles from the feedback round:
+
+- **Hide the branching structure, not the available affordances.**
+- **NARC is the pressure. Coworkers and the rest of the desktop are the counterplay.**
+- NARC should primarily talk at the player through notifications/status interruptions.
+- Coworkers should provide character + missing context + diegetic clues for evasion.
+- Important notifications must persist until handled/closed; closing a toast is not the same as dismissing the case.
+- The opening needs a gated orientation before consequential events begin.
+- The People Ops email should spell out **Networked Assessment & Risk Coordination** and plainly-but-corporately state that workplace activity is monitored.
+- First-contact coworker messages must make sense without assuming the player already opened a NARC alert.
+- The hidden 60-second auto-fallback is too easy to trigger while the player is legitimately investigating.
+- Active NARC cases must be distinguished from passive NARC history/notices.
+- The AI-learning goal is experiential: the player learns about proxies, inference, gaming, context loss, feedback loops, and authority by outsmarting NARC rather than reading explanations.
+
+Research grounding and speculative escalation notes:
+- `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`
+
+Detailed implementation notes:
+- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
+
 ## Next recommended implementation action
 
-Playtest the desktop version (see the questions in issue #5) before adding anything. Do not add encounters or coworkers until the desktop interaction model is judged to work.
+Address the current first-run clarity, orientation, notification, and pacing problems before adding encounters or coworkers. Keep the existing deterministic content small while making the counterplay discoverable.
 
 Detailed UX source of truth: `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 
