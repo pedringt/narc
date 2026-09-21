@@ -80,6 +80,8 @@ NARC shows everyone's alerts to everyone, "for transparency", but you can only a
 
 Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://). Add `?tick=150` to the URL to speed up the game clock for QA.
 
+For a code-accurate picture of the build (architecture, the week's routes, decisions, known gaps), see `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`.
+
 Nina and Maya are not in this slice. See `docs/handoffs/claude-rework/` for the scope and acceptance criteria.
 
 ## Project rule

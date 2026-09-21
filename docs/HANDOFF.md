@@ -84,6 +84,8 @@ If these conflict with the current deployed prototype, the docs/issues win.
 
 ## Current implementation
 
+**Start with [`docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`](handoffs/claude-rework/IMPLEMENTATION_STATE.md)**: a code-accurate description of what is built, the week's incidents and routes, decisions the implementer made, and known gaps. Where it disagrees with an older handoff, it describes the code and the older docs describe intent.
+
 Branch:
 - `main` — do not modify or promote without Paige explicitly naming `main`
 - `prototype-v1` — current working/prototype branch
