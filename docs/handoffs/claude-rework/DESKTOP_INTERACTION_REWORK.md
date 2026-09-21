@@ -279,6 +279,214 @@ Examples:
 
 Do not require a button labeled `REFUSE TO HELP` unless there is a reason the player must explicitly refuse.
 
+
+## Current playtest findings: clarity before subtlety
+
+The desktop rework is directionally correct, but the current build hides the branch structure so thoroughly that a first-time player often does not know what to do.
+
+New hard rule:
+
+> **Hide the branching structure, not the available affordances.**
+
+For every active incident, a first-time player should be able to understand:
+1. what is happening;
+2. what NARC currently wants or believes;
+3. at least 2 plausible places/actions worth investigating.
+
+The player should not need to randomly click every app to discover that a branch exists.
+
+Useful diegetic guidance:
+- NARC states what evidence is missing or what action it recommends.
+- A coworker mentions a relevant record, loophole, or app.
+- A relevant app gets a restrained unread / new / changed indicator.
+- A notification offers `Open in NARC` or otherwise leads to the correct surface.
+- Existing corporate email or policy creates a loophole before it becomes relevant.
+
+Avoid explicit quest arrows, morality prompts, or "choose one of these three" menus.
+
+### First-contact message rule
+
+The first message from a person during an incident must make sense even if the player has not opened the NARC alert.
+
+Bad:
+> "I am not discussing my digestive system with software."
+
+Better setup:
+> "NARC flagged me again. Did you see? I am not discussing my digestive system with software."
+
+Keep the funny line; add enough context for it to land.
+
+Thread headers should make roles legible. Dana must be clearly established as the player's manager.
+
+### Coworkers as counterplay
+
+Coworkers can naturally point toward exploits without becoming tutorial NPCs.
+
+Example Marcus:
+> "NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying."
+
+This teaches the player that Calendar may matter while remaining in character.
+
+## Orientation gate
+
+Do not begin consequential gameplay on a pure timer while the player is still learning the workstation.
+
+Recommended first-run flow:
+
+1. Desktop loads.
+2. The People Operations NARC email is already selected/open.
+3. Player reads or closes it.
+4. A brief Dana message establishes her as the manager and introduces Messages naturally.
+5. Player completes one or two harmless orientation actions, ideally including a glance at Calendar or another normal work surface.
+6. Only then does the active workday / first NARC incident begin.
+
+No consequential NARC case, coworker crisis, or hidden auto-ignore countdown should run during orientation.
+
+The first incident should be action-gated, not merely "14 seconds after page load."
+
+### Initial People Operations email
+
+Keep it short, but it must do four jobs:
+
+- spell out **NARC — Networked Assessment & Risk Coordination**
+- make clear that NARC is monitoring workplace activity
+- explain that NARC may surface alerts/reviews
+- tell the player where NARC appears in the workstation
+
+Suggested tone:
+
+> We're introducing **NARC — Networked Assessment & Risk Coordination**, a new workplace support system designed to identify workflow friction, improve collaboration, and surface support needs earlier.
+>
+> Beginning this week, NARC will monitor approved workplace activity signals, including workstation activity, communication patterns, scheduling information, and company tool usage.
+>
+> You may occasionally receive NARC alerts or activity reviews. You'll see **NARC ACTIVE** in your workstation while monitoring is enabled.
+>
+> NARC is intended to support employees, not replace human judgment.
+
+The company should sound as if "monitoring is enabled" is completely normal.
+
+## NARC should talk at the player
+
+NARC should feel less like an app the player remembers to visit and more like an annoying system that continually inserts itself into the workday.
+
+Primary voice:
+- notifications
+- status changes
+- demands
+- "helpful" reminders
+- warnings
+- recommendations
+- follow-up nudges
+
+The NARC app remains the place for:
+- current actionable cases
+- observed signals
+- model inference / confidence
+- history
+- case actions
+
+Early NARC is restrained. Later NARC becomes more frequent, more invasive, and more absurd.
+
+Examples:
+- `Visible activity below team baseline.`
+- `Review recommended.`
+- `Your activity pattern suggests reduced engagement.`
+- `Reminder: authentic activity is more valuable than simulated activity.`
+- `Your current behavior differs from your established behavior.`
+- recurring corporate reassurance such as `No action is required.`
+
+Notification volume itself can communicate escalation.
+
+## Notification behavior
+
+Current 9-second disappearing toasts are too easy to miss.
+
+Required behavior:
+- important notifications persist until opened or explicitly closed
+- closing a toast only hides that notification; it must **not** silently choose the incident's ignore/dismiss branch
+- actionable NARC cases remain in NARC until dealt with
+- informational notices can move into history after their toast is closed
+- limit visible toast stacking (for example 2–3) so persistent notifications do not cover the workstation
+- older notifications may collapse into app badges/history, but the information should not be lost
+
+The top-right NARC status should become an obvious navigation affordance when attention is required, for example:
+- `NARC ACTIVE · 1 ALERT`
+- `NARC · ACTION REQUIRED`
+
+A subtle pulse/highlight is appropriate for an active case.
+
+The dock's NARC icon is currently too visually easy to miss. Make NARC discoverable without turning it into a giant warning banner.
+
+## Actionable cases vs NARC history
+
+Do not present every NARC event as if the player has five simultaneous tasks.
+
+Separate or visually distinguish:
+- **Needs attention / active case**
+- **Recent activity / history / consequences**
+
+Passive notices such as "advisory issued" or "score updated" should not inflate the apparent number of unresolved player decisions.
+
+## Pacing and hidden timers
+
+The current event cadence is too fast for a first-time player.
+
+Do not allow the system to resolve a case merely because the player spent time reading Messages, Calendar, Files, or NARC.
+
+The current ~60-second hidden idle-to-fallback behavior should be removed, substantially redesigned, or disabled during first-run onboarding. Ordinary exploration is gameplay, not inaction.
+
+Natural inaction should be legible:
+- explicitly dismiss an active case
+- leave a known request unresolved and move on at a clear workday transition
+- otherwise choose a visibly understandable "do nothing" behavior
+
+The branch structure can be hidden. The fact that a decision happened should not be hidden from the player.
+
+Space messages and consequences so they are readable. Short multi-message comedy bursts are fine, but do not land several unrelated events at once.
+
+## Specific current-slice notes
+
+### First low-activity incident
+The first incident can teach the entire game elegantly.
+
+Before the flag, let the player see a harmless Calendar item showing that they are reading a printed contract.
+
+Then NARC flags low keyboard/mouse activity.
+
+Files later show the player found the real $40,000 pricing discrepancy.
+
+The player should infer:
+> NARC can see workstation activity but missed the valuable work.
+
+Fix the current timeline inconsistency where the Halvorsen file is marked edited at 12:41 even though the alert occurs at 12:14.
+
+### Mouse Activity Helper continuity
+Do not let Luis receive/share the Mouse Activity Helper as if the player already knows it exists.
+
+Prefer:
+- player discovers/installs it first, then can share it; or
+- Marcus sends a believable lead that puts it into Utilities, then the player can share it.
+
+The exploit should feel like knowledge the player acquired.
+
+### Marcus
+Keep the escalating excuse messages, but slow the burst enough to read.
+
+Use his messages to point toward missing corroboration / Calendar without saying "click Calendar."
+
+### Priya
+Have the Culture Champion nomination email exist **before** her communication-load case if possible.
+
+Then the exemption feels like an existing dumb corporate rule the player notices and exploits, not a puzzle solution spawned on demand.
+
+### NARC 2.0
+Treat the upgrade as a beat.
+
+Let the player see/read the NARC 2.0 email before a burst of new synthetic-activity or deviation consequences arrives. Give them enough time to understand the new capability before it acts.
+
+### Product naming
+Avoid unexplained references to an unseen Slack product if the workstation's visible messaging tool is called Messages. Use consistent fictional product naming or a generic "team chat" signal unless Slack is intentionally part of the world.
+
 ## Scope protection
 
 This is not a full desktop simulator.
