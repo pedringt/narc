@@ -188,3 +188,29 @@ For a fresh Claude Code implementation chat, use:
 - `docs/handoffs/claude-rework/ACCEPTANCE_CRITERIA.md`
 
 This bundle is intentionally more implementation-detailed than this project-level handoff and should be treated as the starting context for the next prototype rewrite.
+
+
+## Current product direction: fun first, simple, visibly AI-driven
+
+Latest direction from Paige:
+
+- The game still needs to feel more fun/interesting and less passive.
+- Do **not** solve that by adding more notifications, more prose, more meters, or a complicated simulation.
+- Keep the core interaction extremely simple: **NARC judges → player changes something → NARC visibly updates → consequence follows.**
+- The player should feel like they are reverse-engineering and exploiting an AI system, not reading a branching story.
+- Every major incident should ideally include at least one satisfying action that changes what NARC believes.
+- AI concepts should surface through the mechanic, not educational copy.
+
+Preferred AI arc across the week:
+
+1. NARC watches.
+2. NARC infers.
+3. NARC adapts to a workaround.
+4. NARC predicts future behavior.
+5. NARC gains authority and acts.
+
+Keep the vocabulary light: **confidence, prediction, pattern detected, assessment updated** are enough. Avoid turning the NARC window into an ML dashboard.
+
+Per incident, aim for one judgment, a small amount of context, 2–3 actions, one visible model reaction, and one consequence.
+
+The Stanley Parable is a useful tonal/design reference for the feeling that the system notices what the player is doing and confidently reinterprets it. Do not copy the narrator structure. Use the principle: **the system watches the player's choices and keeps trying to explain them back to the player.**
