@@ -88,10 +88,13 @@ Branch:
 - `main` — do not modify or promote without Paige explicitly naming `main`
 - `prototype-v1` — current working/prototype branch
 
-Current deployed preview:
-- generated from `prototype-v1`
-- older reviewer-player structure
-- useful for learning from interaction/UI, not authoritative game structure
+Current implementation (first rework pass, on `prototype-v1`):
+- human-vs-NARC vertical slice: 6 encounters + 1 NARC 2.0 update, three coworkers (Luis, Marcus, Priya)
+- deterministic engine in `game.js` (`act(state, controlId)` / `view(state)`), thin renderer in `app.js`, `node test.mjs` covers progression, carry-over, exploits and their consequences, fire/save paths, achievements, ending, restart, and all 729 choice combinations
+- the old reviewer-player loop is removed
+- Vercel preview redeploys from `prototype-v1`
+
+Deferred: Nina and Maya, the remaining encounters, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 
 ## Next recommended implementation action
 

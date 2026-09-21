@@ -57,15 +57,17 @@ The current product judgment is to keep gameplay deterministic unless a future A
 
 ## Current implementation status
 
-The current deployed `prototype-v1` build is an earlier mechanical proof where the player acts as NARC reviewing employees.
+`prototype-v1` is now a human-vs-NARC vertical slice: you are Employee 4417, and NARC watches you and three coworkers (Luis, Marcus, Priya) across one work week.
 
-That structure is now **superseded**. It is useful as a throwaway prototype, but the next implementation pass should rebuild around the human-vs-NARC exploit loop above.
+- 6 encounters plus one mid-week NARC 2.0 update; Luis and Marcus each return once
+- what you did to a coworker (and whether NARC 2.0 can detect it) changes their return encounter
+- one step per screen: signal, look closer (one optional evidence pull), choose, result, reaction
+- 6 achievements, a per-coworker outcome screen, and a "what you know about NARC" list
+- deterministic, no live AI, no backend
 
-See:
+Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://).
 
-- `docs/CORE_GAME_SPEC.md`
-- `docs/HANDOFF.md`
-- GitHub issues #1–#7
+Nina and Maya are not in this slice. See `docs/handoffs/claude-rework/` for the scope and acceptance criteria this pass followed.
 
 ## Project rule
 
