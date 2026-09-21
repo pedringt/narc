@@ -405,7 +405,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e1',
         title: 'Visible activity below team baseline',
-        text: 'Review recommended. Employee 4417: 3 h 12 min without keyboard or mouse input this morning.',
+        text: 'Observed: 3 h 12 min without keyboard or mouse input. NARC inference: reduced engagement · 64% confidence.',
       });
       say(s, 8, 'dana', 'NARC flagged you for low activity this morning. Everything okay? It compares everyone against a team average, and yours came out lower than the others.');
       mark(s, 20, 'calendar', { when: 'e1' });
@@ -443,7 +443,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e2',
         title: 'Restroom-adjacent inactivity',
-        text: 'Review recommended. Luis Perez: 47 minutes this week. Team baseline: 18.',
+        text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
       say(s, 8, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
       say(s, 18, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
@@ -518,7 +518,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e3',
         title: 'Attendance integrity',
-        text: 'Review recommended. Marcus Reed: badge-in 10:52 (scheduled 09:00). Corroborating records on file: none.',
+        text: 'Observed: badge-in 10:52, scheduled 09:00, no corroborating records. NARC inference: attendance credibility 38%.',
       });
       say(s, 8, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
       say(s, 16, 'marcus', 'The driver said we had to wait for a professional.');
@@ -597,7 +597,7 @@ const INCIDENTS = {
       raise(s, {
         incident: 'e4',
         title: 'Communication load: elevated',
-        text: 'Review recommended. Priya Shah: 63 message threads this week. In-person proximity 41% above baseline. Recommended action: throttle.',
+        text: 'Observed: 63 message threads and proximity 41% above baseline. NARC inference: Communication Load elevated · 82% confidence. Recommended action: throttle.',
       });
       say(s, 8, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
       say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4' });
@@ -656,7 +656,7 @@ const INCIDENTS = {
           incident: 'e5',
           variant: v,
           title: 'Synthetic activity: integrity review',
-          text: 'Review required. Luis Perez: input every 59 seconds, including 41 minutes while the badge shows the restroom corridor.',
+          text: 'Observed: input every 59 seconds, including 41 min while badge location shows the restroom corridor. NARC inference: automated presence · 96% confidence.',
         });
         say(s, 8, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
         say(s, 20, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
@@ -670,7 +670,7 @@ const INCIDENTS = {
         incident: 'e5',
         variant: v,
         title: 'Time-on-task: Performance Improvement Plan',
-        text: 'Review required. Luis Perez: 6 min 40 sec of restroom-adjacent inactivity at 14:14. Notice history: 2.',
+        text: 'Observed: 6 min 40 sec restroom-adjacent inactivity plus two prior notices. NARC inference: sustained unexplained productivity loss · 88% confidence.',
       });
       say(s, 8, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
       say(s, 18, 'dana', 'HR opened a Performance Improvement Plan for Luis. Managers can relabel how time is categorized if there is a reason, and “unstructured ideation” is apparently a real category. If you have anything showing he is actually productive, send it to me.', { when: 'e5' });
@@ -770,7 +770,7 @@ const INCIDENTS = {
           incident: 'e6',
           variant: v,
           title: 'Attendance integrity',
-          text: 'Review recommended. Marcus Reed: badge-in 11:20 (scheduled 09:00). Documentation Excellence: top 2% of Operations.',
+          text: 'Observed: badge-in 11:20 plus six verified records. NARC inference: attendance credibility 94%. Documentation Excellence: top 2% of Operations.',
         });
         say(s, 8, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
         say(s, 18, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6' });
