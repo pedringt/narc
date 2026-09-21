@@ -212,12 +212,111 @@ Possible paths:
 
 ## Interface rules
 
-- Do not show every mechanic at once.
-- Reveal one action step at a time.
-- The first screen should be extremely simple.
-- New tools/metrics can unlock as NARC evolves.
-- Terminal/internal-tool feel is welcome, but it must be readable and approachable.
-- Avoid dense enterprise-dashboard layouts.
+### Desktop is the game board
+
+The player should feel like they are using a normal work laptop, not operating NARC as a standalone game interface.
+
+Use a persistent fictional work desktop/workspace with a small set of fake work apps such as:
+- Messages
+- Email
+- Calendar
+- Work / Files
+- Browser / Utilities
+- NARC
+
+NARC should begin as one monitored system/service inside the employee's computer and gradually become more intrusive.
+
+A small persistent status indicator should make it clear that NARC is active without dominating the screen, for example:
+- `NARC ACTIVE`
+- `NARC · MONITORING`
+- later: `NARC · REVIEWING` or `ELEVATED ATTENTION`
+
+### Natural-action rule
+
+**Model choices as ordinary workplace-computer actions whenever possible.**
+
+The player should rarely see a generic `What do you do?` screen with abstract story choices.
+
+Prefer concrete actions such as:
+- open an email
+- reply in Messages
+- dismiss a NARC notification
+- open NARC details
+- type into a comment/review field
+- edit a calendar event
+- attach or change a work record
+- install or enable a utility
+- search/open a browser item
+- ignore a message by simply not acting on it
+
+The deterministic branch still exists underneath. The player should not see the branch structure.
+
+Some explicit controls are appropriate when the action itself would naturally require a control. Example: a mouse-jiggler workaround can appear as a utility with an `Install` button and later an `On / Off` control. That is still a choice, but it feels like using software rather than selecting a story branch.
+
+### Problems arrive through the workday
+
+Do not present the experience as:
+`Encounter 1 → solve → Encounter 2 → solve`.
+
+Use normal workday time and events instead:
+- Monday 9:02 AM
+- an HR/People Ops email introduces NARC
+- a NARC notification appears
+- a manager or coworker sends a message
+- a calendar invite changes
+- a corporate policy update arrives
+- a coworker disappears/goes offline
+- a metric quietly updates
+
+Avoid visible labels such as `Encounter 2 of 6` in the final UI.
+
+### NARC sees vs human reality
+
+Preserve the useful distinction between:
+- what NARC directly observes
+- what NARC infers
+
+But do not turn it into a tutorial card.
+
+Inside NARC, a detail panel may show:
+- observed keyboard/mouse activity
+- messages sent
+- active-window time
+- model inference
+- confidence
+
+The human context should live in the other work apps.
+
+Example:
+- NARC sees three hours of low input and infers disengagement
+- Calendar shows the player was doing an in-person warehouse audit
+
+The player should make the connection.
+
+### Consequences also arrive naturally
+
+Avoid dedicated `Afterward`, `NARC updates`, or explanation screens when the same information can arrive through normal computer use.
+
+Examples:
+- a NARC notification quietly shows Visible Activity Index 61 → 75
+- the boss messages: “Love the energy!”
+- HR emails a policy warning
+- a coworker reacts in Messages
+- a status indicator changes
+- a calendar invite is automatically added
+- an account becomes unavailable
+
+The player should often infer cause and effect instead of being told what the choice meant.
+
+### Visual direction
+
+- fictional corporate work desktop, not a literal macOS/Windows clone
+- current dark/monospace NARC visual language can remain inside NARC panels/windows
+- surrounding desktop can feel more ordinary and work-like
+- NARC branding stays sincere
+- readable and approachable, not hacker-themed
+- avoid a dense enterprise dashboard
+- do not build a full operating-system simulator; only a few fake apps need to function
 
 ## Outcomes
 
