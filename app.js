@@ -638,8 +638,9 @@ function renderOverlay() {
   locked.forEach((a) => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', a.hint))));
   r.append(ach);
 
-  const again = btn('Log off and start a new week', 'nbtn primary', restart);
-  again.style.marginTop = '20px';
+  r.append(h('p', 'replay-note', 'Want to see what changes if you make different choices?'));
+  const again = btn('Replay this week', 'nbtn primary', restart);
+  again.style.marginTop = '12px';
   r.append(again);
   const layer = h('div', 'overlay', r);
   els.overlay.append(layer);
