@@ -461,6 +461,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'reply', thread: 'dana', reply: 'e1contract' });
   assert.deepEqual(opts(s, 'dana'), [], 'answering the prompt removes its reply chips');
 
+  // Resolving the incident elsewhere also clears the old Dana prompt so it
+  // cannot leak into a later conversation.
+  let elsewhere = play({}, { stopAt: 'e1' });
+  elsewhere = until(elsewhere, (x) => replies(x, 'dana').some((r) => r.id === 'e1contract'));
+  elsewhere = DO.e1.focus(elsewhere);
+  assert.equal(elsewhere.answered['dana-e1'], true);
+
   s = play({ e1: 'explain' }, { stopAt: 'e2' });
   assert.deepEqual(opts(s, 'luis'), [], 'Luis advice does not appear before he asks for it');
   assert.deepEqual(opts(s, 'dana'), [], 'Dana choices do not appear before her verification message');
