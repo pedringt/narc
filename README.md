@@ -33,7 +33,7 @@ The first real version should stay small:
 ## Cast
 
 - **Luis Perez** — restroom time becomes a productivity anomaly
-- **Priya Shah** — too chatty in person and on Slack
+- **Priya Shah** — too chatty in person and in Messages
 - **Marcus Reed** — frequent lateness and increasingly ridiculous excuses
 - **Nina Brooks** — future scenario-bank character: refuses to take vacation
 - **Maya Chen** — future scenario-bank character: sarcastic high performer who resists performative AI adoption
