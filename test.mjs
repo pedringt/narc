@@ -423,7 +423,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
   assert.equal(s.flags, 0);
   assert.ok(s.score >= 72, 'the gain survives NARC 2.0');
-  assert.ok(has(noticeTexts(s), /No synthetic activity found/));
+  assert.ok(has(noticeTexts(s), /No synthetic activity detected/));
   assert.equal(play({ ...HONEST, e1: 'jiggle' }, { stopAt: 'e4' }).score, 50, 'while the jiggler’s gain does not');
   // You can only mark your own events.
   assert.equal(act(play({}, { stopAt: 'e1' }), { do: 'markFocus', event: 'nope' }).rev, play({}, { stopAt: 'e1' }).rev);
@@ -810,7 +810,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(has(noticeTexts(luis), /Luis Perez: synthetic activity detected/));
   const cover = play({ ...HONEST, e2: 'focus' }, { stopAt: 'e4' });
   assert.equal(cover.people.luis.caught, false, 'a calendar cover is not synthetic activity');
-  assert.ok(has(noticeTexts(cover), /No synthetic activity found/));
+  assert.ok(has(noticeTexts(cover), /No synthetic activity detected/));
   const marcus = play({ ...HONEST, e3: 'paper' }, { stopAt: 'e4' });
   assert.equal(marcus.flags, 0);
   assert.ok(has(noticeTexts(marcus), /3 supporting documents verified/));
