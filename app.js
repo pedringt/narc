@@ -2,8 +2,8 @@
 // actions; every rule lives in game.js.
 
 import {
-  newGame, tick, act, unread, attention, narcSections, logoffInfo, clockText, caseView,
-  replies, canAttachHelper, calendarAction, ending, THREADS, PEOPLE,
+  newGame, tick, act, unread, attention, ownCase, narcSections, logoffInfo, clockText, caseView,
+  replies, canAttachHelper, calendarAction, fileActions, ending, THREADS, PEOPLE,
 } from './game.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -131,24 +131,28 @@ els.logoff.addEventListener('click', () => { logoffOpen = true; render(); });
 // -------------------------------------------------------------- menu & dock
 
 function trayLabel() {
-  if (attention(state)) return ['NARC · ACTION REQUIRED', 'NARC · ACTION'];
+  if (attention(state)) {
+    return ownCase(state) ? ['NARC · ACTION REQUIRED', 'NARC · ACTION'] : ['NARC · TEAM ALERT', 'NARC · TEAM'];
+  }
   return state.level >= 2 ? ['NARC · ENHANCED', 'NARC · 2.0'] : ['NARC ACTIVE', 'NARC ACTIVE'];
 }
 
 function renderChrome() {
   els.clock.textContent = clockText(state);
   const u = unread(state);
-  const need = attention(state) > 0;
+  const need = attention(state) > 0 && ownCase(state);
+  const team = attention(state) > 0 && !ownCase(state);
   const [fullLabel, shortLabel] = trayLabel();
   els.trayText.querySelector('.full').textContent = fullLabel;
   els.trayText.querySelector('.short').textContent = shortLabel;
   els.tray.classList.toggle('enhanced', state.level >= 2);
   els.tray.classList.toggle('action', need);
-  els.tray.setAttribute('aria-label', need ? 'NARC has a case that needs your attention. Open NARC.' : `${fullLabel}. Open NARC.`);
+  els.tray.classList.toggle('teamalert', team);
+  els.tray.setAttribute('aria-label', need ? 'NARC has a case that needs your attention. Open NARC.' : team ? 'NARC is showing a team alert. Open NARC.' : `${fullLabel}. Open NARC.`);
 
   const info = logoffInfo(state);
   els.logoff.disabled = !info;
-  els.logoff.title = info ? 'Log off for now. NARC will process the open case.' : 'Nothing is waiting on you.';
+  els.logoff.title = info ? 'Log off for the day. NARC will process whatever is still open.' : 'Nothing is waiting on you.';
 
   els.dock.replaceChildren(...APPS.map((a) => {
     const count = u[a.id] || 0;
@@ -156,9 +160,9 @@ function renderChrome() {
     b.firstChild.innerHTML = ICON[a.id];
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === a.id));
-    if (count) b.append(h('span', a.id === 'narc' ? 'badge action' : 'badge', count));
+    if (count) b.append(h('span', a.id === 'narc' ? `badge ${ownCase(state) ? 'action' : 'team'}` : 'badge', count));
     else if (state.marks[a.id]) b.append(h('span', 'mark', ''));
-    b.setAttribute('aria-label', count ? `${a.label}, ${count} ${a.id === 'narc' ? 'needs attention' : 'unread'}` : state.marks[a.id] ? `${a.label}, something new` : a.label);
+    b.setAttribute('aria-label', count ? `${a.label}, ${count} ${a.id === 'narc' ? (ownCase(state) ? 'needs attention' : 'team alert') : 'unread'}` : state.marks[a.id] ? `${a.label}, something new` : a.label);
     b.addEventListener('click', () => goApp(a.id));
     return b;
   }));
@@ -309,9 +313,13 @@ function renderMessages() {
 // ---------------------------------------------------------------- calendar
 
 function eventRow(e, team) {
-  return h('div', `event${team ? ' team' : ''}`,
-    h('div', 'time', `${e.start}–${e.end}`),
-    h('div', null, h('div', null, e.title), h('div', 'where', e.where)));
+  const body = h('div', null, h('div', null, e.title), h('div', 'where', e.where));
+  if (!team && e.who === 'me') {
+    const shown = h('span', `showas${e.focus ? ' is-focus' : ''}`, e.focus ? 'Focus time' : 'Busy');
+    const toggle = e.focus ? null : btn('Show as Focus time', 'showbtn', () => dispatch({ do: 'markFocus', event: e.id }));
+    body.append(h('div', 'showrow', h('span', 'small', 'Show as: '), shown, toggle));
+  }
+  return h('div', `event${team ? ' team' : ''}${e.focus ? ' focus' : ''}`, h('div', 'time', `${e.start}–${e.end}`), body);
 }
 
 function renderCalendar() {
@@ -386,6 +394,8 @@ function renderFiles() {
   else {
     detail.append(h('h2', null, f.name), h('div', 'meta', f.meta));
     f.body.forEach((p) => detail.append(h('p', null, p)));
+    const fa = fileActions(state)[f.id];
+    if (fa) detail.append(btn(fa.label, 'btn primary', () => dispatch({ do: 'sendFile', file: fa.file })));
   }
   return windowShell('Files', h('div', 'body', list, detail));
 }
@@ -431,9 +441,10 @@ function renderUtilities() {
 // -------------------------------------------------------------------- NARC
 
 function alertRow(a) {
-  const active = a.incident && !a.closed;
-  const row = h('button', `row${active ? ' active' : ''}${a.closed ? ' closed' : ''}`,
-    h('div', 'top', h('span', 'name', a.title), active ? h('span', 'pill', 'Action') : null),
+  const open = a.incident && !a.closed;
+  const mine = open && caseView(state, a).own;
+  const row = h('button', `row${mine ? ' active' : ''}${open && !mine ? ' teamrow' : ''}${a.closed ? ' closed' : ''}`,
+    h('div', 'top', h('span', 'name', a.title), mine ? h('span', 'pill', 'Action') : open ? h('span', 'pill team', 'Team') : null),
     h('div', 'sub', a.text));
   row.type = 'button';
   row.setAttribute('aria-current', String(ui.sel.narc === a.id));
@@ -446,11 +457,15 @@ function renderNarc() {
   if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', h('b', null, state.score)));
   if (state.level >= 2) top.append(h('span', 'flag', 'Integrity flags ', h('b', null, state.flags)));
 
-  const { active, history } = narcSections(state);
+  const { active, team, history } = narcSections(state);
   const list = h('div', 'list');
   list.append(h('div', 'sect-h need', 'Needs attention'));
   if (!active.length) list.append(h('div', 'none', 'Nothing needs your attention.'));
   active.forEach((a) => list.append(alertRow(a)));
+  if (team.length) {
+    list.append(h('div', 'sect-h', 'Team alerts'));
+    team.forEach((a) => list.append(alertRow(a)));
+  }
   list.append(h('div', 'sect-h', 'Recent activity'));
   if (!history.length) list.append(h('div', 'none', 'No activity yet.'));
   history.forEach((a) => list.append(alertRow(a)));
@@ -486,6 +501,7 @@ function caseNode(a) {
   box.append(h('div', 'sect model', 'Model'), h('div', 'model-box', h('div', null, c.model.label), h('div', 'conf', `Confidence: ${c.model.confidence}%`)));
   if (c.metrics.length) box.append(h('div', 'metrics', c.metrics.map(([k, v]) => h('div', null, `${k}: `, h('b', null, v)))));
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
+  if (c.note) box.append(h('div', 'viewonly', c.note));
   if (c.closed) {
     box.append(h('div', 'closed-line', 'Status: closed.'));
     return box;
@@ -563,8 +579,8 @@ function renderModal() {
   const info = logoffInfo(state);
   if (!logoffOpen || !info) { logoffOpen = false; return; }
   const box = h('div', 'dialog',
-    h('h2', null, 'Log off for now?'),
-    h('p', null, `NARC review pending: ${info.title}.`),
+    h('h2', null, 'Log off for the day?'),
+    h('p', null, `Still open in NARC: ${info.title}.`),
     h('p', null, `If you log off, ${info.text}`));
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-modal', 'true');

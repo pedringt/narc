@@ -68,12 +68,15 @@ The current product judgment is to keep gameplay deterministic unless a future A
 - 6 achievements and an end-of-week report
 - deterministic, no live AI, no backend
 
+NARC shows everyone's alerts to everyone, "for transparency", but you can only act on your own. You help coworkers in Messages, and advice is labelled as a **Sincere tip** or **Polite sabotage**. Official input goes through Dana; evidence and tools live in the other apps.
+
 | Situation | Things you can actually do |
 |---|---|
-| Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper in Utilities and switch it on |
-| Luis | agree with NARC's flag · dismiss it · attach the helper in Messages (once you have installed it) · (later) attribute the script, randomize his copy, or ask your manager to relabel his time |
-| Marcus | confirm the location trace · dismiss · add a calendar event on the team calendar · (later) endorse, report documents, or attach the trace |
-| Priya | ask her to cut back in Messages · nominate her in the Culture email · dismiss |
+| Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper and switch it on · show your contract block as Focus time in Calendar |
+| Luis | sincere tip (block restroom windows as focus time) · polite sabotage (write NARC an explanation) · attach the helper (once installed) · tell Dana he is away a lot · later: attribute the script or randomize his copy · relabel his time via Dana · send Dana his ticket output |
+| Marcus | sincere tip (add a calendar entry) · polite sabotage (add it late) · add the calendar entry yourself · tell Dana where he was · later: endorse or report his documents via Dana · send Dana the sanctuary slip · backdate an entry |
+| Priya | sincere tip (in-person sync) · polite sabotage (post less) · nominate her from the Culture email |
+| Doing nothing | log off for the day: NARC processes what is still open, and the game tells you first |
 
 Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://). Add `?tick=150` to the URL to speed up the game clock for QA.
 
