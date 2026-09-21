@@ -1,63 +1,66 @@
-# NARC Claude Rework Acceptance Criteria
+# NARC Desktop Rework Acceptance Criteria
 
-The first Claude rework is ready for Paige to play when all required criteria below are met.
+The desktop-interaction rework is ready for Paige to play when the following are true.
 
-## Required
+## Desktop / workday framing
 
-- [ ] The player is explicitly a human employee, not NARC.
-- [ ] The old reviewer decision loop is no longer the primary gameplay.
-- [ ] The first playable screen is simple and understandable.
-- [ ] The interface reveals one decision step at a time.
-- [ ] At least 5 short encounters are playable.
-- [ ] At least 3 coworkers appear.
-- [ ] At least 1 coworker appears more than once.
-- [ ] At least 1 later encounter changes based on an earlier player action.
-- [ ] The player discovers at least 1 proxy metric through gameplay.
-- [ ] The player can deliberately exploit at least 1 NARC limitation.
-- [ ] At least 1 exploit has a later unintended or funny consequence.
-- [ ] At least 1 NARC capability/policy update occurs mid-run.
-- [ ] At least 1 employee can be protected/saved.
-- [ ] At least 1 employee can end in a materially worse outcome.
-- [ ] A final outcome screen summarizes the run.
-- [ ] At least 1 achievement or replay hook exists.
-- [ ] Restart returns to a clean initial state.
-- [ ] Deterministic tests cover the new state transitions.
-- [ ] Tests pass.
-- [ ] Mobile layout remains usable.
-- [ ] No live LLM is required.
+- [ ] The player spends most of the run in one persistent fictional work desktop/workspace.
+- [ ] NARC is presented as monitoring software/service inside the work environment, not as the entire game UI.
+- [ ] A small persistent NARC-active/monitoring indicator exists.
+- [ ] NARC is introduced through a believable company email or alert.
+- [ ] Workday progression uses normal day/time rather than visible `Encounter X of 6`.
 
-## Experience Bar
+## Natural actions
 
-A first-time portfolio visitor should plausibly be able to:
-- understand the premise within ~30 seconds
-- learn what NARC is measuring without reading a tutorial
-- laugh at least a few times
-- see that the system is limited rather than omniscient
-- finish the run in roughly 5–8 minutes
-- understand why an earlier decision mattered later
-- want to try at least one different path
+- [ ] The game no longer relies on generic `What do you do?` screens for its main branches.
+- [ ] Major branches are represented as plausible computer actions when possible.
+- [ ] Dismissing/ignoring something can itself function as a branch.
+- [ ] Writing an explanation happens in an actual field/surface rather than a story-choice button.
+- [ ] The mouse-jiggler path is represented as installing and/or enabling a utility.
+- [ ] Explicit buttons remain only where the underlying computer action naturally requires one.
 
-## Must Not Happen
+## Information separation
 
-- [ ] No merge/push to `main`.
+- [ ] NARC details distinguish observed signal from model inference/confidence.
+- [ ] Human context is discoverable in other apps/surfaces.
+- [ ] The player can understand at least one NARC mistake by comparing different apps.
+- [ ] The UI does not explicitly explain the lesson when the interaction can show it.
+
+## Consequences
+
+- [ ] The mouse-jiggler causes the activity metric/status to improve without a dedicated result screen.
+- [ ] The manager's “Love the energy!” reaction arrives through Messages.
+- [ ] At least one coworker consequence arrives through Messages, Email, Calendar, app state, or another natural work surface.
+- [ ] Dedicated `Afterward` and `NARC updates` screens are removed or no longer necessary for the main flow.
+- [ ] The player can continue naturally after a consequence without repeatedly clicking a large `Continue` button.
+
+## Preserve current game value
+
+- [ ] Human player role remains.
+- [ ] Luis, Marcus, and Priya remain in the playable slice.
+- [ ] Carry-over still affects later events.
+- [ ] At least one NARC capability update still occurs.
+- [ ] Endings/achievements remain reachable.
+- [ ] Deterministic tests pass.
+- [ ] Restart/reset works.
+
+## Experience bar
+
+A player should feel:
+- “I am at work and NARC keeps intruding.”
+- “I found a workaround.”
+- “The system believed the workaround.”
+- “My coworkers/boss reacted naturally.”
+
+A player should not feel:
+- “I am answering six scenario questions.”
+- “I am reading an AI lesson.”
+- “This is a terminal game with a desktop skin.”
+
+## Scope boundaries
+
+- [ ] No full OS simulation.
+- [ ] No backend/auth/persistence.
+- [ ] No live LLM.
 - [ ] No production promotion.
-- [ ] No backend/auth/persistence added.
-- [ ] No live generative AI added.
-- [ ] No dense all-controls-visible dashboard.
-- [ ] No assumption that every NARC inference is wrong.
-- [ ] No long explanatory AI lesson screens.
-- [ ] No preservation of old reviewer mechanics solely because they already exist.
-
-## Deferred by Design
-
-These are not required for the first rework:
-- all five coworkers appearing in one run
-- all eight final V1 encounters
-- final achievement set
-- final portfolio case-study copy
-- real-world monitoring citations inside the game
-- production polish
-- audio
-- save system
-- live AI
-- public release
+- [ ] No merge/push to `main`.
