@@ -122,6 +122,89 @@ Examples:
 
 Only 1–2 escalation steps are required in V1.
 
+
+## Player-learning goal
+
+NARC is also a funny way to learn how AI and algorithmic systems can fail.
+
+The game should not explain AI concepts as lessons. Instead, the player should learn them by **outsmarting the system**.
+
+A strong scenario lets the player experience one or more of these ideas:
+
+- a proxy is not the same thing as the real goal
+- a confident inference can still be wrong
+- context can live outside the data a model sees
+- people change behavior when they know what is measured
+- optimizing a metric can make the metric less meaningful
+- more data does not automatically fix a bad objective
+- different institutional metrics can contradict each other
+- model outputs become more consequential when software is granted more authority
+- anti-gaming systems create an arms race with the people being measured
+- predictions can create feedback loops or self-fulfilling outcomes
+- human review matters because an inference is not the same thing as truth
+
+Internal scenario test:
+
+> **What AI/product idea does the player discover by exploiting, evading, challenging, or watching NARC in this situation?**
+
+If a mechanic is funny but reveals nothing interesting about the system, it may be expendable. If it teaches something but feels like a lesson, hide the concept more deeply inside the comedy and interaction.
+
+## Pressure and counterplay
+
+The clearer game structure is:
+
+> **NARC is the pressure. Coworkers and the rest of the desktop are the counterplay.**
+
+NARC should primarily intrude through notifications, alerts, demands, recommendations, and status changes.
+
+Coworkers, Messages, Calendar, Files, Email, and Utilities should help the player understand missing context, discover loopholes, and manipulate what NARC sees.
+
+The repeatable gameplay loop is:
+
+1. NARC interrupts with a judgment, demand, or threat.
+2. The player can inspect the signals/inference NARC used.
+3. Coworkers or other work surfaces reveal context, a contradiction, or a loophole.
+4. The player complies, challenges, evades, or manipulates the measured trace.
+5. NARC reacts as though its own data is authoritative.
+6. Later NARC may adapt, creating a new arms race.
+
+Coworker messages should therefore do more than deliver jokes. They can simultaneously provide:
+- character
+- human context
+- hints about what NARC does not know
+- clues about possible exploits
+
+Do not make coworkers speak like tutorial NPCs. Hints should sound like people trying to survive an annoying workplace system.
+
+## Grounded beginning, speculative escalation
+
+NARC may move beyond what typical workplace systems do today.
+
+The early game should be recognizable and grounded in documented workplace surveillance / algorithmic-management ideas. Later scenarios may extrapolate into increasingly dystopian or absurd monitoring.
+
+Useful escalation ladder:
+
+1. **What you did** — activity, messages, apps, attendance, location, after-hours work.
+2. **What NARC thinks it means** — engagement, collaboration, productivity, credibility.
+3. **Who NARC thinks you are** — resistant, influential, poorly aligned, likely to leave.
+4. **What NARC thinks you will do** — quit, disengage, resist a change, burn out.
+5. **NARC acts before you do** — restrictions, mandatory coaching, lockouts, preemptive intervention.
+
+Later stages are fictional NARC extrapolation, not claims about ordinary employers today.
+
+Potential future concepts:
+- personal-baseline anomaly detection
+- attrition-risk restrictions that create self-fulfilling predictions
+- AI Adoption / Transformation Readiness scores
+- informal influence-network risk
+- sarcasm probability becoming alignment risk
+- compulsory wellness / rest resistance
+- physiological or body-signal monitoring
+- preemptive action based on predicted future behavior
+
+Research notes and sources live in:
+- `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`
+
 ## Cast
 
 ### Luis Perez
@@ -394,6 +477,6 @@ A successful V1 should make a portfolio visitor:
 
 The current `prototype-v1` deployment already uses the human-vs-NARC premise with six deterministic encounters, Luis/Marcus/Priya, carry-over, a NARC update, endings, and achievements.
 
-The remaining major mismatch is interaction framing: it still presents the game as full-screen encounter cards with explicit story-choice buttons.
+The current desktop rework has removed most scenario-card framing. The primary mismatch now is **clarity and pacing**: the player can see a believable workstation but often cannot tell what actions are available or why incoming messages matter.
 
 The next implementation pass should preserve the working deterministic state logic where practical and reframe it around the persistent work-desktop model defined above and in `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`.
