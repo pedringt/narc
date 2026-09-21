@@ -2,13 +2,13 @@
 
 ## Current status
 
-NARC is in **prototype redesign**.
+NARC is in **prototype interaction redesign**.
 
-A first deterministic prototype exists on `prototype-v1` and is deployed as a Vercel preview, but it represents an older structure where the player acts as NARC reviewing employees.
+The current `prototype-v1` build already uses the new human-vs-NARC premise: the player is an employee, the game has six deterministic encounters, and the old reviewer-player loop has been removed.
 
-That structure is now **superseded**.
+The next problem is not the core premise. It is the interaction model.
 
-Do not continue extending the reviewer-player loop as the primary design.
+The current build still feels too much like a sequence of full-screen scenario cards with explicit game choices. The next pass should make the same logic feel like a normal workday on a fictional corporate laptop.
 
 ## Current premise
 
@@ -98,17 +98,20 @@ Deferred: Nina and Maya, the remaining encounters, a formal NARC score for the p
 
 ## Next recommended implementation action
 
-Rebuild the playable slice around:
-1. signal
-2. inspect/understand proxy
-3. respond or exploit
-4. result
-5. human reaction
-6. later carry-over
+Rework the current six-encounter prototype into a **persistent work-desktop experience**.
 
-The interface should reveal one step at a time.
+The desktop/workspace should stay visible while:
+- NARC issues alerts
+- People Operations sends email
+- coworkers and the manager use Messages
+- Calendar/Work surfaces reveal human context
+- utilities provide concrete actions such as installing/enabling the mouse-jiggler
+- consequences arrive through notifications, Messages, Email, Calendar, or app state
 
-Do not start by adding more old reviewer cases.
+The deterministic branch structure can remain underneath, but the player should rarely see abstract `What do you do?` choice menus.
+
+Detailed UX source of truth:
+- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 
 ## AI stance
 
@@ -151,6 +154,7 @@ Do not import Evelyn-specific canon, elder-care material, or that prototype's st
 
 For a fresh Claude Code implementation chat, use:
 - `docs/handoffs/claude-rework/HANDOFF.md`
+- `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 - `docs/handoffs/claude-rework/AGENT_PROMPT.md`
 - `docs/handoffs/claude-rework/ACCEPTANCE_CRITERIA.md`
 
