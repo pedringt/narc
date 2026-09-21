@@ -49,6 +49,68 @@ The player succeeds by learning what NARC actually measures, where its inference
 6. **Carry-over**  
    A later encounter may use the new behavior or record as evidence.
 
+## Gameplay north star: simple, playful reverse-engineering
+
+The game should feel like a short interactive satire, not a deep simulation or systems-management game.
+
+Keep one simple repeatable loop:
+
+> **NARC makes a judgment → the player pokes one or two things → NARC changes its belief → something funny or consequential happens.**
+
+The fun should come from reverse-engineering what NARC actually cares about and seeing immediate cause/effect.
+
+Per major incident, prefer:
+- one obvious NARC judgment
+- two or three pieces of context at most
+- two or three meaningful actions
+- one visible NARC/model reaction
+- one consequence or reversal
+
+Avoid adding more meters, dashboards, hidden rules, or AI vocabulary just to make the system feel sophisticated.
+
+### AI should surface through play
+
+AI visibility is still a hard requirement, but it should come from behavior rather than explanation.
+
+Useful recurring signals:
+- **confidence**
+- **prediction**
+- **pattern detected**
+- **assessment updated**
+- visible score/classification changes after the player's action
+
+The week should roughly escalate like this:
+
+1. **NARC watches** — proxy metrics and missing context.
+2. **NARC judges** — raw signals become inferred human traits or risks.
+3. **NARC adapts** — a workaround that previously worked is detected or reclassified.
+4. **NARC predicts** — future behavior is forecast from the player's history.
+5. **NARC acts** — the company lets uncertain model outputs trigger real consequences.
+
+Do not label these as lessons in the game. The player should understand them because they just caused or experienced them.
+
+### Immediate-feedback rule
+
+When the player changes something NARC can see, show the model reaction quickly whenever possible.
+
+Examples:
+- mark a calendar event as Focus Time → activity/engagement assessment changes
+- enable `keepalive.pkg` → visible activity rises
+- NARC 2.0 detects the fixed interval → the same behavior is reclassified as synthetic activity
+- Priya reduces messages → Communication Load improves while Collaboration falls
+
+The player should regularly get an **“I did that”** moment.
+
+### Complexity guardrail
+
+Do not turn NARC into a deep strategy game.
+
+A mechanic is probably too complicated if the player needs to understand several interacting meters or read an explainer before they can predict what their action might do.
+
+Target:
+
+> **Easy to understand in seconds, interesting because the consequences are weird.**
+
 ## Main design idea
 
 NARC should not be omniscient.
