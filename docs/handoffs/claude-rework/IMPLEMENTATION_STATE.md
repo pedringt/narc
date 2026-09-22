@@ -285,6 +285,16 @@ player had no way to know the toy was there.
    the incidents and into the space between them, where the player can explore. Brisk
    run 5.3 min, reading every hint 7.1 min.
 7. **#12 fixed:** the clock stops at 17:59 instead of running past midnight.
+8. **The notification rail** narrows from 340px to 240px between 761 and 1399px, where
+   it used to cover the top of the case (at 1100px it hid the title and the assessment).
+   Wide screens and phones are unchanged. Measured with text rectangles, not element
+   boxes, across every case: nothing is covered now. Found while checking this: the
+   rail was not redrawn on resize, so rotating a phone left a stack sized for the old
+   screen sitting over the game. `render()` now runs on resize.
+
+Two QA notes for whoever is next: the static preview server serves `style.css` from
+cache, so force a fresh fetch before trusting a CSS check; and `?tick=N` is
+milliseconds per game second.
 
 Known limits of the new tests: the pointer assertion accepts "a lit app OR a choice",
 so moving a single explanatory line later can still pass while the app stays lit. Two

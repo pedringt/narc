@@ -780,7 +780,18 @@ function render() {
   restoreFocus(f);
 }
 
-// Time passes on its own, one game second per second. `?tick=150` speeds it up for QA.
+// How many notifications fit depends on the screen, and a redraw only happens
+// when the game state changes: without this, rotating a phone leaves a stack
+// sized for the old screen sitting over the game.
+let resizeQueued = false;
+window.addEventListener('resize', () => {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => { resizeQueued = false; render(); });
+});
+
+// Time passes on its own, one game second per second. `?tick=N` sets the
+// milliseconds per game second (not a multiplier), which speeds it up for QA.
 const TICK_MS = Number(new URLSearchParams(location.search).get('tick')) || 1000;
 
 // Only redraw when something the player can see changed.
