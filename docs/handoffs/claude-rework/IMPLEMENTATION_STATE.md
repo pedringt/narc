@@ -94,7 +94,7 @@ Coworker statuses: employed / promoted / warning / heavily monitored / absurdly 
 
 ## Pacing (asserted by tests)
 
-- A brisk player who clears everything immediately: about 5 minutes (asserted 4.5-7; the shorter orientation lead-in and tighter NARC 2.0 beat took about 20 s off).
+- A brisk player who clears everything immediately: about 5.3 minutes (asserted 5-7).
 - A player who reads every coworker hint before deciding: about 8 minutes (asserted 7-10).
 - Exploring and experimenting add to that. Stated target: about 8-10 minutes healthy, 5-15 overall.
 - No two notifications land within 3 seconds of each other (asserted across several routes).
@@ -255,6 +255,40 @@ From Paige's playtest and an outside AI review. All six are on `prototype-v1` an
 6. **Shorter lead-in.** `ORIENT_LEAD` 22 → 10 s.
 
 Found during QA, not fixed (separate issue): the clock gains a minute every 3 s with no daily cap, so a tab idle for about 45 minutes on one day shows times past 24:00. Also note `?tick=N` is **milliseconds per game second** (`?tick=200` = 5×), not a multiplier.
+
+## Pacing and playability pass (done, 2026-09-22, issue #13)
+
+Verified #13's examples against the merged build first: they were accurate (Marcus's
+Wednesday ran +8/+16/+24/+32/+40; Dana reached Luis's Friday review at +36). One
+nuance worth keeping: most incidents already had a legal move at +0 (the calendar
+entry, the files, nominations, Focus time). What was missing was the *pointer* — the
+player had no way to know the toy was there.
+
+1. **Time to action (items 1 and 4).** The opening line lands at +4 and the line that
+   points at the incident's main move at +8; the jokes still arrive, as colour after
+   the fact. Wednesday reads as a records puzzle (empty calendar at +8, transit alert
+   at +16). Asserted: a pointer within 10 s, the first prompted choice within 20 s.
+2. **One primary toy per incident (item 2)** is now expressed by *what gets pointed at
+   first*, not by removing routes: the alternates are still reachable, just later.
+3. **The assessment grammar everywhere (item 3).** Eight unattended branches resolved
+   through a plain notice: `e2 ignore`, `e3 stay`, `e4 leave`, `e5 covered/auto/letit`,
+   `e6 approve/let`. They now update the card in place with the company action and one
+   notification that opens that card.
+4. **The prediction (item 5).** Six seconds after the last case, NARC models the player
+   ("Policy-workaround likelihood: N%"). `workarounds()` counts patterns NARC can see
+   rather than proven violations, so at 78%+ it opens a Predictive Integrity Review and
+   freezes the index 10 lower *before* the report. A player with zero integrity flags
+   can end UNDER REVIEW on the forecast alone. The mid-week forecast shares the formula.
+5. **The case card (item 6)** answers three questions in order: what NARC thinks, why
+   (2-4 signals), what happens because of it. Every case carries a company response.
+6. **GAP 14 -> 24 s.** The pacing work compressed the week, so the waiting moved out of
+   the incidents and into the space between them, where the player can explore. Brisk
+   run 5.3 min, reading every hint 7.1 min.
+7. **#12 fixed:** the clock stops at 17:59 instead of running past midnight.
+
+Known limits of the new tests: the pointer assertion accepts "a lit app OR a choice",
+so moving a single explanatory line later can still pass while the app stays lit. Two
+deliberate mutations confirmed that.
 
 Useful progression to preserve in behavior, not chapter labels:
 **watch → infer → adapt → predict → act**.
