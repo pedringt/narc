@@ -117,6 +117,15 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
   return afterAll ? until(s, (x) => x.phase === 'ending') : s;
 }
 
+const INCIDENT_BRANCHES = {
+  e1: ['wait', 'explain', 'jiggle', 'focus'],
+  e2: ['confirm', 'ignore', 'script', 'focus'],
+  e3: ['truth', 'paper', 'cover', 'stay', 'badtip'],
+  e4: ['quiet', 'champion', 'leave', 'sync'],
+  e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
+  e6: ['workshop', 'approve', 'expose', 'vouch_trace', 'backdate', 'let'],
+};
+
 const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' };
 
 // ---------------------------------------------- orientation comes first
@@ -1291,6 +1300,61 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const t0 = s.t;
   s = until(s, atIncident('e1'));
   assert.ok(s.t - t0 <= 14, `the first case arrives within ~14 s of finishing orientation (${s.t - t0})`);
+}
+
+// ------------ doing nothing still shows what NARC now believes and does
+
+{
+  // The route a player gets by logging off, or by declining every offer.
+  const quiet = [
+    ['e2', 'ignore', /Time-on-Task Advisory/, 'Advisory issued'],
+    ['e3', 'stay', /Attendance Integrity Notice/, 'Notice issued'],
+    ['e4', 'leave', /Concise Communication Coaching/, 'Coaching enabled'],
+    ['e5', 'letit', /Termination pending/, 'Plan issued'],
+    ['e6', 'let', /Termination confirmed/, 'Action confirmed'],
+    ['e6', 'approve', /None\. Absence approved/, 'Absence approved'],
+  ];
+  for (const [inc, branch, response, title] of quiet) {
+    const picks = { ...HONEST, [inc]: branch };
+    if (inc === 'e6') picks.e3 = branch === 'approve' ? 'paper' : 'stay';
+    let s = play(picks, { stopAt: inc });
+    const t0 = s.t;
+    s = DO[inc][branch](s);
+    s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === inc)).updated, { reads: false });
+    const view = caseView(s, s.alerts.find((a) => a.incident === inc));
+    assert.equal(view.updated, true, `${inc} ${branch}: the case card is updated`);
+    assert.equal(view.unchanged, false, `${inc} ${branch}: the belief visibly moved`);
+    assert.ok(view.model.was, `${inc} ${branch}: the old belief is kept`);
+    const action = view.metrics.find(([k]) => k === 'Company response');
+    assert.ok(action && response.test(String(action[1])), `${inc} ${branch}: the company action is on the card`);
+    assert.ok(view.reaction, `${inc} ${branch}: the reaction line is on the card`);
+    const fresh = s.toasts.filter((x) => x.app === 'narc' && !x.nudgeFor && x.at > t0);
+    assert.deepEqual(fresh.map((x) => x.title), [title], `${inc} ${branch}: exactly one NARC notification, and it opens the updated card`);
+    assert.equal(fresh[0].alert, s.alerts.find((a) => a.incident === inc).id);
+  }
+
+  // Luis's Focus-time cover: NARC never opens a case, and says so where he can see it.
+  let c = play({ ...HONEST, e2: 'focus' }, { stopAt: 'e5' });
+  c = until(c, (x) => x.done.includes('e5'), { reads: false });
+  c = until(c, (x) => has(texts(x, 'luis'), /Behavioral deviation: none/), { reads: false });
+  assert.ok(has(texts(c, 'luis'), /Behavioral deviation: none/));
+
+  // The other unattended routes still update Luis's open case.
+  for (const branch of ['auto']) {
+    let s = play({ ...HONEST, e2: 'script', e5: undefined }, { stopAt: 'e5' });
+    s = DO.e5[branch](s);
+    s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e5')).updated, { reads: false });
+    const view = caseView(s, s.alerts.find((a) => a.incident === 'e5'));
+    assert.equal(view.unchanged, false);
+    assert.match(String(view.metrics.find(([k]) => k === 'Company response')[1]), /Heavy monitoring/);
+  }
+
+  // Every branch of every incident reaches a visible model update, not a bare notice.
+  const noReact = [];
+  for (const [inc, def] of Object.entries(INCIDENT_BRANCHES)) {
+    for (const branch of def) if (!DO[inc][branch]) noReact.push(`${inc}.${branch}`);
+  }
+  assert.deepEqual(noReact, [], 'every listed branch has a driver');
 }
 
 console.log('NARC tests passed');

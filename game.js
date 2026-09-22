@@ -554,7 +554,11 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.monitored = 1;
         p.trust += 1;
-        notice(s, 4, 'Advisory issued', 'Time-on-Task Advisory issued: Luis Perez.');
+        react(s, 4, {
+          incident: 'e2', where: 'narc', toast: true, title: 'Advisory issued', conf: 74, tone: 'bad',
+          metrics: { 'Company response': 'Time-on-Task Advisory' },
+          text: 'No peer contradiction on file. Unchallenged: confidence 71% → 74%. Time-on-Task Advisory issued: Luis Perez.',
+        });
         say(s, 14, 'luis', 'Thank you for not asking. The advisory has a chart. The chart has a title. The title is my name.');
       },
       script(s) {
@@ -620,7 +624,11 @@ const INCIDENTS = {
       stay(s) {
         const p = s.people.marcus;
         p.status = 'warning';
-        notice(s, 4, 'Notice issued', 'No corroboration submitted. Attendance credibility: 38%. Attendance Integrity Notice issued: Marcus Reed.');
+        react(s, 4, {
+          incident: 'e3', where: 'narc', toast: true, title: 'Notice issued', label: 'Attendance credibility: uncorroborated', tone: 'bad',
+          metrics: { 'Company response': 'Attendance Integrity Notice' },
+          text: 'No corroboration submitted. Attendance credibility stands at 38% and is now on file as uncorroborated. Attendance Integrity Notice issued: Marcus Reed.',
+        });
         say(s, 14, 'marcus', 'I’m going to need a better raccoon.');
         catchUp(s, 5, 'marcus');
       },
@@ -702,7 +710,11 @@ const INCIDENTS = {
         catchUp(s, 14, 'priya');
       },
       leave(s) {
-        notice(s, 4, 'Coaching enabled', 'Concise Communication Coaching enabled: Priya Shah. A summarizing assistant has been assigned.');
+        react(s, 4, {
+          incident: 'e4', where: 'narc', toast: true, title: 'Coaching enabled', label: 'Communication Load: managed', conf: 46, tone: 'bad',
+          metrics: { 'Company response': 'Concise Communication Coaching' },
+          text: 'Communication Load: elevated → managed. Confidence 82% → 46%. Concise Communication Coaching enabled: Priya Shah. A summarizing assistant has been assigned.',
+        });
         say(s, 14, 'priya', 'It summarizes my messages. Its summaries are better than my messages. I hate it.');
         notice(s, 26, 'Response time', 'Client reply time improves by 2 h 40 min.');
       },
@@ -755,7 +767,10 @@ const INCIDENTS = {
     branches: {
       covered(s) {
         s.people.luis.status = 'employed';
-        notice(s, 4, 'Focus time recognized', 'Luis Perez: 4 calendar blocks marked Focus Time. Behavioral deviation: none. No review needed.');
+        react(s, 4, {
+          incident: 'e5', where: 'thread:luis', toast: true, title: 'Focus time recognized', tone: 'good',
+          text: 'Luis Perez: 4 calendar blocks marked Focus Time. Behavioral deviation: none. No review needed.',
+        });
         say(s, 14, 'luis', 'NARC 2.0 says I have excellent boundaries. That’s one interpretation.');
         catchUp(s, 5, 'luis');
       },
@@ -791,7 +806,11 @@ const INCIDENTS = {
       },
       auto(s) {
         s.people.luis.status = 'monitored';
-        notice(s, 4, 'Review concluded', 'No source identified. Luis Perez: heavy monitoring enabled. Innovation Council nomination withdrawn.');
+        react(s, 4, {
+          incident: 'e5', where: 'narc', toast: true, title: 'Review concluded', label: 'Automated presence: source unidentified', conf: 96, tone: 'bad',
+          metrics: { 'Company response': 'Heavy monitoring' },
+          text: 'No source identified. Luis Perez: heavy monitoring enabled. Innovation Council nomination withdrawn.',
+        });
         say(s, 14, 'luis', 'I was extremely productive and now I am being monitored for it.');
         catchUp(s, 5, 'luis');
       },
@@ -814,7 +833,11 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.status = 'fired';
         p.trust -= 3;
-        notice(s, 4, 'Plan issued', 'Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.');
+        react(s, 4, {
+          incident: 'e5', where: 'narc', toast: true, title: 'Plan issued', conf: 94, tone: 'bad',
+          metrics: { 'Company response': 'Termination pending' },
+          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.',
+        });
         say(s, 14, 'luis', 'I was in the restroom when the email arrived.');
         notice(s, 24, 'Email status', 'Luis Perez: email read in 4 seconds.');
         goOffline(s, 34, 'luis');
@@ -889,7 +912,11 @@ const INCIDENTS = {
       },
       approve(s) {
         s.people.marcus.status = 'employed';
-        notice(s, 4, 'Absence approved', 'Marcus Reed: absence approved. No action taken.');
+        react(s, 4, {
+          incident: 'e6', where: 'narc', toast: true, title: 'Absence approved', conf: 97, tone: 'good',
+          metrics: { 'Company response': 'None. Absence approved' },
+          text: 'Manager approval recorded. Attendance credibility 94% → 97%. Marcus Reed: absence approved. No action taken.',
+        });
         say(s, 14, 'marcus', 'The bird will be very relieved.');
       },
       expose(s) {
@@ -924,7 +951,11 @@ const INCIDENTS = {
       },
       let(s) {
         s.people.marcus.status = 'fired';
-        notice(s, 4, 'Action confirmed', 'Attendance Integrity Termination confirmed. Marcus Reed. Confidence: 88%.');
+        react(s, 4, {
+          incident: 'e6', where: 'narc', toast: true, title: 'Action confirmed', conf: 88, tone: 'bad',
+          metrics: { 'Company response': 'Attendance Integrity Termination confirmed' },
+          text: `Flag history weighted 80%. Attendance credibility ${s.people.marcus.cred}% → 88% against the employee. Attendance Integrity Termination confirmed: Marcus Reed.`,
+        });
         say(s, 14, 'marcus', 'It was a goose.');
         say(s, 24, 'marcus', 'Can the goose be a reference?');
         goOffline(s, 34, 'marcus');
