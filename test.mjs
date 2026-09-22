@@ -1450,4 +1450,18 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.phase, 'ending');
 }
 
+// ----------- every case answers the same three questions, in the same order
+
+{
+  for (const [inc, picks] of [['e1', {}], ['e2', HONEST], ['e3', HONEST], ['e4', HONEST], ['e5', HONEST], ['e6', HONEST]]) {
+    const s = play(picks, { stopAt: inc });
+    if (s.incident?.id !== inc) continue;
+    const view = caseView(s, s.alerts.find((a) => a.incident === inc));
+    assert.ok(view.model.label && typeof view.model.confidence === 'number', `${inc}: what NARC thinks`);
+    assert.ok(view.observed.length >= 2 && view.observed.length <= 4, `${inc}: why, in 2-4 signals (${view.observed.length})`);
+    const action = view.metrics.find(([k]) => k === 'Company response');
+    assert.ok(action && String(action[1]).length > 3, `${inc}: what happens because of it`);
+  }
+}
+
 console.log('NARC tests passed');

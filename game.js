@@ -1332,7 +1332,7 @@ function baseCaseView(s, alert) {
             : 'Calendar: 1 event shown as Busy, 09:15–12:30. Focus time scheduled: none',
         ],
         model: { label: 'Engagement concern: low to moderate', confidence: 64 },
-        metrics: [['Visible Activity Index', s.score], ['Team average', 84]],
+        metrics: [['Visible Activity Index', s.score], ['Team average', 84], ['Company response', 'Under observation. No action yet']],
         controls: open ? [{ type: 'note', id: 'submitNote', label: 'Add context (optional)', button: 'Submit note' }, dismiss] : [],
       };
     case 'e2':
@@ -1341,7 +1341,7 @@ function baseCaseView(s, alert) {
         subject: 'Luis Perez',
         observed: ['Corridor sensor pings near the restrooms: 14 this week', 'Laptop input during pings: none', 'Total: 47 min. Team baseline: 18 min'],
         model: { label: 'Time-on-task concern: moderate', confidence: 71 },
-        metrics: [],
+        metrics: [['Company response', 'Advisory pending peer verification']],
       };
     case 'e3':
       return {
@@ -1349,7 +1349,7 @@ function baseCaseView(s, alert) {
         subject: 'Marcus Reed',
         observed: ['Badge-in: 10:52. Scheduled: 09:00', 'Device location 09:04–10:41: Pinecrest Family Fun Center', 'Corroborating records on file: none'],
         model: { label: 'Attendance credibility', confidence: 38 },
-        metrics: [],
+        metrics: [['Company response', 'Corroborating records requested']],
       };
     case 'e4':
       return {
@@ -1365,7 +1365,7 @@ function baseCaseView(s, alert) {
         subject: 'Luis Perez',
         observed: ['Input every 59 seconds (fixed interval)', '41 min of input while the badge shows the restroom corridor', 'Innovation Council nomination: pending integrity review'],
         model: { label: 'Automated presence pattern', confidence: 96 },
-        metrics: [],
+        metrics: [['Company response', 'Integrity review open']],
       };
     case 'e5n':
       return {
@@ -1385,7 +1385,7 @@ function baseCaseView(s, alert) {
         subject: 'Marcus Reed',
         observed: ['Badge-in: 11:20. Scheduled: 09:00', 'Supporting documents attached: 6', 'Documents verified: 6 of 6 (records exist)'],
         model: { label: 'Attendance credibility', confidence: 94 },
-        metrics: [['Documentation Excellence', 'Top 2% of Operations']],
+        metrics: [['Documentation Excellence', 'Top 2% of Operations'], ['Company response', 'Peer training recommended']],
       };
     case 'e6b':
       return {
