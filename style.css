@@ -387,3 +387,23 @@ button { cursor: pointer; }
 .showbtn:hover { border-color: var(--app-accent); color: var(--app-accent); }
 .event.focus { border-left-color: #3aa76d; }
 .file-body .btn { margin-top: 12px; }
+
+/* ------------------------------------- NARC changes its mind, where you see it */
+.narcnote { margin-top: 8px; display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; background: #0c0d0c; color: var(--n-text); border-left: 3px solid var(--n-accent); font: 12px/1.5 var(--mono); border-radius: 2px; animation: noteIn .35s ease-out; }
+.narcnote .tag { color: var(--n-accent); font-weight: 700; letter-spacing: .08em; }
+.narcnote.good { border-left-color: var(--n-good); }
+.narcnote.bad { border-left-color: var(--n-danger); }
+.narcnote.flat { border-left-color: var(--n-muted); color: var(--n-muted); }
+.bubble.narc { align-self: stretch; max-width: none; background: #0c0d0c; color: var(--n-text); font: 12px/1.5 var(--mono); border-left: 3px solid var(--n-accent); border-radius: 2px; animation: noteIn .35s ease-out; }
+.bubble.narc .tag { color: var(--n-accent); font-weight: 700; letter-spacing: .08em; margin-right: 8px; }
+.model-box.updated { border-color: var(--n-accent); animation: noteIn .35s ease-out; }
+.updated-tag { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--n-accent); margin-bottom: 4px; }
+.model-box .was { color: var(--n-muted); font-size: 12px; text-decoration: line-through; }
+.reaction-line { margin-top: 8px; font-size: 13px; color: var(--n-muted); }
+.context-facts .val { display: inline-flex; gap: 8px; align-items: baseline; }
+.context-facts .was { color: var(--n-muted); font-weight: 400; text-decoration: line-through; }
+.num.up { color: var(--n-good); }
+.num.down { color: var(--n-danger); }
+.num { transition: color 1.6s ease-out; }
+@keyframes noteIn { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .narcnote, .bubble.narc, .model-box.updated { animation: none; } }

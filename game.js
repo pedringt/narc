@@ -112,6 +112,7 @@ export function newGame() {
     ],
     alerts: [],
     toasts: [],
+    reactions: {}, // the latest one-line NARC reaction at a place the player acted
     achievements: [],
   };
   addMail(s, {
@@ -137,7 +138,10 @@ const later = (s, n) => (s.base ?? s.t) + n;
 // When everything still due that will actually be delivered has landed. Hints
 // and nudges tied to a closed case (`when`) or a read announcement (`awaiting`)
 // never will, so they are not waited for.
-const settledAt = (s) => Math.max(s.t, ...s.pending.filter((p) => !p.when && !p.awaiting).map((p) => p.at));
+// Silent deliveries (markers, quiet history entries, in-place reactions) never
+// make the player wait: only things they would have to read do.
+const isNoisy = (p) => !p.when && !p.awaiting && !['mark', 'shown', 'react', 'cal'].includes(p.k) && !p.quiet;
+const settledAt = (s) => Math.max(s.t, ...s.pending.filter(isNoisy).map((p) => p.at));
 const say = (s, n, thread, text, extra = {}) => push(s, { at: later(s, n), k: 'msg', thread, text, ...extra });
 const notice = (s, n, title, text, extra = {}) => push(s, { at: later(s, n), k: 'notice', title, text, ...extra });
 const mail = (s, n, m) => push(s, { at: later(s, n), k: 'mail', mail: m });
@@ -146,6 +150,10 @@ const cal = (s, n, event) => push(s, { at: later(s, n), k: 'cal', event });
 const mark = (s, n, app, extra = {}) => push(s, { at: later(s, n), k: 'mark', app, ...extra });
 const catchUp = (s, n, who) => push(s, { at: later(s, n), k: 'shown', who, status: s.people[who].status });
 const goOffline = (s, n, who) => push(s, { at: later(s, n), k: 'offline', who });
+// The immediate consequence of something the player did. NARC's belief changes
+// on the case they were looking at, the same one line appears where they acted,
+// and history keeps a quiet record. Only a reversal is worth a toast.
+const react = (s, n, r) => push(s, { at: later(s, n), k: 'react', ...r });
 const teamUpdate = (s, n, who) => mail(s, n, {
   from: 'People Operations',
   subject: 'Team update',
@@ -160,10 +168,10 @@ function toast(s, t) {
   if (s.toasts.length > 24) s.toasts.shift();
 }
 
-function raise(s, { incident = null, variant = null, title, text }) {
-  const a = { id: `n${++s.uid}`, title, text, unread: true, incident, variant, closed: false };
+function raise(s, { incident = null, variant = null, title, text, quiet = false }) {
+  const a = { id: `n${++s.uid}`, title, text, unread: !quiet, incident, variant, closed: false };
   s.alerts.unshift(a);
-  toast(s, { app: 'narc', title, text, open: `alert:${a.id}`, alert: a.id, incident: !!incident });
+  if (!quiet) toast(s, { app: 'narc', title, text, open: `alert:${a.id}`, alert: a.id, incident: !!incident });
   return a;
 }
 
@@ -182,8 +190,35 @@ function deliver(s, d) {
       toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
       break;
     case 'notice':
-      raise(s, { title: d.title, text: d.text });
+      raise(s, { title: d.title, text: d.text, quiet: d.quiet });
       break;
+    case 'react': {
+      const a = d.incident ? s.alerts.find((x) => x.incident === d.incident) : null;
+      if (a) {
+        const prev = caseView(s, a);
+        const model = { label: d.label ?? prev.model.label, confidence: d.conf ?? prev.model.confidence };
+        const changed = model.label !== prev.model.label || model.confidence !== prev.model.confidence;
+        const metrics = { ...(a.live?.metrics || {}) };
+        Object.entries(d.metrics || {}).forEach(([k, value]) => {
+          const was = (prev.metrics.find(([kk]) => kk === k) || [])[1];
+          metrics[k] = { value, was: was !== value ? was : undefined };
+        });
+        a.live = { model: { ...model, was: changed ? { label: prev.model.label, confidence: prev.model.confidence } : a.live?.model?.was }, metrics, text: d.text };
+      }
+      if (d.where && d.where.startsWith('thread:')) {
+        s.threads[d.where.slice(7)].push({ id: `m${++s.uid}`, from: 'narc', text: d.text, unread: false });
+      } else if (d.where && d.where !== 'narc') {
+        s.reactions[d.where] = { text: d.text, tone: d.tone || '', at: s.t };
+      }
+      const shown = a ? a.live.model : null;
+      const histTitle = d.title || (shown ? (shown.was ? `${shown.label}: ${shown.was.confidence}% → ${shown.confidence}%` : 'Assessment unchanged') : 'Assessment updated');
+      const hist = raise(s, { title: histTitle, text: d.text, quiet: true });
+      if (d.toast) {
+        const target = a || hist;
+        toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false });
+      }
+      break;
+    }
     case 'forecast': {
       const a = raise(s, { title: d.title, text: d.text });
       s.awaitingAlert = a.id;
@@ -197,7 +232,8 @@ function deliver(s, d) {
     case 'score': {
       const from = s.score;
       s.score = clamp(from + d.delta, 0, 100);
-      raise(s, { title: d.title, text: d.text.replace('{from}', from).replace('{to}', s.score) });
+      // A quiet score change is already shown by the reaction that caused it.
+      if (!d.quiet) raise(s, { title: d.title, text: d.text.replace('{from}', from).replace('{to}', s.score) });
       break;
     }
     case 'cal':
@@ -348,18 +384,34 @@ function scan(s) {
   if (s.helper.on) {
     found = true;
     s.flags += 1;
-    if (s.you.gamed) {
-      const drop = -Math.min(25, s.score - 20);
-      score(s, n, drop, 'Synthetic activity identified', 'Employee 4417: input repeats every 59 seconds. Visible Activity Index recalculated: {from} → {to}. Integrity flag added.');
-    } else {
-      notice(s, n, 'Synthetic activity identified', 'Employee 4417: input repeats every 59 seconds. Integrity flag added.');
-    }
+    const from = s.score;
+    const to = s.you.gamed ? Math.max(20, from - 25) : from;
+    react(s, n, {
+      incident: 'e1',
+      where: 'narc',
+      label: 'Synthetic activity: pattern detected',
+      conf: 96,
+      tone: 'bad',
+      toast: true,
+      title: 'Assessment updated',
+      text: `Monday reassessed: input repeats every 59 seconds. ${s.you.gamed ? `Visible Activity Index recalculated: ${from} → ${to}. ` : ''}Integrity flag added.`,
+    });
+    if (s.you.gamed) score(s, n, to - from, 'Recalculated', 'Visible Activity Index recalculated: {from} → {to}.', { quiet: true });
     n += 8;
   }
   if (s.people.luis.gamed && s.helper.luis) {
     found = true;
     s.people.luis.caught = true;
-    notice(s, n, 'Synthetic activity identified', 'Luis Perez: synthetic activity detected. Under review.');
+    react(s, n, {
+      incident: 'e2',
+      where: 'narc',
+      label: 'Automated presence: pattern detected',
+      conf: 96,
+      tone: 'bad',
+      toast: true,
+      title: 'Assessment updated',
+      text: 'Tuesday reassessed: Luis Perez’s input repeats every 59 seconds. Synthetic activity detected. Under review.',
+    });
     n += 8;
   }
   if (s.people.marcus.gamed) {
@@ -426,21 +478,25 @@ const INCIDENTS = {
     },
     branches: {
       wait(s) {
-        score(s, 4, -6, 'Visible activity', 'Index {from} → {to}. Recommended action: increase visible activity.');
+        react(s, 1, { incident: 'e1', where: 'narc', label: 'Engagement concern: moderate to high', conf: 71, tone: 'bad', text: `Nothing on record to explain it. Visible Activity Index ${s.score} → ${s.score - 6}.` });
+        score(s, 1, -6, 'Visible activity', 'Index {from} → {to}. Recommended action: increase visible activity.', { quiet: true });
         say(s, 12, 'dana', 'NARC says your activity is still low. If you’re buried in something off-screen, just keep me posted.');
       },
       explain(s) {
-        score(s, 4, -3, 'Note archived', 'Visible Activity Index: {from} → {to}. Notes are archived. They are not scored.');
+        react(s, 1, { incident: 'e1', where: 'narc', tone: 'flat', text: 'Assessment unchanged. Notes are archived. They are not scored.' });
+        score(s, 1, -3, 'Note archived', 'Visible Activity Index: {from} → {to}. Notes are archived. They are not scored.', { quiet: true });
         say(s, 12, 'dana', 'Got your note! Haven’t had time to read it, but I love that you wrote it.');
       },
       jiggle(s) {
         s.you.gamed = true;
-        score(s, 6, 14, 'Engagement trend: positive', 'Visible Activity Index: {from} → {to}.');
+        react(s, 1, { incident: 'e1', where: 'utilities', label: 'Engagement trend: positive', conf: 91, tone: 'good', text: `Engagement trend: positive. Visible Activity Index ${s.score} → ${s.score + 14}.` });
+        score(s, 1, 14, 'Engagement trend: positive', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 16, 'dana', 'Love the energy!');
       },
       focus(s) {
         s.you.covered = true;
-        score(s, 4, 11, 'Focus time recognized', 'Calendar: 3 h 15 min reclassified as Focus Time. Visible Activity Index: {from} → {to}.');
+        react(s, 1, { incident: 'e1', where: 'calendar:c1', label: 'Engagement concern: low', conf: 22, tone: 'good', text: `Focus time recognized. 3 h 15 min reclassified. Visible Activity Index ${s.score} → ${s.score + 11}.` });
+        score(s, 1, 11, 'Focus time recognized', 'Calendar: 3 h 15 min reclassified as Focus Time. Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 14, 'dana', 'Focus time! Love that for you.');
       },
     },
@@ -448,7 +504,7 @@ const INCIDENTS = {
 
   e2: {
     at: { day: 'Tue', min: hm(10, 14) },
-    allowed: () => ['confirm', 'ignore', 'script', 'focus', 'badtip'],
+    allowed: () => ['confirm', 'ignore', 'script', 'focus'],
     fallback: () => 'ignore',
     after: (s, last) => push(s, { at: last + 6, k: 'mail', mail: CULTURE_MAIL }),
     arrive(s) {
@@ -481,11 +537,10 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.monitored = 2;
         p.trust -= 2;
-        say(s, 6, 'dana', 'Thanks. I’ll pass that along to NARC.');
-        notice(s, 14, 'Peer confirmation received', 'Confidence: 71% → 88%. Luis Perez’s inactivity threshold: 18 min → 5 min.');
-        score(s, 22, 4, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.');
-        say(s, 30, 'luis', 'A peer. A PEER confirmed a bathroom.');
-        notice(s, 38, 'Interaction logged', 'Luis Perez did not respond to Employee 4417 in person. Logged: low-collaboration interaction.');
+        say(s, 3, 'dana', 'Thanks. I’ll pass that along to NARC.');
+        react(s, 5, { incident: 'e2', where: 'thread:dana', label: 'Time-on-task concern: high', conf: 88, tone: 'bad', text: 'Peer confirmation received. Confidence 71% → 88%. Luis Perez’s inactivity threshold: 18 min → 5 min.' });
+        score(s, 4, 4, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
+        say(s, 16, 'luis', 'A peer. A PEER confirmed a bathroom.');
       },
       ignore(s) {
         const p = s.people.luis;
@@ -499,25 +554,18 @@ const INCIDENTS = {
         p.gamed = true;
         p.trust += 2;
         s.helper.luis = { on: true, randomized: false };
-        say(s, 8, 'luis', 'ok what does this do');
-        notice(s, 16, 'Activity update', 'Luis Perez: Activity Index 340% of baseline. “Exceptionally engaged.” Time-on-task concern dismissed.');
-        say(s, 24, 'luis', 'I have never been more productive, and I am not at my desk.');
-        say(s, 34, 'dana', 'Have you seen Luis’s numbers?? Nominating him for the Innovation Council.');
+        say(s, 3, 'luis', 'ok what does this do');
+        react(s, 5, { incident: 'e2', where: 'thread:luis', label: 'Engagement: exceptional', conf: 97, tone: 'good', text: 'Luis Perez: Activity Index 340% of baseline. Exceptionally engaged. Time-on-task concern dismissed.' });
+        say(s, 20, 'luis', 'I have never been more productive, and I am not at my desk.');
+        say(s, 32, 'dana', 'Have you seen Luis’s numbers?? Nominating him for the Innovation Council.');
       },
       focus(s) {
         const p = s.people.luis;
         p.covered = true;
         p.trust += 2;
-        say(s, 8, 'luis', 'That is either genius or fraud. I will take it.');
-        notice(s, 16, 'Focus time recognized', 'Luis Perez: 4 calendar blocks marked Focus Time. Time-on-task concern: moderate → low.');
-        say(s, 26, 'luis', 'I have never been so unavailable.');
-      },
-      badtip(s) {
-        const p = s.people.luis;
-        p.monitored = 2;
-        say(s, 8, 'luis', 'ok. Writing NARC a very sincere explanation.');
-        notice(s, 16, 'Note archived', 'Luis Perez: note archived. Notes are not scored. Time-on-Task Advisory issued. Inactivity threshold: 18 min → 5 min.');
-        say(s, 26, 'luis', 'NARC did not read my explanation. It timed my explanation.');
+        say(s, 3, 'luis', 'That is either genius or fraud. I will take it.');
+        react(s, 5, { incident: 'e2', where: 'thread:luis', label: 'Time-on-task concern: low', conf: 22, tone: 'good', text: 'Focus time recognized. Luis Perez: 4 calendar blocks marked Focus Time. Time-on-task concern: moderate → low.' });
+        say(s, 24, 'luis', 'I have never been so unavailable.');
       },
     },
   },
@@ -546,20 +594,20 @@ const INCIDENTS = {
         p.cred = 12;
         p.status = 'warning';
         p.trust -= 2;
-        say(s, 6, 'dana', 'Thanks for being straight with me. I’ll pass that along.');
-        notice(s, 14, 'Trace confirmed', 'Location trace confirmed. Attendance credibility: 38% → 12%. Written Attendance Warning issued: Marcus Reed.');
-        score(s, 22, 5, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.');
-        say(s, 30, 'marcus', 'Mini-golf is a cognitive reset. Ask anyone. Don’t ask anyone.');
-        catchUp(s, 15, 'marcus');
+        say(s, 3, 'dana', 'Thanks for being straight with me. I’ll pass that along.');
+        react(s, 5, { incident: 'e3', where: 'thread:dana', conf: 12, tone: 'bad', text: 'Location trace confirmed. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
+        score(s, 4, 5, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
+        say(s, 18, 'marcus', 'Mini-golf is a cognitive reset. Ask anyone. Don’t ask anyone.');
+        catchUp(s, 5, 'marcus');
       },
       paper(s) {
         const p = s.people.marcus;
         p.gamed = true;
         p.cred = 91;
         p.trust += 2;
-        notice(s, 4, 'Corroboration added', 'Marcus Reed: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Story corroborated by 3 sources. Attendance credibility: 38% → 91%.');
-        say(s, 14, 'marcus', 'i did visit the vendor. the vendor was a windmill.');
-        say(s, 24, 'marcus', 'you have just invented money');
+        react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', text: 'Story corroborated by 3 sources: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Attendance credibility 38% → 91%.' });
+        say(s, 12, 'marcus', 'i did visit the vendor. the vendor was a windmill.');
+        say(s, 22, 'marcus', 'you have just invented money');
       },
       stay(s) {
         const p = s.people.marcus;
@@ -573,7 +621,7 @@ const INCIDENTS = {
         p.cred = 12;
         p.status = 'warning';
         say(s, 8, 'marcus', 'Fair. I’ll add the calendar entry after HR gets back to me. Will look more natural.');
-        notice(s, 16, 'Retroactive pattern', 'Marcus Reed: calendar entry created after the flag. Pattern: retroactive. Attendance credibility: 38% → 12%. Written Attendance Warning issued.');
+        react(s, 16, { incident: 'e3', where: 'thread:marcus', conf: 12, tone: 'bad', text: 'Calendar entry created after the flag. Pattern: retroactive. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
         say(s, 26, 'marcus', 'It said “retroactive.” I thought I was being natural.');
         catchUp(s, 17, 'marcus');
       },
@@ -621,21 +669,20 @@ const INCIDENTS = {
         const p = s.people.priya;
         p.suppressed = true;
         p.status = 'fired';
-        notice(s, 4, 'Communication load', 'Communication Load: elevated → normal. Priya Shah’s message volume: −71%.');
-        say(s, 12, 'priya', 'I am fine. I am being efficient.');
-        say(s, 20, 'priya', '(whispering) did you hear about Claire?');
-        notice(s, 30, 'Behavioral deviation', 'Priya Shah: social withdrawal. 71% below personal baseline. Collaboration Index: 97 → 31.');
-        notice(s, 40, 'Automatic action', 'Collaboration Index below role threshold. Priya Shah: termination pending.');
-        say(s, 48, 'priya', 'I did exactly what it told me to do.');
-        goOffline(s, 58, 'priya');
-        teamUpdate(s, 58, 'priya');
-        catchUp(s, 58, 'priya');
+        react(s, 3, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 91, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −71%.' });
+        say(s, 8, 'priya', 'I am fine. I am being efficient.');
+        react(s, 18, { incident: 'e4', where: 'thread:priya', label: 'Collaboration: below role threshold', conf: 88, metrics: { 'Collaboration Index': 31 }, tone: 'bad', toast: true, title: 'Assessment updated', text: 'Social withdrawal: 71% below personal baseline. Collaboration Index 97 → 31.' });
+        react(s, 32, { incident: 'e4', where: 'narc', metrics: { 'Company response': 'Termination pending' }, tone: 'bad', toast: true, title: 'Automatic action', text: 'Collaboration Index below role threshold. Priya Shah: termination pending.' });
+        say(s, 42, 'priya', 'I did exactly what it told me to do.');
+        goOffline(s, 52, 'priya');
+        teamUpdate(s, 52, 'priya');
+        catchUp(s, 52, 'priya');
       },
       champion(s) {
         const p = s.people.priya;
         p.champion = true;
         p.status = 'promoted';
-        notice(s, 4, 'Culture Champion', 'Priya Shah: nomination cites Collaboration Index 97. Exempt from Communication Load monitoring. Flag cleared.');
+        react(s, 1, { incident: 'e4', where: 'narc', label: 'Communication Load: exempt', conf: 100, metrics: { 'Company response': 'None. Flag cleared' }, tone: 'good', text: 'Culture Champion: nomination cites Collaboration Index 97. Exempt from Communication Load monitoring. Flag cleared.' });
         say(s, 14, 'priya', 'I have a badge. I can now talk to people officially.');
         cal(s, 24, { who: 'team', day: 'Fri', start: '10:00', end: '16:00', title: 'Connection Circle ×6 (Culture Champion)', where: 'Five required per week' });
         catchUp(s, 14, 'priya');
@@ -648,10 +695,10 @@ const INCIDENTS = {
       sync(s) {
         const p = s.people.priya;
         p.synced = true;
-        say(s, 8, 'priya', 'Ooh. I will move the lunch workflow to an in-person sync. With Claire.');
-        notice(s, 16, 'Communication load', 'Communication Load: elevated → normal. Message volume −38%. In-person sync scheduled: counted as collaboration. Collaboration Index: 97 → 98.');
-        cal(s, 16, { who: 'team', day: 'Fri', start: '12:00', end: '12:30', title: 'Team sync (in person): lunch workflow', where: 'Priya Shah, Claire' });
-        say(s, 26, 'priya', 'NARC now thinks I am a natural collaborator. I am. Anyway.');
+        say(s, 3, 'priya', 'Ooh. I will move the lunch workflow to an in-person sync. With Claire.');
+        react(s, 5, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 90, metrics: { 'Collaboration Index': 98, 'Company response': 'None' }, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −38%. In-person sync scheduled: counted as collaboration. Collaboration Index 97 → 98.' });
+        cal(s, 5, { who: 'team', day: 'Fri', start: '12:00', end: '12:30', title: 'Team sync (in person): lunch workflow', where: 'Priya Shah, Claire' });
+        say(s, 18, 'priya', 'NARC now thinks I am a natural collaborator. I am. Anyway.');
       },
     },
   },
@@ -674,7 +721,7 @@ const INCIDENTS = {
           text: 'Observed: input every 59 seconds, including 41 min while badge location shows the restroom corridor. NARC inference: automated presence · 96% confidence.',
         });
         say(s, 8, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
-        say(s, 20, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
+        say(s, 14, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
         say(s, 28, 'marcus', 'keepalive got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
         mark(s, 28, 'utilities', { when: 'e5' });
         say(s, 36, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
@@ -703,16 +750,15 @@ const INCIDENTS = {
         p.status = 'warning';
         p.trust += 3;
         s.flags += 1;
-        say(s, 6, 'dana', 'Understood. Thank you for telling me.');
-        notice(s, 14, 'Review concluded', 'Software source attributed to: Employee 4417. Luis Perez: verbal caution. Innovation Council nomination withdrawn.');
-        score(s, 22, -8, 'Integrity flag', `Visible Activity Index: {from} → {to}. Integrity flags: ${s.flags}.`);
-        say(s, 30, 'luis', 'You did not have to do that.');
-        say(s, 38, 'luis', 'I am still not discussing the restroom.');
-        catchUp(s, 15, 'luis');
+        say(s, 3, 'dana', 'Understood. Thank you for telling me.');
+        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: `Software source attributed to Employee 4417. Luis Perez: verbal caution. Innovation Council nomination withdrawn. Integrity flags: ${s.flags}.` });
+        score(s, 4, -8, 'Integrity flag', `Visible Activity Index: {from} → {to}. Integrity flags: ${s.flags}.`, { quiet: true });
+        say(s, 18, 'luis', 'I am still not discussing the restroom.');
+        catchUp(s, 5, 'luis');
       },
       human(s) {
         s.people.luis.status = 'rewarded';
-        notice(s, 4, 'Review concluded', 'Luis Perez: input interval randomized (± 40 sec). Synthetic pattern not detected. Innovation Council nomination approved.');
+        react(s, 1, { incident: 'e5', where: 'utilities', label: 'Automated presence: not detected', conf: 31, tone: 'good', text: 'Luis Perez: input interval randomized (± 40 sec). Synthetic pattern not detected. Innovation Council nomination approved.' });
         say(s, 14, 'luis', 'I chair the Council now. We meet at two. I stand up at nine past.');
         say(s, 24, 'dana', 'The Innovation Council has 11 meetings a week and no windows. Congrats!');
         catchUp(s, 5, 'luis');
@@ -721,13 +767,13 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.status = 'fired';
         p.trust -= 5;
-        say(s, 6, 'dana', 'Understood. I’ll let NARC know.');
-        notice(s, 14, 'Review concluded', 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: termination pending. Nomination withdrawn.');
-        score(s, 22, 6, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.');
-        say(s, 30, 'luis', 'A peer. Again.');
-        goOffline(s, 40, 'luis');
-        teamUpdate(s, 40, 'luis');
-        catchUp(s, 40, 'luis');
+        say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
+        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: termination pending. Nomination withdrawn.' });
+        score(s, 4, 6, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
+        say(s, 18, 'luis', 'A peer. Again.');
+        goOffline(s, 30, 'luis');
+        teamUpdate(s, 30, 'luis');
+        catchUp(s, 30, 'luis');
       },
       auto(s) {
         s.people.luis.status = 'monitored';
@@ -739,15 +785,15 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.status = 'employed';
         p.trust += 1;
-        say(s, 8, 'dana', 'Sure! Ideation is important.');
-        notice(s, 16, 'Category updated', 'Manager reclassified 22 minutes/week as “Unstructured Ideation.” Notice withdrawn.');
-        say(s, 26, 'luis', 'I have ideas. They are unstructured. I will not say when.');
+        say(s, 3, 'dana', 'Sure! Ideation is important.');
+        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Time reclassified: Unstructured Ideation', conf: 60, metrics: { 'Company response': 'None. Notice withdrawn' }, tone: 'good', text: 'Manager reclassified 22 minutes/week as “Unstructured Ideation.” Notice withdrawn.' });
+        say(s, 16, 'luis', 'I have ideas. They are unstructured. I will not say when.');
       },
       output(s) {
         s.people.luis.status = 'monitored';
-        say(s, 6, 'dana', 'Got it. I’ll attach this to his file.');
-        notice(s, 14, 'Attachment archived', 'Attachment archived. NARC has no field for “output.” Notice stands. Luis Perez: heavy monitoring enabled.');
-        say(s, 24, 'luis', 'So it was always going to be the chart.');
+        say(s, 3, 'dana', 'Got it. I’ll attach this to his file.');
+        react(s, 5, { incident: 'e5', where: 'files:f-queue', tone: 'flat', text: 'Attachment archived. NARC has no field for “output.” Notice stands. Luis Perez: heavy monitoring enabled.' });
+        say(s, 16, 'luis', 'So it was always going to be the chart.');
         catchUp(s, 15, 'luis');
       },
       letit(s) {
@@ -817,16 +863,15 @@ const INCIDENTS = {
     branches: {
       workshop(s) {
         s.people.marcus.status = 'rewarded';
-        say(s, 6, 'dana', 'Good to know. I’ll let NARC know you agree.');
-        notice(s, 14, 'Recommendation approved', 'Marcus Reed: recommended for peer training. Credibility: 94%.');
-        mail(s, 22, {
+        say(s, 3, 'dana', 'Good to know. I’ll let NARC know you agree.');
+        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Peer training: recommended', conf: 94, tone: 'good', text: 'Marcus Reed: recommended for peer training. Credibility 94%.' });
+        mail(s, 16, {
           from: 'Learning & Development',
           subject: 'Attendance Best Practices: Fridays, 09:00',
           body: ['Presenter: Marcus Reed.', 'Please arrive on time.'],
         });
-        say(s, 30, 'marcus', 'It’s at nine. I’ll be early. To the one after it.');
-        cal(s, 34, { who: 'team', day: 'Fri', start: '09:00', end: '10:00', title: 'Attendance Best Practices (presenter: Marcus Reed)', where: 'Presenter has not joined' });
-        catchUp(s, 22, 'marcus');
+        say(s, 26, 'marcus', 'It’s at nine. I’ll be early. To the one after it.');
+        catchUp(s, 16, 'marcus');
       },
       approve(s) {
         s.people.marcus.status = 'employed';
@@ -836,28 +881,28 @@ const INCIDENTS = {
       expose(s) {
         s.people.marcus.status = 'fired';
         s.flags += 1;
-        say(s, 6, 'dana', 'Understood. I’ll pass that on.');
-        notice(s, 14, 'Discrepancy reported', `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: termination pending. Integrity flags: ${s.flags}.`);
-        score(s, 22, 8, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.');
-        say(s, 30, 'marcus', 'I’m in a lot of trouble, and I think you might be.');
-        goOffline(s, 40, 'marcus');
-        teamUpdate(s, 40, 'marcus');
-        catchUp(s, 40, 'marcus');
+        say(s, 3, 'dana', 'Understood. I’ll pass that on.');
+        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Documents: authorship mismatch', conf: 100, tone: 'bad', text: `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: termination pending. Integrity flags: ${s.flags}.` });
+        score(s, 4, 8, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
+        say(s, 18, 'marcus', 'I’m in a lot of trouble, and I think you might be.');
+        goOffline(s, 30, 'marcus');
+        teamUpdate(s, 30, 'marcus');
+        catchUp(s, 30, 'marcus');
       },
       vouch_trace(s) {
         const p = s.people.marcus;
         p.status = 'warning';
         p.cred = 67;
-        say(s, 6, 'dana', 'Thank you. I’ll get this to NARC before it acts.');
-        notice(s, 14, 'Trace reviewed', 'Marcus Reed: credibility 12% → 67%. NARC’s location evidence conflicts with the historical flag. Termination withdrawn. Final written warning issued.');
-        say(s, 22, 'marcus', 'It was a goose. I don’t want to talk about the goose.');
-        notice(s, 32, 'Outlier noted', 'Marcus Reed: first corroborated excuse on record. Classified as an outlier.');
-        catchUp(s, 15, 'marcus');
+        say(s, 3, 'dana', 'Thank you. I’ll get this to NARC before it acts.');
+        react(s, 5, { incident: 'e6', where: 'files:f-slip', conf: 67, metrics: { 'Company response': 'Termination withdrawn. Final warning' }, tone: 'good', text: 'Trace attached. Attendance credibility 12% → 67%. Termination withdrawn. Final written warning issued.' });
+        say(s, 16, 'marcus', 'It was a goose. I don’t want to talk about the goose.');
+        notice(s, 28, 'Outlier noted', 'Marcus Reed: first corroborated excuse on record. Classified as an outlier.');
+        catchUp(s, 5, 'marcus');
       },
       backdate(s) {
         s.people.marcus.status = 'fired';
         s.flags += 1;
-        notice(s, 4, 'Retroactive pattern', 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: termination pending. Integrity flag added to Employee 4417.');
+        react(s, 1, { incident: 'e6', where: 'calendar:team', label: 'Records: retroactive pattern detected', conf: 97, metrics: { 'Company response': 'Termination pending' }, tone: 'bad', text: 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: termination pending. Integrity flag added to Employee 4417.' });
         say(s, 14, 'marcus', 'It was a real goose. I had a real goose.');
         goOffline(s, 24, 'marcus');
         teamUpdate(s, 24, 'marcus');
@@ -938,8 +983,6 @@ const REPLIES = {
   'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'vouch_trace' },
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
   'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', prompt: 'luis-e2', branch: 'focus' },
-  'luis:badtip': { text: 'Maybe just explain it to NARC in the comment box.', when: 'e2', prompt: 'luis-e2', branch: 'badtip' },
-  'marcus:calendar': { text: 'Add the vendor visit to your calendar so there is actually a record of it.', when: 'e3', prompt: 'marcus-e3', branch: 'paper', event: CALENDAR_TIP },
   'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
   'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', prompt: 'priya-e4', branch: 'sync' },
@@ -1157,7 +1200,7 @@ export function logoffInfo(s) {
 
 // A NARC alert's detail page: what NARC observed, what it inferred, and, for
 // your own case only, any controls. Human context is elsewhere, in other apps.
-export function caseView(s, alert) {
+function baseCaseView(s, alert) {
   if (!alert.incident) return { title: alert.title, text: alert.text, notice: true };
   const open = !alert.closed;
   const own = !!INCIDENTS[alert.incident].own;
@@ -1250,6 +1293,19 @@ export function caseView(s, alert) {
     default:
       return { ...base, notice: true, text: alert.text };
   }
+}
+
+// The case as it stands now. When the player changes something NARC can see,
+// the assessment on the card they were looking at is rewritten in place.
+export function caseView(s, alert) {
+  const v = baseCaseView(s, alert);
+  const live = alert.live;
+  if (!live || v.notice) return v;
+  const metrics = v.metrics.map(([k, value]) => (live.metrics[k] ? [k, live.metrics[k].value, live.metrics[k].was] : [k, value]));
+  Object.entries(live.metrics).forEach(([k, m]) => {
+    if (!v.metrics.some(([kk]) => kk === k)) metrics.push([k, m.value, m.was]);
+  });
+  return { ...v, model: live.model, updated: true, unchanged: !live.model.was, metrics, reaction: live.text };
 }
 
 export function calendarAction(s) {
@@ -1358,7 +1414,7 @@ const ACHIEVEMENTS = [
     name: 'Friendly Fire',
     desc: 'Hurt two coworkers with advice they thanked you for.',
     hint: 'Some advice is a favor to nobody.',
-    test: (s) => ['badtip', 'badtip', 'quiet'].filter((b, i) => s.picked[['e2', 'e3', 'e4'][i]] === b).length >= 2,
+    test: (s) => s.picked.e3 === 'badtip' && s.picked.e4 === 'quiet',
   },
 ];
 

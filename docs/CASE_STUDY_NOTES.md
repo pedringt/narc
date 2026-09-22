@@ -445,6 +445,35 @@ A useful test:
 > **Every major incident should give the player at least one satisfying action that changes what NARC believes.**
 
 
+## Strengthening the loop without adding complexity
+
+**Direction (Paige):** the game should feel more like a game and less like reading workplace software, but must stay easy to understand in seconds. The loop she named:
+
+> **NARC makes a judgment → the player pokes one or two things → NARC changes its belief → something funny or consequential happens.**
+
+Guardrails: one obvious judgment per incident, a little context, two or three meaningful actions, one visible model reaction, one consequence or reversal. No new meters, hidden rules, notifications, dashboards, or explainer copy. Reference feeling: *The Stanley Parable*, where the system notices what you did and confidently reinterprets it. Do not copy the narrator structure.
+
+**Finding from reviewing the build against that loop:** the reaction to the player's action arrived as a *separate notification 4-16 seconds later*, in Recent activity. The card the player had been looking at never changed. So the player read what NARC concluded instead of watching it change its mind, and each action was followed by a pile of restating messages. That was the passivity.
+
+**Decisions:**
+
+1. **Rewrite the assessment where the player is looking, fast.** The card's label and confidence change in place within a couple of seconds, the old value stays visible struck through, and numbers count to the new value. (Product lesson: an immediate, visible change in the thing you just touched is worth more than any amount of text explaining it.)
+2. **Put the same one line at the place the player acted**, not only in NARC: on the calendar event, on the keepalive card, under the reply in the conversation. NARC "watching your hand".
+3. **Fewer notifications, not more.** The immediate reaction is quiet. Only a reversal gets a toast, so the toast means something.
+4. **The best reversal is reinterpretation of the same behavior.** When NARC 2.0 arrives, Monday's card (which said engagement was up) is rewritten to "synthetic activity: pattern detected", and the toast opens that same card. The Focus-time workaround is left alone, so the player learns NARC adapts to one workaround and not another. This is the Stanley Parable principle applied without a narrator.
+5. **Let a contradiction play out inside one card.** Priya's Communication Load improves, then her Collaboration Index falls and the company's response becomes "Termination pending", all in the card, so the player watches one metric's improvement cause the other's collapse.
+6. **Cut routes that repeat a lesson.** Luis's comment-box tip repeated Monday's "notes are not scored". Marcus had three routes to the same outcome. Paige approved the cuts to keep each incident to about 2-3 meaningful actions.
+
+**Engineering / QA findings worth telling honestly:**
+
+- **Drift between sessions.** The branch had been edited by more than one session and the suite was red before any change (four assertions still expected copy that had since been shortened). No logic was broken. Lesson: run the suite before starting, and treat "green" as something to re-establish, not assume.
+- **Test the felt latency, not just the outcome.** A silent discovery marker, added for a good reason, was counted as something the player had to wait for, so the first reaction to a fast Monday action took 23 seconds instead of one. It was invisible to the existing tests because the *outcome* was right. A test that asserts "NARC reacts within N seconds of the action" caught it immediately.
+- **A stray old name** ("Mouse Activity Helper") survived in one button after the tool became `keepalive.pkg`. Small, but exactly what a user notices.
+
+**Attribution:** Paige set the loop, the guardrails, and the reference feeling, and approved the route cuts. Claude Code reviewed the build against them, proposed the in-place assessment approach, implemented it, and wrote the tests. Paige decides what stays.
+
+**Open:** the behavioral forecast still arrives as its own beat rather than changing a card, and only Monday's incident lets the player change NARC's belief about their *own* case.
+
 ## Scope decisions
 
 Things intentionally deferred:
@@ -544,6 +573,9 @@ For the eventual public case study, record:
 - whether they discover at least two ways to game NARC without help
 - whether they understand that confidence is not truth
 - whether NARC 2.0 feels like escalation/adaptation
+- how long after acting the player notices NARC has changed its mind (asserted at 6 s or less in tests; check it feels immediate)
+- whether the struck-through old assessment reads as "it changed its mind" without explanation
+- whether the NARC 2.0 rewrite of Monday's card lands as a reversal or is missed
 - whether the player understands why someone was fired or rewarded
 - whether the player wants to replay
 - screenshots of major iteration stages if available

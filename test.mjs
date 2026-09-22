@@ -65,12 +65,11 @@ const DO = {
     ignore: logoff,
     script: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'attach', thread: 'luis', item: 'helper' }),
     focus: reply('luis', 'focus'),
-    badtip: reply('luis', 'badtip'),
   },
   e3: {
     truth: reply('dana', 'reportmarcus'),
     paper: (s) => act(s, { do: 'addEvent', title: 'Vendor Site Visit: Pinecrest Family Fun Center' }),
-    tip: reply('marcus', 'calendar'),
+    cover: reply('dana', 'covermarcus'),
     stay: logoff,
     badtip: reply('marcus', 'latecalendar'),
   },
@@ -112,7 +111,7 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
     if (s.incident?.id !== inc) continue; // resolved on arrival
     s = picks[inc] ? DO[inc][picks[inc]](s) : logoff(s);
     assert.ok(s.picked[inc], `${inc} was resolved`);
-    const want = picks[inc] === 'tip' ? 'paper' : picks[inc];
+    const want = picks[inc] === 'cover' ? 'paper' : picks[inc];
     if (want) assert.equal(s.picked[inc], want, `${inc} resolved as ${want}`);
   }
   return afterAll ? until(s, (x) => x.phase === 'ending') : s;
@@ -163,7 +162,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'ack' });
   assert.equal(s.threads.dana.length, 0, 'Dana takes a moment');
   s = until(s, (x) => x.threads.dana.length === 1);
-  assert.match(s.threads.dana[0].text, /I’m your manager/);
+  assert.match(s.threads.dana[0].text, /your manager/);
   assert.match(s.threads.dana[0].text, /Calendar/);
   assert.equal(THREADS.dana.role, 'Your manager', 'the thread header says so too');
 
@@ -183,7 +182,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, atIncident('e1'));
   assert.equal(s.indexVisible, true);
   assert.equal(clockText(s), 'Mon 12:14');
-  assert.ok(has(texts(s, 'dana'), /I’ll leave you to the Halvorsen read-through/), 'Dana sends you off to the contract');
+  assert.ok(has(texts(s, 'dana'), /NARC is live/), 'Dana tells you NARC is now live');
   assert.ok(!has(texts(s, 'dana'), /enjoy your contract/i));
 }
 
@@ -474,7 +473,6 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => replies(x, 'luis').length && replies(x, 'dana').length);
   assert.deepEqual(opts(s, 'luis'), [
     'You could block that time as Focus time on your calendar.',
-    'Maybe just explain it to NARC in the comment box.',
   ]);
   assert.deepEqual(opts(s, 'dana'), [
     'He is away from his desk a lot. The flag is probably accurate.',
@@ -486,7 +484,6 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'dana'), []);
   s = until(s, (x) => replies(x, 'marcus').length && replies(x, 'dana').length);
   assert.deepEqual(opts(s, 'marcus'), [
-    'Add the vendor visit to your calendar so there is actually a record of it.',
     'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
   ]);
   assert.deepEqual(opts(s, 'dana'), [
@@ -520,22 +517,17 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(has(noticeTexts(s), /4 calendar blocks marked Focus Time/));
   assert.equal(s.people.luis.covered, true);
 
-  s = DO.e2.badtip(play({ e1: 'explain' }, { stopAt: 'e2' }));
-  s = until(s, (x) => has(texts(x, 'luis'), /It timed my explanation/));
-  assert.ok(has(noticeTexts(s), /Notes are not scored. Time-on-Task Advisory issued/));
-  assert.equal(s.people.luis.monitored, 2);
-  assert.equal(s.people.luis.trust, 0, 'Luis does not resent you for it');
-  assert.equal(play({ e1: 'explain', e2: 'confirm' }, { stopAt: 'e5' }).people.luis.trust, -2, 'unlike when you tell Dana');
+  assert.equal(play({ e1: 'explain', e2: 'confirm' }, { stopAt: 'e5' }).people.luis.trust, -2, 'telling Dana costs you Luis’s trust');
 
-  // Marcus: a tip that adds the entry now, or advice to add it late.
-  s = DO.e3.tip(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
+  // Marcus: covering for him through Dana adds the entry; advice to add it late backfires.
+  s = DO.e3.cover(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
   assert.ok(s.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title) && /Marcus Reed/.test(e.where)));
   s = until(s, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
   assert.equal(s.people.marcus.gamed, true);
 
   s = DO.e3.badtip(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
   s = until(s, (x) => has(texts(x, 'marcus'), /I thought I was being natural/));
-  assert.ok(has(noticeTexts(s), /calendar entry created after the flag. Pattern: retroactive/));
+  assert.ok(has(noticeTexts(s), /Calendar entry created after the flag. Pattern: retroactive/));
   assert.equal(s.people.marcus.cred, 12);
   assert.equal(s.people.marcus.status, 'warning');
 
@@ -545,13 +537,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(s.calendar.some((e) => /Team sync \(in person\)/.test(e.title)));
   assert.equal(s.people.priya.status, 'employed');
   assert.equal(s.people.priya.synced, true);
-  assert.ok(!has(noticeTexts(s), /social withdrawal/));
+  assert.ok(!has(noticeTexts(s), /Social withdrawal/));
 
   s = DO.e4.quiet(play(HONEST, { stopAt: 'e4' }));
   assert.ok(s.threads.priya.some((m) => m.from === 'me' && /^Maybe post less/.test(m.text)));
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
-  assert.ok(!has(noticeTexts(s), /social withdrawal/), 'the backfire lands later');
-  s = until(s, (x) => has(noticeTexts(x), /social withdrawal.*Collaboration Index: 97 → 31/));
+  assert.ok(!has(noticeTexts(s), /Social withdrawal/), 'the backfire lands later');
+  s = until(s, (x) => has(noticeTexts(x), /Social withdrawal.*Collaboration Index 97 → 31/));
   s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*termination pending/));
   s = until(s, (x) => x.shown.priya === 'fired');
   assert.equal(s.people.priya.status, 'fired');
@@ -562,6 +554,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => has(texts(x, 'dana'), /I’ll pass that along to NARC/));
   assert.ok(!has(noticeTexts(s), /Peer confirmation received/), 'NARC hears about it afterwards');
   s = until(s, (x) => has(noticeTexts(x), /Peer confirmation received/));
+  assert.ok(s.threads.dana.some((m) => m.from === 'narc' && /Confidence 71% → 88%/.test(m.text)), 'and says so under the conversation');
 }
 
 // ---------------------------------- files you can send Dana as evidence
@@ -688,7 +681,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = patient(HONEST, 'e5');
   l = leads(s, 'e5');
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e5 leads: ${l}`);
-  assert.match(texts(s, 'dana').at(-1), /Unstructured ideation|unstructured ideation/i);
+  assert.match(texts(s, 'dana').at(-1), /relabel the time.*attach evidence/);
   assert.match(texts(s, 'dana').at(-1), /attach evidence|send it/i);
   assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['relabel', 'letluis']);
 
@@ -708,7 +701,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   l = leads(s, 'e6');
   assert.ok(l.includes('narc') && l.includes('mark:files'), `e6 (burned) leads: ${l}`);
   assert.match(texts(s, 'marcus').join(' '), /location trace should show the sanctuary/);
-  assert.match(texts(s, 'dana').at(-1), /send it to me before it acts/);
+  assert.match(texts(s, 'dana').at(-1), /send it now/);
 
   s = patient({ ...HONEST, e3: 'paper' }, 'e6');
   l = leads(s, 'e6');
@@ -812,7 +805,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   const luis = play({ ...HONEST, e2: 'script' }, { stopAt: 'e4' });
   assert.equal(luis.people.luis.caught, true);
-  assert.ok(has(noticeTexts(luis), /Luis Perez: synthetic activity detected/));
+  assert.ok(has(noticeTexts(luis), /Luis Perez’s input repeats every 59 seconds. Synthetic activity detected/));
   const cover = play({ ...HONEST, e2: 'focus' }, { stopAt: 'e4' });
   assert.equal(cover.people.luis.caught, false, 'a calendar cover is not synthetic activity');
   assert.ok(has(noticeTexts(cover), /No synthetic activity detected/));
@@ -874,7 +867,6 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(has(noticeTexts(expose), /3 of 6 last edited by Employee 4417/));
   const ws = play({ ...HONEST, e3: 'paper', e6: 'workshop' });
   assert.ok(ws.inbox.some((m) => /Attendance Best Practices/.test(m.subject)));
-  assert.ok(ws.calendar.some((e) => /Attendance Best Practices/.test(e.title)));
 
   const bird = play({ ...HONEST, e3: 'truth', e6: 'vouch_trace' });
   assert.equal(bird.people.marcus.status, 'warning');
@@ -888,6 +880,144 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(alertOf(at({ ...HONEST, e3: 'stay' }, 'e6'), 'e6').text, /credibility 38%/);
   // Bad calendar advice earlier leaves Marcus in exactly the same spot.
   assert.match(alertOf(at({ ...HONEST, e3: 'badtip' }, 'e6'), 'e6').text, /credibility 12%/);
+}
+
+// ------------------ NARC changes its mind where you can see it, fast, and quietly
+
+{
+  const card = (s, inc) => caseView(s, alertOf(s, inc));
+  const narcToasts = (s) => s.toasts.filter((x) => x.app === 'narc' && !x.nudgeFor).length;
+
+  // Focus time: the card you were looking at is rewritten within a couple of
+  // seconds, the same line appears on the calendar event, and there is no toast.
+  let s = play({}, { stopAt: 'e1' });
+  assert.equal(card(s, 'e1').model.confidence, 64);
+  assert.equal(card(s, 'e1').updated, undefined, 'nothing has changed yet');
+  const toastsBefore = narcToasts(s);
+  const acted = s.t;
+  s = DO.e1.focus(s);
+  s = until(s, (x) => card(x, 'e1').updated);
+  assert.ok(s.t - acted <= 3, `NARC reacts within a couple of seconds (${s.t - acted}s)`);
+  const c = card(s, 'e1');
+  assert.equal(c.model.confidence, 22);
+  assert.equal(c.model.label, 'Engagement concern: low');
+  assert.deepEqual(c.model.was, { label: 'Engagement concern: low to moderate', confidence: 64 }, 'the old assessment is kept so it can be shown struck through');
+  assert.match(s.reactions['calendar:c1'].text, /Focus time recognized/, 'and the line is at the place you acted');
+  s = ticks(s, 10);
+  assert.equal(narcToasts(s), toastsBefore, 'the immediate reaction is not a notification');
+  assert.equal(alertOf(s, 'e1').closed, true);
+  assert.ok(has(noticeTexts(s), /Focus time recognized/), 'history still records it');
+
+  // The mouse helper: the index moves and the line sits on the utility card.
+  s = DO.e1.jiggle(play({}, { stopAt: 'e1' }));
+  const from = s.score;
+  s = until(s, (x) => x.score !== from);
+  assert.equal(s.score, from + 14);
+  assert.match(s.reactions.utilities.text, /Engagement trend: positive\. Visible Activity Index 61 → 75/);
+  assert.equal(card(s, 'e1').model.label, 'Engagement trend: positive');
+  assert.ok(!s.toasts.some((x) => /Engagement trend/.test(x.title) && !x.gone), 'no notification for it either');
+
+  // A note changes nothing, and NARC says so.
+  s = until(DO.e1.explain(play({}, { stopAt: 'e1' })), (x) => card(x, 'e1').updated);
+  assert.equal(card(s, 'e1').unchanged, true);
+  assert.equal(card(s, 'e1').model.confidence, 64);
+  assert.match(card(s, 'e1').reaction, /Assessment unchanged. Notes are archived/);
+
+  // A teammate’s card changes in place too, and NARC comments under the conversation.
+  s = until(DO.e2.script(play({ e1: 'explain' }, { stopAt: 'e2' })), (x) => card(x, 'e2').updated);
+  assert.equal(card(s, 'e2').model.label, 'Engagement: exceptional');
+  assert.equal(card(s, 'e2').model.was.confidence, 71);
+  assert.ok(s.threads.luis.some((m) => m.from === 'narc' && /340% of baseline/.test(m.text)));
+  assert.equal(s.threads.luis.filter((m) => m.from === 'narc').every((m) => m.unread === false), true, 'a caption is not an unread message');
+
+  // Marcus: the corroboration lands on the team calendar and lifts the number.
+  s = until(DO.e3.paper(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' })), (x) => card(x, 'e3').updated);
+  assert.equal(card(s, 'e3').model.confidence, 91);
+  assert.equal(card(s, 'e3').model.was.confidence, 38);
+  assert.match(s.reactions['calendar:team'].text, /corroborated by 3 sources/);
+
+  // Every first reaction lands within a few seconds of the action, once they have read what was said.
+  for (const [inc, picks, action] of [
+    ['e2', { e1: 'explain' }, 'confirm'], ['e2', { e1: 'explain' }, 'focus'], ['e3', { e1: 'explain', e2: 'ignore' }, 'truth'],
+    ['e4', HONEST, 'sync'], ['e4', HONEST, 'champion'], ['e5', HONEST, 'label'], ['e5', HONEST, 'output'],
+    ['e5', { ...HONEST, e2: 'script' }, 'admit'], ['e5', { ...HONEST, e2: 'script' }, 'human'],
+    ['e6', { ...HONEST, e3: 'paper' }, 'workshop'], ['e6', { ...HONEST, e3: 'paper' }, 'expose'],
+    ['e6', { ...HONEST, e3: 'truth' }, 'vouch_trace'], ['e6', { ...HONEST, e3: 'truth' }, 'backdate'],
+  ]) {
+    let r = ticks(play(picks, { stopAt: inc }), 10); // the first thing they say has landed
+    r = DO[inc][action](r); // waits for the coworker's prompt, then acts
+    const t0 = r.t;
+    assert.ok(r.picked[inc], `${inc}/${action} resolved`);
+    r = until(r, (x) => alertOf(x, inc).live);
+    assert.ok(r.t - t0 <= 6, `${inc}/${action}: NARC reacts within 6s (${r.t - t0}s)`);
+    assert.equal(alertOf(r, inc).live.text.length > 10, true);
+  }
+}
+
+// ---------- NARC 2.0 rewrites what it thought on Monday and Tuesday, in place
+
+{
+  const card = (s, inc) => caseView(s, alertOf(s, inc));
+  let s = play({ ...HONEST, e1: 'jiggle' }, { stopAt: 'e4' });
+  const monday = card(s, 'e1');
+  assert.equal(monday.model.label, 'Synthetic activity: pattern detected');
+  assert.equal(monday.model.confidence, 96);
+  assert.equal(monday.model.was.label, 'Engagement trend: positive', 'the same card that once said engagement was up');
+  assert.match(monday.reaction, /Monday reassessed: input repeats every 59 seconds/);
+  assert.equal(alertOf(s, 'e1').closed, true, 'it is a closed case, rewritten');
+  const toastForIt = s.toasts.find((x) => /Monday reassessed/.test(x.text));
+  assert.ok(toastForIt, 'and it is announced once');
+  assert.equal(toastForIt.open, `alert:${alertOf(s, 'e1').id}`, 'the toast opens the very card that changed');
+
+  // Focus time is left alone: NARC adapts to one workaround and not the other.
+  s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
+  assert.equal(card(s, 'e1').model.label, 'Engagement concern: low');
+  assert.ok(!s.toasts.some((x) => /Monday reassessed/.test(x.text)));
+
+  // Tuesday: Luis’s script is reclassified too; a calendar cover is not.
+  s = play({ ...HONEST, e2: 'script' }, { stopAt: 'e4' });
+  assert.equal(card(s, 'e2').model.label, 'Automated presence: pattern detected');
+  assert.equal(card(s, 'e2').model.was.label, 'Engagement: exceptional');
+  s = play({ ...HONEST, e2: 'focus' }, { stopAt: 'e4' });
+  assert.equal(card(s, 'e2').model.label, 'Time-on-task concern: low');
+}
+
+// ---------------------- Priya: the contradiction plays out inside one card
+
+{
+  const card = (s) => caseView(s, alertOf(s, 'e4'));
+  let s = DO.e4.quiet(play(HONEST, { stopAt: 'e4' }));
+  s = until(s, (x) => card(x).updated);
+  assert.equal(card(s).model.label, 'Communication Load: normal', 'first the number she was flagged for improves');
+  assert.equal(card(s).model.was.label, 'Communication Load: elevated');
+  const col0 = card(s).metrics.find(([k]) => k === 'Collaboration Index');
+  assert.equal(col0[1], 97, 'while Collaboration still looks great');
+  assert.ok(!s.toasts.some((x) => /Social withdrawal/.test(x.text)));
+
+  s = until(s, (x) => card(x).model.label === 'Collaboration: below role threshold');
+  const col1 = card(s).metrics.find(([k]) => k === 'Collaboration Index');
+  assert.deepEqual([col1[1], col1[2]], [31, 97], 'then the other number falls, in the same card');
+  assert.ok(s.toasts.some((x) => /Social withdrawal.*97 → 31/.test(x.text) && !x.gone), 'and the reversal is the one thing announced');
+  assert.equal(s.people.priya.status, 'fired');
+
+  // The sync tip improves both.
+  s = until(DO.e4.sync(play(HONEST, { stopAt: 'e4' })), (x) => card(x).updated);
+  assert.equal(card(s).model.label, 'Communication Load: normal');
+  assert.equal(card(s).metrics.find(([k]) => k === 'Collaboration Index')[1], 98);
+}
+
+// ---------------- fewer routes, fewer things to read: the cuts stay cut
+
+{
+  const opts = (s, who) => replies(s, who).map((r) => r.id);
+  let s = ticks(play({ e1: 'explain' }, { stopAt: 'e2' }), 60);
+  assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
+  s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
+  assert.deepEqual(opts(s, 'marcus'), ['latecalendar'], 'Marcus: adding the entry now is a Calendar action or Dana’s cover, not a third route');
+  const perIncident = { e1: 4, e2: 4, e3: 5, e4: 4 };
+  for (const [inc, n] of Object.entries(perIncident)) {
+    assert.ok(Object.keys(DO[inc]).length <= n, `${inc} has at most ${n} routes`);
+  }
 }
 
 // ---------------------------------------------------------- achievements
@@ -905,9 +1035,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(names(play({ e1: 'explain', e2: 'focus', e3: 'stay', e4: 'sync', e5: undefined, e6: 'let' })).includes('technically'), 'a calendar cover counts too');
 
   // Friendly Fire: hurt two coworkers with advice they thanked you for.
-  assert.ok(names(play({ e1: 'explain', e2: 'badtip', e3: 'badtip', e4: 'leave', e5: 'label', e6: 'let' })).includes('friendly'));
-  assert.ok(names(play({ e1: 'explain', e2: 'badtip', e3: 'stay', e4: 'quiet', e5: 'label', e6: 'let' })).includes('friendly'));
-  assert.ok(!names(play({ e1: 'explain', e2: 'badtip', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' })).includes('friendly'), 'one is not enough');
+  assert.ok(names(play({ e1: 'explain', e2: 'ignore', e3: 'badtip', e4: 'quiet', e5: 'label', e6: 'let' })).includes('friendly'));
+  assert.ok(!names(play({ e1: 'explain', e2: 'ignore', e3: 'badtip', e4: 'leave', e5: 'label', e6: 'let' })).includes('friendly'), 'one is not enough');
+  assert.ok(!names(play({ e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'quiet', e5: 'label', e6: 'let' })).includes('friendly'), 'one is not enough');
   assert.ok(!names(play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' })).includes('friendly'), 'reporting them is not advice');
 
   assert.ok(names(play(HONEST)).includes('donotask'));
@@ -991,7 +1121,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     HONEST,
     { e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'quiet', e5: 'blame', e6: 'expose' },
     { e1: 'focus', e2: 'focus', e3: 'truth', e4: 'sync', e5: 'label', e6: 'vouch_trace' },
-    { e1: 'explain', e2: 'badtip', e3: 'tip', e4: 'champion', e5: 'output', e6: 'workshop' },
+    { e1: 'explain', e2: 'ignore', e3: 'cover', e4: 'champion', e5: 'output', e6: 'workshop' },
     { e1: 'explain', e2: 'script', e3: 'badtip', e4: 'leave', e5: 'human', e6: 'let' },
   ];
   for (const picks of routes) {
@@ -1026,8 +1156,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const pick = (from, ids) => from.flatMap((c) => ids.map((id) => [...c, id]));
   let paths = [[]];
   paths = pick(paths, ['wait', 'explain', 'jiggle', 'focus']);
-  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus', 'badtip']);
-  paths = pick(paths, ['truth', 'paper', 'tip', 'stay', 'badtip']);
+  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus']);
+  paths = pick(paths, ['truth', 'paper', 'cover', 'stay', 'badtip']);
   paths = pick(paths, ['quiet', 'champion', 'leave', 'sync']);
   const e5 = { g: ['admit', 'human', 'blame'], c: [undefined], n: ['label', 'output', 'letit'] };
   const e6 = { g: ['workshop', 'approve', 'expose'], b: ['vouch_trace', 'backdate', 'let'] };
@@ -1039,7 +1169,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   for (const [a, b, c, d] of paths) {
     const v5 = b === 'script' ? 'g' : b === 'focus' ? 'c' : 'n';
-    const v6 = c === 'paper' || c === 'tip' ? 'g' : 'b';
+    const v6 = c === 'paper' || c === 'cover' ? 'g' : 'b';
     for (const x of e5[v5]) {
       for (const y of e6[v6]) {
         let s;
@@ -1053,8 +1183,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
       }
     }
   }
-  // e1 ×4 · e2 ×13 (confirm/ignore/script/badtip give 3 Luis returns each, focus gives 1) · e3 ×5 · e4 ×4 · e6 ×3
-  assert.equal(count, 4 * 13 * 5 * 4 * 3, 'every route reaches an ending');
+  // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×5 · e4 ×4 · e6 ×3
+  assert.equal(count, 4 * 10 * 5 * 4 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
 }
 

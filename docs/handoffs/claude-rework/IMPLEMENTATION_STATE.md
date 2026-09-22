@@ -2,7 +2,7 @@
 
 This describes what is actually built on `prototype-v1` / `main`, why it works the way it does, and what is still open. It is written for a fresh chat or agent. Where it disagrees with an older handoff, **this file describes the code; the design docs describe intent**. When you change behavior, update this file.
 
-Last updated after the latest playtest-driven agency, AI-visibility, progressive-disclosure, and documentation pass.
+Last updated after the **in-place assessment pass** (NARC visibly changes its mind, quickly, where the player acted). See "Assessment updates in place" below and the matching section in `CASE_STUDY_NOTES.md`.
 
 ## Status
 
@@ -33,7 +33,7 @@ Design rules the build follows (all from the docs, see `DESKTOP_INTERACTION_REWO
 | `app.js` | The desktop renderer. Only draws state and turns clicks into actions. No game rules. |
 | `style.css` | Desktop, apps, NARC's dark monospace window, toasts, mobile layout. |
 | `index.html` | One `#desk` div plus the module script. |
-| `test.mjs` | `node test.mjs`. About 18 s. |
+| `test.mjs` | `node test.mjs`. About 15 s. |
 
 Plain static site, ES modules (serve over http, not `file://`). QA aid: add `?tick=150` to the URL to speed up the game clock (`tick=1000` is normal; idle timers do not exist, so it is safe to script).
 
@@ -54,6 +54,8 @@ Read-only helpers the UI uses: `caseView`, `replies`, `canAttachHelper`, `fileAc
 - **NARC 2.0 is a beat:** the announcement lands (`state.awaiting`), NARC nudges about it, and the scan only runs after the player opens the email. The scan now also generates a forward-looking behavioral forecast for Employee 4417 so the AI arc visibly moves from signals → inference → prediction.
 - **Marks** (`state.marks`) are the small blue "new" dots on the dock (Files, Calendar, Utilities, Email). Viewing the app clears it.
 - **Action vocabulary** (`act` `do:` values): `view`, `open`, `gone` (close a toast; decides nothing), `clear`, `ack`, `dismiss` (own alert only), `logoff`, `case` (only the note on your own case), `reply` (a Messages chip), `attach` (helper to Luis), `sendFile` (file to Dana), `markFocus`, `helper` (`install` / `toggle` / `randomize`), `nominate`, `addEvent`, `restart`. Invalid actions return the state unchanged.
+- **Assessment updates in place (the `react` step).** The first consequence of a player action is not a notification. It is a `react` delivery that (1) rewrites the assessment (`label`, `confidence`, and any metric) on the case the player was looking at, keeping the old value so the UI can show it struck through; (2) puts the same one line where the player acted (`where`: `thread:<who>` becomes a NARC caption under the conversation, `calendar:<id>` / `calendar:team` / `utilities` / `files:<id>` become a strip on that thing in `state.reactions`); and (3) keeps a **quiet** history entry (no toast). Only a reversal is worth a toast (`toast: true`): NARC 2.0 rewriting Monday and Tuesday, Priya's Collaboration collapse, her termination. Reactions land 1-5 s after the action (asserted; longer only when a coworker's opening line has to land first). `caseView` merges `alert.live` over the base card and adds `updated`, `unchanged`, `reaction`, and metrics as `[key, value, was]`.
+- **Silent deliveries never make the player wait.** `settledAt` ignores markers, quiet history, calendar entries and reactions; only things a player would have to read delay consequences.
 - **Removed on purpose:** the old idle-timeout fallback, "Look closer", result/afterward screens, the "what you know about NARC" list.
 
 ## The week
@@ -63,9 +65,9 @@ Times are the in-game clock; real time is roughly one game second per second.
 | # | When | Case | NARC's alert (visible to all) | Player's routes |
 |---|---|---|---|---|
 | orient | Mon 09:02 | (none) | People Ops email, Dana | acknowledge, check Calendar, reply to Dana |
-| e1 | Mon 12:14 | **You**: low visible activity | "Visible activity below team baseline" | dismiss (`wait`) · type a note in NARC (`explain`) · install and switch on the Mouse Activity Helper (`jiggle`) · mark the contract block as Focus time in Calendar (`focus`) |
-| e2 | Tue 10:14 | **Luis**: restroom inactivity | view-only | tell Dana the flag seems accurate (`confirm`) · decline to confirm / log off (`ignore`) · attach the helper in Luis's thread, needs it installed (`script`) · suggest Focus time (`focus`) · suggest explaining it to NARC (`badtip`) |
-| e3 | Wed 10:52 | **Marcus**: attendance | view-only | tell Dana the trace does not match his story (`truth`) · tell Dana there is missing context / add a calendar entry (`paper`) · decline to confirm / log off (`stay`) · suggest adding the entry now (`paper`) · suggest adding it later (`badtip`) |
+| e1 | Mon 12:14 | **You**: low visible activity | "Visible activity below team baseline" | dismiss (`wait`) · type a note in NARC (`explain`) · install and switch on `keepalive.pkg` (`jiggle`) · mark the contract block as Focus time in Calendar (`focus`) |
+| e2 | Tue 10:14 | **Luis**: restroom inactivity | view-only | tell Dana the flag seems accurate (`confirm`) · decline to confirm / log off (`ignore`) · attach the helper in Luis's thread, needs it installed (`script`) · suggest Focus time (`focus`) |
+| e3 | Wed 10:52 | **Marcus**: attendance | view-only | tell Dana the trace does not match his story (`truth`) · tell Dana there is missing context / add a calendar entry (`paper`) · decline to confirm / log off (`stay`) · suggest adding it later (`badtip`) |
 | update | Wed 15:00 | NARC 2.0 | People Ops email | read it; scan follows |
 | e4 | Thu 09:30 | **Priya**: communication load | view-only | suggest posting less (`quiet`, can eventually get her fired when Collaboration collapses) · suggest an in-person sync (`sync`) · nominate her from the Culture email (`champion`) · log off (`leave`) |
 | e5 | Thu 14:14 | **Luis returns** (variant by history) | view-only | see below |
@@ -99,7 +101,9 @@ Coworker statuses: employed / promoted / warning / heavily monitored / absurdly 
 
 ## Tests
 
-`node test.mjs` covers: orientation and the gate, the welcome email's four jobs, view-only team cases, persistent toasts and "closing a toast decides nothing", NARC nudges that escalate after NARC 2.0, active vs history in NARC, no hidden fallback, the helper (install then on, off means not caught), Focus-time cover surviving NARC 2.0, natural-language coworker choices, what each suggestion does, Send to Dana, first-contact messages standing alone, at least two leads per incident, the Culture email arriving before Priya's flag, the NARC 2.0 beat, save/fire/player-termination paths, all seven achievements, ending, restart, purity, invalid actions, cadence, run length, and **all 3,120 routes reaching an ending** with no junk text ("undefined", "NaN").
+`node test.mjs` covers: orientation and the gate, the welcome email's four jobs, view-only team cases, persistent toasts and "closing a toast decides nothing", NARC nudges that escalate after NARC 2.0, active vs history in NARC, no hidden fallback, the helper (install then on, off means not caught), Focus-time cover surviving NARC 2.0, natural-language coworker choices, what each suggestion does, Send to Dana, first-contact messages standing alone, at least two leads per incident, the Culture email arriving before Priya's flag, the NARC 2.0 beat, save/fire/player-termination paths, all seven achievements, ending, restart, purity, invalid actions, cadence, run length, and **all 2,400 routes reaching an ending** with no junk text ("undefined", "NaN").
+
+The in-place pass added tests for: the card being rewritten within a few seconds and keeping the old value, the line appearing at the action site, no toast for the immediate reaction, a note leaving the assessment unchanged, NARC 2.0 rewriting Monday's (and Tuesday's) closed card while leaving Focus time alone, Priya's two-stage contradiction inside one card, every first reaction within 6 s, and the route cuts staying cut.
 
 I mutation-checked the important rules by deliberately breaking them and confirming the tests fail. Do the same when you change a rule.
 
@@ -217,19 +221,27 @@ A living source document now exists at `docs/CASE_STUDY_NOTES.md`. Update it whe
 8. Roughly how long did a first run take?
 
 
-## Next design pass: strengthen the game loop without adding complexity
+## Design pass: strengthen the game loop without adding complexity (done)
 
-The next implementation/design pass should focus on making the existing slice feel more like a game, while keeping it very easy to understand.
+Direction (from Paige): **NARC makes a judgment → the player pokes one or two things → NARC changes its belief → something funny or consequential happens**, with more "I did that" moments and fewer "I read what happened" moments, and no new meters, notifications, or explainer text.
 
-Priority behavior:
-- immediate visible cause/effect when the player manipulates something NARC can see
-- simple reverse-engineering moments: the player learns what NARC rewards by trying things
-- at least one strong "I changed what NARC believes" moment per major incident where practical
-- NARC visibly adapts later to at least one earlier exploit (`keepalive.pkg` is the clearest current candidate)
-- one or two memorable reversals where following or gaming the system creates a new problem
-- shorter text, more state change
+What was built:
 
-Do not add a web of interacting scores. Keep each incident legible around one main judgment and one main AI/product idea.
+- **Assessment updates in place**, within a couple of seconds, on the card the player was looking at (`Assessment updated`, old value struck through, numbers count to the new value).
+- **The same line at the action site**: on the calendar event (Focus time), on the `keepalive.pkg` card, under the reply in the conversation (as a NARC caption), on the file (Send to Dana), on the team calendar.
+- **Fewer notifications, not more.** The immediate reaction and the score change are quiet; a reversal gets one toast.
+- **NARC 2.0 reinterprets the same behavior**: Monday's "Engagement trend: positive · 91%" card is rewritten to "Synthetic activity: pattern detected · 96%" and the toast opens that very card. Focus time is left alone. Tuesday's Luis card is rewritten the same way when his keepalive was caught.
+- **Priya's contradiction lives in one card**: Communication Load normalizes, then Collaboration falls 97 → 31 and the company's response changes to "Termination pending".
+- **Route cuts** (approved): Luis's "explain it in the comment box" tip (it repeats Monday's "notes are not scored" lesson) and Marcus's advice-to-add-the-entry chip (the entry can still be added from Calendar, or via Dana's cover). Friendly Fire is now Marcus's late-entry advice plus Priya's "post less".
+- **Trimmed follow-ups**: dropped restatement notices and a few filler lines so each action reads as one reaction and at most one reversal.
+- **Housekeeping found on the way**: the suite was red at the start (four stale copy assertions after earlier copy edits); the attach chip still said "Mouse Activity Helper"; a silent discovery marker was delaying the first reaction by 23 s.
+
+Still open from this direction (not done):
+
+- The forward-looking **behavioral forecast** still arrives as its own beat; it does not yet change any card.
+- Not every incident has a strong "I changed what NARC believes" moment on the player's *own* case: e1 has three, the rest happen on teammates' cards.
+- A pass over remaining follow-up messages for length (some coworker lines still land in pairs).
+- No new scenarios, no Nina or Maya, no new meters (deliberately).
 
 Useful progression to preserve in behavior, not chapter labels:
 **watch → infer → adapt → predict → act**.

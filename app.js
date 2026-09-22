@@ -75,6 +75,33 @@ const btn = (label, cls, fn, attrs = {}) => {
   return b;
 };
 
+// A number that counts to its new value instead of jumping, so a change reads
+// as something that just happened to NARC's belief.
+const shownNums = {};
+function num(key, value) {
+  const el = h('b', 'num', String(value));
+  const prev = shownNums[key];
+  shownNums[key] = value;
+  if (typeof value === 'number' && typeof prev === 'number' && prev !== value) {
+    el.classList.add(value > prev ? 'up' : 'down');
+    el.textContent = String(prev);
+    let i = 0;
+    const steps = 14;
+    const timer = setInterval(() => {
+      i += 1;
+      el.textContent = String(Math.round(prev + ((value - prev) * i) / steps));
+      if (i >= steps) clearInterval(timer);
+    }, 45);
+  }
+  return el;
+}
+
+// NARC's one-line reaction, right where the player did the thing.
+const narcNote = (where) => {
+  const r = state.reactions && state.reactions[where];
+  return r ? h('div', `narcnote ${r.tone}`, h('span', 'tag', 'NARC'), h('span', null, r.text)) : null;
+};
+
 function dispatch(action) {
   state = act(state, action);
   render();
@@ -304,7 +331,8 @@ function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
     const msgs = state.threads[id];
-    const last = msgs[msgs.length - 1];
+    const real = msgs.filter((m) => m.from !== 'narc');
+    const last = real[real.length - 1];
     const n = msgs.filter((m) => m.unread).length;
     const off = id !== 'dana' && state.online[id] === false;
     const row = h('button', `row${n ? ' unread' : ''}`,
@@ -329,6 +357,10 @@ function renderMessages() {
     scroll.dataset.stick = '1';
     if (!state.threads[id].length) scroll.append(h('div', 'empty', 'No messages yet.'));
     state.threads[id].forEach((m) => {
+      if (m.from === 'narc') {
+        scroll.append(h('div', 'bubble narc', h('span', 'tag', 'NARC'), m.text));
+        return;
+      }
       const b = h('div', `bubble ${m.from === 'me' ? 'me' : m.from === 'system' ? 'system' : ''}`, m.text);
       if (m.attach) b.append(h('span', 'attach', m.attach));
       scroll.append(b);
@@ -339,7 +371,7 @@ function renderMessages() {
     const chips = h('div', 'chips');
     replies(state, id).forEach((r) => chips.append(btn(r.text, 'chip', () => dispatch({ do: 'reply', thread: id, reply: r.id }))));
     if (id === 'luis' && canAttachHelper(state)) {
-      chips.append(btn('Attach: Mouse Activity Helper.pkg', 'chip', () => dispatch({ do: 'attach', thread: 'luis', item: 'helper' })));
+      chips.append(btn('Attach: keepalive.pkg', 'chip', () => dispatch({ do: 'attach', thread: 'luis', item: 'helper' })));
     }
     if (chips.childNodes.length) {
       compose.append(chips);
@@ -361,6 +393,8 @@ function eventRow(e, team) {
     const toggle = e.focus ? null : btn('Show as Focus time', 'showbtn', () => dispatch({ do: 'markFocus', event: e.id }));
     body.append(h('div', 'showrow', h('span', 'small', 'Show as: '), shown, toggle));
   }
+  const note = narcNote(team && /^Added by/.test(e.where) ? 'calendar:team' : `calendar:${e.id}`);
+  if (note) body.append(note);
   return h('div', `event${team ? ' team' : ''}${e.focus ? ' focus' : ''}`, h('div', 'time', `${e.start}–${e.end}`), body);
 }
 
@@ -436,6 +470,8 @@ function renderFiles() {
   else {
     detail.append(h('h2', null, f.name), h('div', 'meta', f.meta));
     f.body.forEach((p) => detail.append(h('p', null, p)));
+    const fileNote = narcNote(`files:${f.id}`);
+    if (fileNote) detail.append(fileNote);
     const fa = fileActions(state)[f.id];
     if (fa) detail.append(btn(fa.label, 'btn primary', () => dispatch({ do: 'sendFile', file: fa.file })));
   }
@@ -471,6 +507,8 @@ function renderUtilities() {
       helper.append(rowL);
     }
   }
+  const utilNote = narcNote('utilities');
+  if (utilNote) helper.append(utilNote);
   cards.append(helper);
 
   const feed = h('div', 'card feed');
@@ -503,7 +541,7 @@ function alertRow(a) {
 
 function renderNarc() {
   const top = h('div', 'narc-top', h('span', 'brand', 'NARC'));
-  if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', h('b', null, state.score)));
+  if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', num('index', state.score)));
   if (state.level >= 2) top.append(h('span', 'flag', 'Integrity flags ', h('b', null, state.flags)));
 
   const { active, team, history } = narcSections(state);
@@ -556,18 +594,24 @@ function caseNode(a) {
   box.append(h('div', 'sect observed', 'Signals'));
   box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
 
+  const m = c.model;
   box.append(
     h('div', 'sect model', 'NARC assessment'),
-    h('div', 'model-box',
-      h('div', 'assessment', c.model.label),
-      h('div', 'conf', `${c.model.confidence}% confidence`)
+    h('div', `model-box${c.updated ? ' updated' : ''}`,
+      c.updated ? h('div', 'updated-tag', c.unchanged ? 'Assessment unchanged' : 'Assessment updated') : null,
+      m.was ? h('div', 'was', `${m.was.label} · ${m.was.confidence}% confidence`) : null,
+      h('div', 'assessment', m.label),
+      h('div', 'conf', num(`conf:${a.id}`, m.confidence), '% confidence')
     )
   );
+  if (c.reaction) box.append(h('div', 'reaction-line', c.reaction));
 
   const context = c.metrics.filter(([k]) => !/Recommended action|Automatic action|Company response/i.test(k));
   const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
   if (context.length) {
-    box.append(h('div', 'context-facts', context.map(([k, v]) => h('div', null, h('span', null, k), h('b', null, v)))));
+    box.append(h('div', 'context-facts', context.map(([k, v, was]) => h('div', null,
+      h('span', null, k),
+      h('span', 'val', was !== undefined ? h('s', 'was', String(was)) : null, num(`metric:${a.id}:${k}`, v))))));
   }
   if (action) {
     box.append(h('div', 'company-action', h('span', null, 'Company response'), h('b', null, action[1])));
