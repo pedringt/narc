@@ -1,5 +1,8 @@
 # NARC Desktop Rework Acceptance Criteria
 
+> **Status: met.** The desktop rework shipped and Paige has playtested it since. Kept for
+> reference; see `IMPLEMENTATION_STATE.md` and `docs/HANDOFF.md` for current state.
+
 The desktop-interaction rework is ready for Paige to play when the following are true.
 
 ## Desktop / workday framing

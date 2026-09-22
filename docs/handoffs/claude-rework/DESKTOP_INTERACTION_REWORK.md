@@ -1,5 +1,8 @@
 # NARC Desktop Interaction Rework
 
+> **Status: implemented (2026-09-21), then extended by the pacing pass (issue #13, 2026-09-22).**
+> This describes the rework as planned. For what actually shipped, see `IMPLEMENTATION_STATE.md`.
+
 ## Why this exists
 
 The current human-vs-NARC prototype proves the state logic, comedy, proxy-metric concept, and carry-over. Its biggest remaining weakness is interaction framing.

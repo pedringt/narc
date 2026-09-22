@@ -1,5 +1,11 @@
 # Agent Prompt: Rework NARC Into a Natural Work-Desktop Experience
 
+> **Completed (2026-09-21). Historical — do not follow this as current work.**
+> The desktop rework described below shipped, as did the clarity and pacing passes
+> after it. For the current state start at `docs/HANDOFF.md`, then
+> `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`, then the open GitHub issues.
+
+
 You are continuing work on `pedringt/narc` on branch `prototype-v1`.
 
 Read these files first:
