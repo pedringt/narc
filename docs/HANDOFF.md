@@ -30,7 +30,7 @@ Core line:
 
 Keep the first portfolio version small:
 
-- 5–8 minute run
+- about a 5–10 minute run (5–15 overall, 8–10 healthy)
 - one short work week
 - five funny recurring coworkers
 - roughly eight encounters
@@ -99,10 +99,10 @@ Current implementation (desktop rework + playtest clarity pass, on `prototype-v1
 - **you see everyone's NARC alerts but act only on your own.** Teammates' cases are view-only ("Team alerts", tray `NARC · TEAM ALERT`); helping or hurting a coworker happens through natural-language Messages replies, Dana, or actions in Files, Calendar and Utilities. Calendar-based covers (Focus time) survive NARC 2.0; keystroke fakery does not
 - **counterplay is discoverable:** every first-contact coworker message carries its own setup, each incident leaves at least two leads (NARC's case, a coworker line, a "new" dot on an app), and follow-up hints disappear once you have decided
 - NARC's window shows only observed signals plus its inference and confidence; the human context lives in Calendar, Files, Messages and Utilities
-- the mouse-jiggler is a Utilities install with an On/Off switch, NARC 2.0 only catches it while it is On, and it can only be shared with Luis after you have installed it. The Culture Champion email arrives before Priya's flag (nominations open Thursday). NARC 2.0's scan waits until you have read the announcement
-- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers orientation, pacing and run length, persistent notifications, active-versus-history, no auto-fallback, the NARC 2.0 beat, leads and first-contact context, carry-over, exploits, save/fire paths, achievements, ending, restart, and all 729 routes
-- run length (game clock, no exploring): a brisk player about 5–6 minutes, a player who reads every hint first about 8; exploring adds to that
-- QA aid: `?tick=150` in the URL speeds up the game clock
+- the mouse-jiggler is a Utilities install with an On/Off switch, NARC 2.0 only catches it while it is On, and it can only be shared with Luis after you have installed it. The Culture Champion email arrives before Priya's flag and nominations open with it; nominating Priya early pre-empts her flag entirely. NARC 2.0's scan waits until you have read the announcement
+- deterministic engine in `game.js` (`tick(state)` / `act(state, action)`), renderer in `app.js`; `node test.mjs` covers orientation, pacing and run length, persistent notifications, active-versus-history, no auto-fallback, the NARC 2.0 beat, leads and first-contact context, carry-over, exploits, save/fire paths, achievements, ending, restart, and all 2,400 routes
+- run length (game clock, no exploring): a brisk player about 5.3 minutes, a player who reads every hint first about 7.1; exploring adds to that
+- QA aid: `?tick=N` in the URL sets **milliseconds per game second** (so `?tick=200` is 5x speed, and the default is 1000). It is not a multiplier: `?tick=2` runs about 500x and skips past everything
 - Vercel preview redeploys from `prototype-v1`; the public production site only changes when `prototype-v1` is merged to `main`
 
 Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.

@@ -144,6 +144,15 @@ Ask a first-time player, without explaining the design:
 - [ ] Did you want to replay?
 - [ ] How long did your run take?
 
+### Pacing benchmark (issue #13)
+
+The question to track above all others:
+
+- [ ] **From the moment a problem appears, how many seconds until you can do something interesting that visibly changes what NARC believes?** Aim for ~10 s or less most of the time. (The engine now points at each incident's main move by +8 s; the tests assert a pointer within 10 s and the first prompted choice within 20 s.)
+- [ ] Choosing to do nothing still produces a clear belief/action update, not just a notice.
+- [ ] The case reads in about five seconds: what NARC thinks, why, what happens because of it.
+- [ ] The Employee 4417 prediction before the report lands as a turn, and its cost (frozen index / Predictive Integrity Review) is noticed.
+
 ### Success target
 
 A first-time player should:

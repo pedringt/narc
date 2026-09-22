@@ -591,12 +591,12 @@ function caseNode(a) {
   }
 
   box.append(h('div', 'subject', c.subject));
-  box.append(h('div', 'sect observed', 'Signals'));
-  box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
 
+  // Three questions, in the order a reader asks them: what does NARC think,
+  // why does it think that, and what happens because of it.
   const m = c.model;
   box.append(
-    h('div', 'sect model', 'NARC assessment'),
+    h('div', 'sect model', 'What NARC thinks'),
     h('div', `model-box${c.updated ? ' updated' : ''}`,
       c.updated ? h('div', 'updated-tag', c.unchanged ? 'Assessment unchanged' : 'Assessment updated') : null,
       m.was ? h('div', 'was', `${m.was.label} · ${m.was.confidence}% confidence`) : null,
@@ -606,15 +606,18 @@ function caseNode(a) {
   );
   if (c.reaction) box.append(h('div', 'reaction-line', c.reaction));
 
+  box.append(h('div', 'sect observed', 'Why'));
+  box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
+
   const context = c.metrics.filter(([k]) => !/Recommended action|Automatic action|Company response/i.test(k));
   const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
+  if (action) {
+    box.append(h('div', 'company-action', h('span', null, 'What happens because of it'), h('b', null, action[1])));
+  }
   if (context.length) {
     box.append(h('div', 'context-facts', context.map(([k, v, was]) => h('div', null,
       h('span', null, k),
       h('span', 'val', was !== undefined ? h('s', 'was', String(was)) : null, num(`metric:${a.id}:${k}`, v))))));
-  }
-  if (action) {
-    box.append(h('div', 'company-action', h('span', null, 'Company response'), h('b', null, action[1])));
   }
 
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
@@ -777,7 +780,18 @@ function render() {
   restoreFocus(f);
 }
 
-// Time passes on its own, one game second per second. `?tick=150` speeds it up for QA.
+// How many notifications fit depends on the screen, and a redraw only happens
+// when the game state changes: without this, rotating a phone leaves a stack
+// sized for the old screen sitting over the game.
+let resizeQueued = false;
+window.addEventListener('resize', () => {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => { resizeQueued = false; render(); });
+});
+
+// Time passes on its own, one game second per second. `?tick=N` sets the
+// milliseconds per game second (not a multiplier), which speeds it up for QA.
 const TICK_MS = Number(new URLSearchParams(location.search).get('tick')) || 1000;
 
 // Only redraw when something the player can see changed.

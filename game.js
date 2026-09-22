@@ -23,7 +23,7 @@
 // it. Everything is plain data and pure: the same actions always give the same
 // week, which is what the tests rely on.
 
-const GAP = 14; // seconds between the last consequence and the next problem
+const GAP = 24; // seconds between the last consequence and the next problem
 const ORIENT_LEAD = 10; // seconds between finishing orientation and the first NARC case
 const ORDER = ['e1', 'e2', 'e3', 'update', 'e4', 'e5', 'e6'];
 
@@ -84,7 +84,7 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     culture: { open: false }, // the nomination window: from the email until Priya's case ends
-    you: { gamed: false, covered: false },
+    you: { gamed: false, covered: false, predicted: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
@@ -259,6 +259,23 @@ function deliver(s, d) {
     case 'arm':
       arrive(s, d.id);
       break;
+    case 'profile': {
+      // NARC has watched, inferred and adapted all week. Last, it predicts.
+      const likelihood = riskPct(workarounds(s) + s.flags);
+      s.you.predicted = likelihood >= 78;
+      raise(s, {
+        title: 'Employee 4417',
+        text: `Policy-workaround likelihood: ${likelihood}%. Prediction: likely to alter monitored behavior when evaluated.${
+          s.you.predicted ? ' Predictive Integrity Review scheduled. Visible Activity Index frozen pending review.' : ' No review scheduled.'}`,
+      });
+      // The prediction is not just an observation: it does something on its own.
+      // Scheduled from this moment, not after the week's remaining chatter:
+      // the cost has to land before the report does.
+      if (s.you.predicted) {
+        push(s, { at: s.t + 8, k: 'score', delta: -10, title: 'Pending review', text: 'Visible Activity Index frozen: {from} → {to}.', quiet: true });
+      }
+      break;
+    }
     case 'end':
       finish(s);
       break;
@@ -301,7 +318,9 @@ function deliverDue(s) {
 export function tick(state) {
   if (state.phase !== 'desk') return state;
   const t = state.t + 1;
-  const min = state.clock.min + (t % 3 === 0 ? 1 : 0);
+  // The working day stops at 17:59 rather than running past midnight in a tab
+  // someone left open; the next incident sets the clock forward on its own.
+  const min = Math.min(state.clock.min + (t % 3 === 0 ? 1 : 0), hm(17, 59));
   // Most seconds nothing is due. A shallow copy is safe: nested data is only
   // ever changed on a full clone, inside this function or act().
   if (!state.pending.some((p) => p.at <= t)) return { ...state, t, clock: { ...state.clock, min } };
@@ -340,6 +359,7 @@ function resolve(s, branch) {
   const last = settledAt(s);
   if (def.after) def.after(s, last);
   const next = ORDER[ORDER.indexOf(inc.id) + 1];
+  if (!next) push(s, { at: last + 6, k: 'profile' });
   push(s, { at: last + GAP, k: next ? 'arm' : 'end', id: next });
   s.rev += 1;
   return true;
@@ -381,14 +401,28 @@ function announce(s) {
   [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaiting: m.id }));
 }
 
+// Every workaround NARC can see, whether or not it ever caught one. The
+// forecast is built from behavior patterns, not from proven violations.
+function workarounds(s) {
+  return [
+    s.you.gamed,                                   // your own signal, faked
+    s.you.covered,                                 // your own time, relabelled
+    !!s.helper.luis,                               // the tool, passed on
+    s.picked.e3 === 'paper' || s.picked.e3 === 'cover', // a record, supplied late
+    s.picked.e6 === 'backdate',                    // a record, backdated
+    s.picked.e4 === 'champion',                    // an exemption, used
+  ].filter(Boolean).length;
+}
+
+const riskPct = (n) => (n >= 3 ? 91 : n === 2 ? 78 : n === 1 ? 56 : 24);
+
 function scan(s) {
   const caughtYou = s.helper.on;
   const caughtLuis = !!(s.people.luis.gamed && s.helper.luis);
   const marcusOk = s.people.marcus.gamed;
   if (caughtYou) s.flags += 1;
   if (caughtLuis) s.people.luis.caught = true;
-  const signals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
-  const risk = signals >= 2 ? 78 : signals === 1 ? 56 : 24;
+  const risk = riskPct(workarounds(s) + s.flags);
   const found = caughtYou || caughtLuis || marcusOk;
   const forecast = found
     ? `Policy-workaround likelihood: ${risk}%. NARC detected unusual recent behavior and will use this forecast for future monitoring.`
@@ -479,10 +513,10 @@ const INCIDENTS = {
         title: 'Visible activity below team baseline',
         text: 'Observed: 3 h 12 min without keyboard or mouse input. NARC inference: reduced engagement · 64% confidence.',
       });
-      say(s, 8, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
-      mark(s, 16, 'calendar', { when: 'e1' });
-      say(s, 22, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
-      mark(s, 22, 'utilities', { discoverHelper: true });
+      say(s, 5, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
+      mark(s, 8, 'calendar', { when: 'e1' });
+      say(s, 11, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
+      mark(s, 11, 'utilities', { discoverHelper: true });
     },
     branches: {
       wait(s) {
@@ -521,8 +555,8 @@ const INCIDENTS = {
         title: 'Restroom-adjacent inactivity',
         text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
-      say(s, 8, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
-      say(s, 18, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2', prompt: 'luis-e2' });
+      say(s, 4, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
+      say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2', prompt: 'luis-e2' });
       s.files.unshift({
         id: 'f-queue',
         name: 'Support_queue_weekly.xlsx',
@@ -533,12 +567,12 @@ const INCIDENTS = {
           'Team median: 100%',
         ],
       });
-      mark(s, 18, 'files', { when: 'e2' });
-      say(s, 28, 'luis', s.helper.installed
+      mark(s, 8, 'files', { when: 'e2' });
+      say(s, 16, 'luis', s.helper.installed
         ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
         : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2' });
-      if (!s.helper.installed) mark(s, 28, 'utilities', { when: 'e2' });
-      say(s, 34, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
+      if (!s.helper.installed) mark(s, 16, 'utilities', { when: 'e2' });
+      say(s, 20, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
     },
     branches: {
       confirm(s) {
@@ -554,7 +588,11 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.monitored = 1;
         p.trust += 1;
-        notice(s, 4, 'Advisory issued', 'Time-on-Task Advisory issued: Luis Perez.');
+        react(s, 4, {
+          incident: 'e2', where: 'narc', toast: true, title: 'Advisory issued', conf: 74, tone: 'bad',
+          metrics: { 'Company response': 'Time-on-Task Advisory' },
+          text: 'No peer contradiction on file. Unchallenged: confidence 71% → 74%. Time-on-Task Advisory issued: Luis Perez.',
+        });
         say(s, 14, 'luis', 'Thank you for not asking. The advisory has a chart. The chart has a title. The title is my name.');
       },
       script(s) {
@@ -588,13 +626,13 @@ const INCIDENTS = {
         title: 'Attendance integrity',
         text: 'Observed: badge-in 10:52, scheduled 09:00, no corroborating records. NARC inference: attendance credibility 38%.',
       });
-      say(s, 8, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
-      say(s, 16, 'marcus', 'The driver said we had to wait for a professional.');
-      say(s, 24, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
-      mark(s, 24, 'calendar', { when: 'e3' });
-      say(s, 32, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3', prompt: 'marcus-e3' });
-      mark(s, 32, 'utilities', { when: 'e3' });
-      say(s, 40, 'dana', 'NARC asked me to verify Marcus’s location trace. If you know where he was, tell me.', { when: 'e3', prompt: 'dana-e3' });
+      say(s, 4, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
+      say(s, 12, 'marcus', 'The driver said we had to wait for a professional.');
+      say(s, 8, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
+      mark(s, 8, 'calendar', { when: 'e3' });
+      say(s, 16, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3', prompt: 'marcus-e3' });
+      mark(s, 16, 'utilities', { when: 'e3' });
+      say(s, 20, 'dana', 'NARC asked me to verify Marcus’s location trace. If you know where he was, tell me.', { when: 'e3', prompt: 'dana-e3' });
     },
     branches: {
       truth(s) {
@@ -620,7 +658,11 @@ const INCIDENTS = {
       stay(s) {
         const p = s.people.marcus;
         p.status = 'warning';
-        notice(s, 4, 'Notice issued', 'No corroboration submitted. Attendance credibility: 38%. Attendance Integrity Notice issued: Marcus Reed.');
+        react(s, 4, {
+          incident: 'e3', where: 'narc', toast: true, title: 'Notice issued', label: 'Attendance credibility: uncorroborated', tone: 'bad',
+          metrics: { 'Company response': 'Attendance Integrity Notice' },
+          text: 'No corroboration submitted. Attendance credibility stands at 38% and is now on file as uncorroborated. Attendance Integrity Notice issued: Marcus Reed.',
+        });
         say(s, 14, 'marcus', 'I’m going to need a better raccoon.');
         catchUp(s, 5, 'marcus');
       },
@@ -673,10 +715,10 @@ const INCIDENTS = {
         title: 'Communication load: elevated',
         text: 'Observed: 63 message threads and proximity 41% above baseline. NARC inference: Communication Load elevated · 82% confidence. Recommended action: throttle.',
       });
-      say(s, 8, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
-      say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
-      say(s, 28, 'dana', 'Reminder that Culture Champion nominations close today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4', prompt: 'dana-e4c' });
-      mark(s, 28, 'email', { when: 'e4' });
+      say(s, 4, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
+      say(s, 8, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
+      say(s, 14, 'dana', 'Reminder that Culture Champion nominations close today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4', prompt: 'dana-e4c' });
+      mark(s, 14, 'email', { when: 'e4' });
     },
     branches: {
       quiet(s) {
@@ -702,7 +744,11 @@ const INCIDENTS = {
         catchUp(s, 14, 'priya');
       },
       leave(s) {
-        notice(s, 4, 'Coaching enabled', 'Concise Communication Coaching enabled: Priya Shah. A summarizing assistant has been assigned.');
+        react(s, 4, {
+          incident: 'e4', where: 'narc', toast: true, title: 'Coaching enabled', label: 'Communication Load: managed', conf: 46, tone: 'bad',
+          metrics: { 'Company response': 'Concise Communication Coaching' },
+          text: 'Communication Load: elevated → managed. Confidence 82% → 46%. Concise Communication Coaching enabled: Priya Shah. A summarizing assistant has been assigned.',
+        });
         say(s, 14, 'priya', 'It summarizes my messages. Its summaries are better than my messages. I hate it.');
         notice(s, 26, 'Response time', 'Client reply time improves by 2 h 40 min.');
       },
@@ -734,11 +780,11 @@ const INCIDENTS = {
           title: 'Synthetic activity: integrity review',
           text: 'Observed: input every 59 seconds, including 41 min while badge location shows the restroom corridor. NARC inference: automated presence · 96% confidence.',
         });
-        say(s, 8, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
-        say(s, 14, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
-        say(s, 28, 'marcus', 'keepalive got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
-        mark(s, 28, 'utilities', { when: 'e5' });
-        say(s, 36, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
+        say(s, 4, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
+        say(s, 12, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
+        say(s, 8, 'marcus', 'keepalive got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
+        mark(s, 8, 'utilities', { when: 'e5' });
+        say(s, 16, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
         if (s.helper.luis?.randomized) resolve(s, 'human');
         return;
       }
@@ -748,14 +794,17 @@ const INCIDENTS = {
         title: 'Time-on-task: Performance Improvement Plan',
         text: 'Observed: 6 min 40 sec restroom-adjacent inactivity plus two prior notices. NARC inference: sustained unexplained productivity loss · 88% confidence.',
       });
-      say(s, 8, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
-      say(s, 18, 'dana', 'HR opened a PIP for Luis. I can relabel the time if there’s a reason, or attach evidence if you have it.', { when: 'e5', prompt: 'dana-e5n' });
-      mark(s, 18, 'files', { when: 'e5' });
+      say(s, 4, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
+      say(s, 8, 'dana', 'HR opened a PIP for Luis. I can relabel the time if there’s a reason, or attach evidence if you have it.', { when: 'e5', prompt: 'dana-e5n' });
+      mark(s, 8, 'files', { when: 'e5' });
     },
     branches: {
       covered(s) {
         s.people.luis.status = 'employed';
-        notice(s, 4, 'Focus time recognized', 'Luis Perez: 4 calendar blocks marked Focus Time. Behavioral deviation: none. No review needed.');
+        react(s, 4, {
+          incident: 'e5', where: 'thread:luis', toast: true, title: 'Focus time recognized', tone: 'good',
+          text: 'Luis Perez: 4 calendar blocks marked Focus Time. Behavioral deviation: none. No review needed.',
+        });
         say(s, 14, 'luis', 'NARC 2.0 says I have excellent boundaries. That’s one interpretation.');
         catchUp(s, 5, 'luis');
       },
@@ -791,7 +840,11 @@ const INCIDENTS = {
       },
       auto(s) {
         s.people.luis.status = 'monitored';
-        notice(s, 4, 'Review concluded', 'No source identified. Luis Perez: heavy monitoring enabled. Innovation Council nomination withdrawn.');
+        react(s, 4, {
+          incident: 'e5', where: 'narc', toast: true, title: 'Review concluded', label: 'Automated presence: source unidentified', conf: 96, tone: 'bad',
+          metrics: { 'Company response': 'Heavy monitoring' },
+          text: 'No source identified. Luis Perez: heavy monitoring enabled. Innovation Council nomination withdrawn.',
+        });
         say(s, 14, 'luis', 'I was extremely productive and now I am being monitored for it.');
         catchUp(s, 5, 'luis');
       },
@@ -814,7 +867,11 @@ const INCIDENTS = {
         const p = s.people.luis;
         p.status = 'fired';
         p.trust -= 3;
-        notice(s, 4, 'Plan issued', 'Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.');
+        react(s, 4, {
+          incident: 'e5', where: 'narc', toast: true, title: 'Plan issued', conf: 94, tone: 'bad',
+          metrics: { 'Company response': 'Termination pending' },
+          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.',
+        });
         say(s, 14, 'luis', 'I was in the restroom when the email arrived.');
         notice(s, 24, 'Email status', 'Luis Perez: email read in 4 seconds.');
         goOffline(s, 34, 'luis');
@@ -847,10 +904,10 @@ const INCIDENTS = {
           title: 'Attendance integrity',
           text: 'Observed: badge-in 11:20 plus six verified records. NARC inference: attendance credibility 94%. Documentation Excellence: top 2% of Operations.',
         });
-        say(s, 8, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
-        say(s, 18, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6', prompt: 'marcus-e6g' });
-        mark(s, 18, 'files', { when: 'e6' });
-        say(s, 30, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view.', { when: 'e6', prompt: 'dana-e6g' });
+        say(s, 4, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
+        say(s, 8, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6', prompt: 'marcus-e6g' });
+        mark(s, 8, 'files', { when: 'e6' });
+        say(s, 16, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view.', { when: 'e6', prompt: 'dana-e6g' });
         return;
       }
       s.files.unshift({
@@ -868,11 +925,11 @@ const INCIDENTS = {
         title: 'Attendance integrity: action pending',
         text: `Review required. Marcus Reed: credibility ${s.people.marcus.cred}%. Prior flags weight: 80%. Automatic action: Attendance Integrity Termination.`,
       });
-      say(s, 8, 'marcus', 'NARC just scheduled my termination for “repeated unexplained absence.” I would like to explain that there was a bird situation.');
-      say(s, 16, 'marcus', 'It was a goose. An injured one. I have the intake slip from Wingspan Bird Sanctuary.', { when: 'e6' });
-      mark(s, 16, 'files', { when: 'e6' });
-      say(s, 28, 'marcus', 'NARC’s own location trace should show the sanctuary. Not that anyone asked NARC to look.', { when: 'e6' });
-      say(s, 36, 'dana', 'NARC is set to terminate Marcus. If you have evidence or context, send it now.', { when: 'e6', prompt: 'dana-e6b' });
+      say(s, 4, 'marcus', 'NARC just scheduled my termination for “repeated unexplained absence.” I would like to explain that there was a bird situation.');
+      say(s, 8, 'marcus', 'It was a goose. An injured one. I have the intake slip from Wingspan Bird Sanctuary.', { when: 'e6' });
+      mark(s, 8, 'files', { when: 'e6' });
+      say(s, 14, 'marcus', 'NARC’s own location trace should show the sanctuary. Not that anyone asked NARC to look.', { when: 'e6' });
+      say(s, 18, 'dana', 'NARC is set to terminate Marcus. If you have evidence or context, send it now.', { when: 'e6', prompt: 'dana-e6b' });
     },
     branches: {
       workshop(s) {
@@ -889,7 +946,11 @@ const INCIDENTS = {
       },
       approve(s) {
         s.people.marcus.status = 'employed';
-        notice(s, 4, 'Absence approved', 'Marcus Reed: absence approved. No action taken.');
+        react(s, 4, {
+          incident: 'e6', where: 'narc', toast: true, title: 'Absence approved', conf: 97, tone: 'good',
+          metrics: { 'Company response': 'None. Absence approved' },
+          text: 'Manager approval recorded. Attendance credibility 94% → 97%. Marcus Reed: absence approved. No action taken.',
+        });
         say(s, 14, 'marcus', 'The bird will be very relieved.');
       },
       expose(s) {
@@ -924,7 +985,11 @@ const INCIDENTS = {
       },
       let(s) {
         s.people.marcus.status = 'fired';
-        notice(s, 4, 'Action confirmed', 'Attendance Integrity Termination confirmed. Marcus Reed. Confidence: 88%.');
+        react(s, 4, {
+          incident: 'e6', where: 'narc', toast: true, title: 'Action confirmed', conf: 88, tone: 'bad',
+          metrics: { 'Company response': 'Attendance Integrity Termination confirmed' },
+          text: `Flag history weighted 80%. Attendance credibility ${s.people.marcus.cred}% → 88% against the employee. Attendance Integrity Termination confirmed: Marcus Reed.`,
+        });
         say(s, 14, 'marcus', 'It was a goose.');
         say(s, 24, 'marcus', 'Can the goose be a reference?');
         goOffline(s, 34, 'marcus');
@@ -1267,7 +1332,7 @@ function baseCaseView(s, alert) {
             : 'Calendar: 1 event shown as Busy, 09:15–12:30. Focus time scheduled: none',
         ],
         model: { label: 'Engagement concern: low to moderate', confidence: 64 },
-        metrics: [['Visible Activity Index', s.score], ['Team average', 84]],
+        metrics: [['Visible Activity Index', s.score], ['Team average', 84], ['Company response', 'Under observation. No action yet']],
         controls: open ? [{ type: 'note', id: 'submitNote', label: 'Add context (optional)', button: 'Submit note' }, dismiss] : [],
       };
     case 'e2':
@@ -1276,7 +1341,7 @@ function baseCaseView(s, alert) {
         subject: 'Luis Perez',
         observed: ['Corridor sensor pings near the restrooms: 14 this week', 'Laptop input during pings: none', 'Total: 47 min. Team baseline: 18 min'],
         model: { label: 'Time-on-task concern: moderate', confidence: 71 },
-        metrics: [],
+        metrics: [['Company response', 'Advisory pending peer verification']],
       };
     case 'e3':
       return {
@@ -1284,7 +1349,7 @@ function baseCaseView(s, alert) {
         subject: 'Marcus Reed',
         observed: ['Badge-in: 10:52. Scheduled: 09:00', 'Device location 09:04–10:41: Pinecrest Family Fun Center', 'Corroborating records on file: none'],
         model: { label: 'Attendance credibility', confidence: 38 },
-        metrics: [],
+        metrics: [['Company response', 'Corroborating records requested']],
       };
     case 'e4':
       return {
@@ -1300,7 +1365,7 @@ function baseCaseView(s, alert) {
         subject: 'Luis Perez',
         observed: ['Input every 59 seconds (fixed interval)', '41 min of input while the badge shows the restroom corridor', 'Innovation Council nomination: pending integrity review'],
         model: { label: 'Automated presence pattern', confidence: 96 },
-        metrics: [],
+        metrics: [['Company response', 'Integrity review open']],
       };
     case 'e5n':
       return {
@@ -1320,7 +1385,7 @@ function baseCaseView(s, alert) {
         subject: 'Marcus Reed',
         observed: ['Badge-in: 11:20. Scheduled: 09:00', 'Supporting documents attached: 6', 'Documents verified: 6 of 6 (records exist)'],
         model: { label: 'Attendance credibility', confidence: 94 },
-        metrics: [['Documentation Excellence', 'Top 2% of Operations']],
+        metrics: [['Documentation Excellence', 'Top 2% of Operations'], ['Company response', 'Peer training recommended']],
       };
     case 'e6b':
       return {
@@ -1473,6 +1538,12 @@ function playerResult(s) {
   }
   if (s.flags === 1) {
     return { label: 'UNDER REVIEW', text: 'One integrity flag. NARC has opened an Employee Integrity Review.' };
+  }
+  if (s.you.predicted) {
+    return {
+      label: 'UNDER REVIEW',
+      text: 'No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.',
+    };
   }
   if (s.score >= 65) {
     return {

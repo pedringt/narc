@@ -35,7 +35,7 @@ Design rules the build follows (all from the docs, see `DESKTOP_INTERACTION_REWO
 | `index.html` | One `#desk` div plus the module script. |
 | `test.mjs` | `node test.mjs`. About 15 s. |
 
-Plain static site, ES modules (serve over http, not `file://`). QA aid: add `?tick=150` to the URL to speed up the game clock (`tick=1000` is normal; idle timers do not exist, so it is safe to script).
+Plain static site, ES modules (serve over http, not `file://`). QA aid: `?tick=N` sets **milliseconds per game second** (`?tick=1000` is normal speed, `?tick=200` is 5x). It is not a multiplier — `?tick=2` runs about 500x and a scripted check will fly past whatever it meant to look at. Idle timers do not exist, so scripting is otherwise safe.
 
 ## Engine in one screen
 
@@ -49,8 +49,8 @@ Read-only helpers the UI uses: `caseView`, `replies`, `canAttachHelper`, `fileAc
 
 - **Everything is plain data and pure.** `act`/`tick` never mutate their input (tested). `tick` copies shallowly when nothing is due; everything else clones.
 - **Incidents arrive on the clock; consequences are scheduled deliveries.** Deliveries are data in `state.pending`: `msg`, `notice`, `mail`, `score`, `cal`, `mark`, `shown`, `offline`, `nudge`, `arm`, `end`. A delivery tagged `when: 'e3'` is dropped if that incident is already resolved (used for follow-up hints and NARC nudges).
-- **`resolve(state, branch)`** closes the open incident, records `state.picked[incident]`, runs the branch (which only schedules deliveries), then arms the next incident `GAP` (14 s) after the last real delivery. Consequences start after any remaining unguarded arrival chatter (`state.base`), so nothing overlaps even for a fast player.
-- **Orientation gate:** nothing consequential is scheduled until the player acknowledges the welcome email, checks the Calendar, and replies to Dana (`oriented`). The first case then arrives `ORIENT_LEAD` (22 s) later.
+- **`resolve(state, branch)`** closes the open incident, records `state.picked[incident]`, runs the branch (which only schedules deliveries), then arms the next incident `GAP` (24 s) after the last real delivery. Consequences start after any remaining unguarded arrival chatter (`state.base`), so nothing overlaps even for a fast player.
+- **Orientation gate:** nothing consequential is scheduled until the player acknowledges the welcome email, checks the Calendar, and replies to Dana (`oriented`). The first case then arrives `ORIENT_LEAD` (10 s) later.
 - **NARC 2.0 is a beat:** the announcement lands (`state.awaiting`), NARC nudges about it, and the scan only runs after the player opens the email. The scan now also generates a forward-looking behavioral forecast for Employee 4417 so the AI arc visibly moves from signals → inference → prediction.
 - **Marks** (`state.marks`) are the small blue "new" dots on the dock (Files, Calendar, Utilities, Email). Viewing the app clears it.
 - **Action vocabulary** (`act` `do:` values): `view`, `open`, `gone` (close a toast; decides nothing), `clear`, `ack`, `dismiss` (own alert only), `logoff`, `case` (only the note on your own case), `reply` (a Messages chip), `attach` (helper to Luis), `sendFile` (file to Dana), `markFocus`, `helper` (`install` / `toggle` / `randomize`), `nominate`, `addEvent`, `restart`. Invalid actions return the state unchanged.
@@ -94,7 +94,7 @@ Coworker statuses: employed / promoted / warning / heavily monitored / absurdly 
 
 ## Pacing (asserted by tests)
 
-- A brisk player who clears everything immediately: about 5 minutes (asserted 4.5-7; the shorter orientation lead-in and tighter NARC 2.0 beat took about 20 s off).
+- A brisk player who clears everything immediately: about 5.3 minutes (asserted 5-7).
 - A player who reads every coworker hint before deciding: about 8 minutes (asserted 7-10).
 - Exploring and experimenting add to that. Stated target: about 8-10 minutes healthy, 5-15 overall.
 - No two notifications land within 3 seconds of each other (asserted across several routes).
@@ -200,7 +200,7 @@ Implemented on `prototype-v1` after the latest live playthrough:
 - the activity workaround is now an unverified `keepalive.pkg` passed through Messages and cannot be installed before the player discovers it
 - the disabled Message input is replaced by contextual reply chips or a simple no-reply-needed state
 - removed the redundant blue Team pill from NARC team-alert rows
-- simplified NARC case detail to **Signals → NARC assessment → Company response**
+- simplified NARC case detail to **Signals → NARC assessment → Company response** (superseded 2026-09-22: what NARC thinks → why → what happens because of it)
 - opening NARC from the tray/dock prefers the current alert instead of leaving an old historical item looking stuck
 
 Current design north star from Paige: **more fun and hyper, but not more notification spam**. Energy should come from faster feedback, discovery, player-caused state changes, and escalating absurdity.
@@ -255,6 +255,50 @@ From Paige's playtest and an outside AI review. All six are on `prototype-v1` an
 6. **Shorter lead-in.** `ORIENT_LEAD` 22 → 10 s.
 
 Found during QA, not fixed (separate issue): the clock gains a minute every 3 s with no daily cap, so a tab idle for about 45 minutes on one day shows times past 24:00. Also note `?tick=N` is **milliseconds per game second** (`?tick=200` = 5×), not a multiplier.
+
+## Pacing and playability pass (done, 2026-09-22, issue #13)
+
+Verified #13's examples against the merged build first: they were accurate (Marcus's
+Wednesday ran +8/+16/+24/+32/+40; Dana reached Luis's Friday review at +36). One
+nuance worth keeping: most incidents already had a legal move at +0 (the calendar
+entry, the files, nominations, Focus time). What was missing was the *pointer* — the
+player had no way to know the toy was there.
+
+1. **Time to action (items 1 and 4).** The opening line lands at +4 and the line that
+   points at the incident's main move at +8; the jokes still arrive, as colour after
+   the fact. Wednesday reads as a records puzzle (empty calendar at +8, transit alert
+   at +16). Asserted: a pointer within 10 s, the first prompted choice within 20 s.
+2. **One primary toy per incident (item 2)** is now expressed by *what gets pointed at
+   first*, not by removing routes: the alternates are still reachable, just later.
+3. **The assessment grammar everywhere (item 3).** Eight unattended branches resolved
+   through a plain notice: `e2 ignore`, `e3 stay`, `e4 leave`, `e5 covered/auto/letit`,
+   `e6 approve/let`. They now update the card in place with the company action and one
+   notification that opens that card.
+4. **The prediction (item 5).** Six seconds after the last case, NARC models the player
+   ("Policy-workaround likelihood: N%"). `workarounds()` counts patterns NARC can see
+   rather than proven violations, so at 78%+ it opens a Predictive Integrity Review and
+   freezes the index 10 lower *before* the report. A player with zero integrity flags
+   can end UNDER REVIEW on the forecast alone. The mid-week forecast shares the formula.
+5. **The case card (item 6)** answers three questions in order: what NARC thinks, why
+   (2-4 signals), what happens because of it. Every case carries a company response.
+6. **GAP 14 -> 24 s.** The pacing work compressed the week, so the waiting moved out of
+   the incidents and into the space between them, where the player can explore. Brisk
+   run 5.3 min, reading every hint 7.1 min.
+7. **#12 fixed:** the clock stops at 17:59 instead of running past midnight.
+8. **The notification rail** narrows from 340px to 240px between 761 and 1399px, where
+   it used to cover the top of the case (at 1100px it hid the title and the assessment).
+   Wide screens and phones are unchanged. Measured with text rectangles, not element
+   boxes, across every case: nothing is covered now. Found while checking this: the
+   rail was not redrawn on resize, so rotating a phone left a stack sized for the old
+   screen sitting over the game. `render()` now runs on resize.
+
+Two QA notes for whoever is next: the static preview server serves `style.css` from
+cache, so force a fresh fetch before trusting a CSS check; and `?tick=N` is
+milliseconds per game second.
+
+Known limits of the new tests: the pointer assertion accepts "a lit app OR a choice",
+so moving a single explanatory line later can still pass while the app stays lit. Two
+deliberate mutations confirmed that.
 
 Useful progression to preserve in behavior, not chapter labels:
 **watch → infer → adapt → predict → act**.

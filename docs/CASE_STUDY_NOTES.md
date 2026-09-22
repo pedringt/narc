@@ -489,6 +489,32 @@ Paige's playtest plus an outside AI review surfaced six things; Paige approved a
 
 **Attribution:** Paige playtested and chose all six. An outside AI review found the Focus-time bug. Claude Code reproduced it, implemented the six, added tests, and verified in the browser.
 
+### Pacing and playability pass (2026-09-22)
+
+Paige wrote a current-state assessment (#13) after playing the merged build. Two things
+worth recording as method:
+
+- **Check the brief against the code before working to it.** Its pacing examples were
+  measured and correct, but measuring also surfaced a nuance that changed the fix: the
+  moves already existed at second zero on most incidents. The problem was not a missing
+  action, it was a missing pointer. So the pass moved *hints* earlier rather than adding
+  interactions.
+- **Fixing pacing changed the product's shape, and that needed a decision.** Cutting
+  30-40 s of in-incident waiting shortened the whole week below the 5-minute brisk
+  target. Rather than add content to pad it, the wait moved to the gap *between*
+  incidents, where the player has the desktop to explore. Brisk runs land at 5.3 min and
+  a reading run at 7.1 min. The test floor went back up to 5 minutes, having been
+  lowered to 4.5 the day before: worth noting that loosening an assertion is a debt.
+- **The weakest feedback was on the least interesting choice.** Eight branches — all the
+  "let NARC handle it" routes — resolved through a plain notice while every active choice
+  got an animated assessment update. The player who declined to act learned the least.
+  Those now use the same grammar, which is a fairness point as much as a polish one.
+- **Prediction as the last beat.** The AI arc (watch, infer, adapt, predict, act) stopped
+  at "adapt". NARC now forecasts the player from a pattern of workarounds rather than
+  proven violations, and acts on the forecast alone. A player who was never caught can
+  still end under review — the sharpest version of the product's point, and it costs one
+  scheduled beat rather than a new system.
+
 ## Scope decisions
 
 Things intentionally deferred:

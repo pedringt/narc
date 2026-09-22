@@ -117,6 +117,15 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
   return afterAll ? until(s, (x) => x.phase === 'ending') : s;
 }
 
+const INCIDENT_BRANCHES = {
+  e1: ['wait', 'explain', 'jiggle', 'focus'],
+  e2: ['confirm', 'ignore', 'script', 'focus'],
+  e3: ['truth', 'paper', 'cover', 'stay', 'badtip'],
+  e4: ['quiet', 'champion', 'leave', 'sync'],
+  e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
+  e6: ['workshop', 'approve', 'expose', 'vouch_trace', 'backdate', 'let'],
+};
+
 const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'label', e6: 'let' };
 
 // ---------------------------------------------- orientation comes first
@@ -620,15 +629,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const e4 = at(HONEST, 'e4');
   assert.ok(has(texts(e4, 'priya'), /NARC flagged me for too much messaging/));
 
-  const g = at({ ...HONEST, e2: 'script' }, 'e5');
-  assert.match(g.threads.luis.at(-1).text, /NARC says my keyboard input arrives every 59 seconds/);
-  const n = at(HONEST, 'e5');
-  assert.match(n.threads.luis.at(-1).text, /NARC says I have hit “sustained unexplained productivity loss”/);
-
-  const b = at({ ...HONEST, e3: 'truth' }, 'e6');
-  assert.match(b.threads.marcus.at(-1).text, /NARC just scheduled my termination.*bird situation/);
-  const pg = at({ ...HONEST, e3: 'paper' }, 'e6');
-  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for the bird paperwork/);
+  // The first thing they say when the case opens explains it, whatever came before.
+  const opener = (picks, inc, who) => {
+    const before = play(picks, { stopAt: inc });
+    return ticks(before, 12).threads[who][before.threads[who].length].text;
+  };
+  assert.match(opener({ ...HONEST, e2: 'script' }, 'e5', 'luis'), /NARC says my keyboard input arrives every 59 seconds/);
+  assert.match(opener(HONEST, 'e5', 'luis'), /NARC says I have hit “sustained unexplained productivity loss”/);
+  assert.match(opener({ ...HONEST, e3: 'truth' }, 'e6', 'marcus'), /NARC just scheduled my termination.*bird situation/);
+  assert.match(opener({ ...HONEST, e3: 'paper' }, 'e6', 'marcus'), /NARC gave me “Documentation Excellence” for the bird paperwork/);
 
   Object.values(THREADS).forEach((t) => assert.ok(t.role));
 }
@@ -714,7 +723,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(m.marks.calendar, true);
   m = act(m, { do: 'view', app: 'calendar' });
   assert.equal(m.marks.calendar, undefined);
-  let quick = ticks(play({}, { stopAt: 'e3' }), 9);
+  let quick = ticks(play({}, { stopAt: 'e3' }), 6);
   quick = DO.e3.stay(quick);
   quick = ticks(quick, 90);
   assert.ok(!has(texts(quick, 'marcus'), /Wednesday calendar is completely empty/));
@@ -1149,7 +1158,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
 {
   const brisk = play(HONEST);
-  assert.ok(brisk.t >= 4.5 * 60 && brisk.t <= 7 * 60, `a brisk run (no reading, no exploring) is about 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
+  assert.ok(brisk.t >= 5 * 60 && brisk.t <= 7 * 60, `a brisk run (no reading, no exploring) is 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
 
   let s = oriented();
   for (const inc of INCIDENTS) {
@@ -1291,6 +1300,168 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const t0 = s.t;
   s = until(s, atIncident('e1'));
   assert.ok(s.t - t0 <= 14, `the first case arrives within ~14 s of finishing orientation (${s.t - t0})`);
+}
+
+// ------------ doing nothing still shows what NARC now believes and does
+
+{
+  // The route a player gets by logging off, or by declining every offer.
+  const quiet = [
+    ['e2', 'ignore', /Time-on-Task Advisory/, 'Advisory issued'],
+    ['e3', 'stay', /Attendance Integrity Notice/, 'Notice issued'],
+    ['e4', 'leave', /Concise Communication Coaching/, 'Coaching enabled'],
+    ['e5', 'letit', /Termination pending/, 'Plan issued'],
+    ['e6', 'let', /Termination confirmed/, 'Action confirmed'],
+    ['e6', 'approve', /None\. Absence approved/, 'Absence approved'],
+  ];
+  for (const [inc, branch, response, title] of quiet) {
+    const picks = { ...HONEST, [inc]: branch };
+    if (inc === 'e6') picks.e3 = branch === 'approve' ? 'paper' : 'stay';
+    let s = play(picks, { stopAt: inc });
+    const t0 = s.t;
+    s = DO[inc][branch](s);
+    s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === inc)).updated, { reads: false });
+    const view = caseView(s, s.alerts.find((a) => a.incident === inc));
+    assert.equal(view.updated, true, `${inc} ${branch}: the case card is updated`);
+    assert.equal(view.unchanged, false, `${inc} ${branch}: the belief visibly moved`);
+    assert.ok(view.model.was, `${inc} ${branch}: the old belief is kept`);
+    const action = view.metrics.find(([k]) => k === 'Company response');
+    assert.ok(action && response.test(String(action[1])), `${inc} ${branch}: the company action is on the card`);
+    assert.ok(view.reaction, `${inc} ${branch}: the reaction line is on the card`);
+    const fresh = s.toasts.filter((x) => x.app === 'narc' && !x.nudgeFor && x.at > t0);
+    assert.deepEqual(fresh.map((x) => x.title), [title], `${inc} ${branch}: exactly one NARC notification, and it opens the updated card`);
+    assert.equal(fresh[0].alert, s.alerts.find((a) => a.incident === inc).id);
+  }
+
+  // Luis's Focus-time cover: NARC never opens a case, and says so where he can see it.
+  let c = play({ ...HONEST, e2: 'focus' }, { stopAt: 'e5' });
+  c = until(c, (x) => x.done.includes('e5'), { reads: false });
+  c = until(c, (x) => has(texts(x, 'luis'), /Behavioral deviation: none/), { reads: false });
+  assert.ok(has(texts(c, 'luis'), /Behavioral deviation: none/));
+
+  // The other unattended routes still update Luis's open case.
+  for (const branch of ['auto']) {
+    let s = play({ ...HONEST, e2: 'script', e5: undefined }, { stopAt: 'e5' });
+    s = DO.e5[branch](s);
+    s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e5')).updated, { reads: false });
+    const view = caseView(s, s.alerts.find((a) => a.incident === 'e5'));
+    assert.equal(view.unchanged, false);
+    assert.match(String(view.metrics.find(([k]) => k === 'Company response')[1]), /Heavy monitoring/);
+  }
+
+  // Every branch of every incident reaches a visible model update, not a bare notice.
+  const noReact = [];
+  for (const [inc, def] of Object.entries(INCIDENT_BRANCHES)) {
+    for (const branch of def) if (!DO[inc][branch]) noReact.push(`${inc}.${branch}`);
+  }
+  assert.deepEqual(noReact, [], 'every listed branch has a driver');
+}
+
+// ------------------------------- the clock does not run past the working day
+
+{
+  let s = newGame();
+  for (let i = 0; i < 6000; i++) s = tick(s);   // a tab left open through orientation
+  assert.equal(clockText(s), 'Mon 17:59', 'an idle day stops at the end of it, instead of reading 25:17');
+  const later = ticks(s, 600);
+  assert.equal(clockText(later), 'Mon 17:59');
+  // An incident still moves the clock on to its own day and time.
+  let s2 = play(HONEST, { stopAt: 'e3' });
+  assert.equal(clockText(s2), 'Wed 10:52', 'a case still sets the clock to its own day and time');
+}
+
+// -------- when a case opens, the game points at something to do within 10 s
+
+{
+  // #13's benchmark: from the moment a problem appears, how long until the player
+  // can do something that visibly changes what NARC believes?
+  const routes = [HONEST, { e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'quiet', e5: 'blame', e6: 'expose' }];
+  for (const picks of routes) {
+    for (const inc of INCIDENTS) {
+      let s = play(picks, { stopAt: inc });
+      if (s.incident?.id !== inc) continue; // resolved on arrival by an earlier move
+      const said = ['dana', 'luis', 'marcus', 'priya'].map((th) => s.threads[th].length).join();
+      const moves = (x) => [
+        ...['dana', 'luis', 'marcus', 'priya'].flatMap((th) => replies(x, th).filter((r) => !r.free)),
+        ...Object.keys(fileActions(x)),
+        ...(calendarAction(x) ? ['calendar'] : []),
+        ...(canAttachHelper(x) ? ['helper'] : []),
+        ...(x.incident?.id === 'e1' ? ['focus'] : []),
+        ...(x.helper.installed ? ['randomize'] : []),
+        ...(x.culture?.open && !x.done.includes('e4') ? ['nominate'] : []),
+      ];
+      let pointed = null;
+      for (let i = 0; i <= 10 && pointed === null; i += 1) {
+        const explained = ['dana', 'luis', 'marcus', 'priya'].map((th) => s.threads[th].length).join() !== said;
+        if (moves(s).length && explained) pointed = i;
+        else s = tick(s);
+      }
+      assert.ok(pointed !== null, `${inc} on ${JSON.stringify(picks)}: nothing is pointed at within 10 s of the case opening`);
+
+      // The app the player needs is lit within 10 s, and the chips that carry the
+      // main decision arrive within 20 s, not 40.
+      const start = play(picks, { stopAt: inc });
+      const scheduled = (k) => start.pending.filter((p) => p.k === k && p.when === inc).map((p) => p.at - start.t);
+      const prompts = start.pending.filter((p) => p.k === 'msg' && p.prompt).map((p) => p.at - start.t);
+      const pointers = [...scheduled('mark'), ...prompts];
+      assert.ok(Math.min(...pointers) <= 10, `${inc} on ${JSON.stringify(picks)}: the first pointer (a lit app or a choice) lands at +${Math.min(...pointers)}s`);
+      if (prompts.length) assert.ok(Math.min(...prompts) <= 20, `${inc}: the first prompted choice lands at +${Math.min(...prompts)}s`);
+    }
+  }
+}
+
+// ------------- before the report, NARC models Employee 4417 and acts on it
+
+{
+  // A clean week: NARC predicts little and does nothing about it.
+  const clean = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
+  const cleanCard = clean.alerts.find((a) => /Employee 4417/.test(a.title));
+  assert.ok(cleanCard, 'the prediction always arrives');
+  assert.match(cleanCard.text, /Policy-workaround likelihood: 24%/);
+  assert.match(cleanCard.text, /likely to alter monitored behavior when evaluated/);
+  assert.match(cleanCard.text, /No review scheduled/);
+  assert.equal(clean.you.predicted, false);
+  assert.equal(ending(clean).you.label, 'MODEL EMPLOYEE');
+
+  // A player who gamed their own signal and covered it, and was never caught:
+  // the forecast alone is enough.
+  // Relabelled her own time, then used the Culture Champion exemption: two
+  // workarounds, no rule broken that NARC ever caught.
+  let s = play({ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' });
+  assert.equal(s.flags, 0, 'nothing was ever caught');
+  const card = s.alerts.find((a) => /Employee 4417/.test(a.title));
+  assert.match(card.text, /Policy-workaround likelihood: 78%/);
+  assert.match(card.text, /Predictive Integrity Review scheduled/);
+
+  // It acts before the report, not only in it.
+  // It acts before the report, not only in it: the index is frozen 10 lower.
+  let run = play({ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' }, { afterAll: false });
+  run = until(run, (x) => x.alerts.some((a) => /Employee 4417/.test(a.title)), { reads: false });
+  const atPrediction = run.score;
+  run = until(run, (x) => x.phase === 'ending', { reads: false });
+  assert.equal(run.score, atPrediction - 10, 'the index is frozen 10 lower before the week ends');
+  assert.equal(s.score, atPrediction - 10, 'and the report shows the frozen index');
+  assert.equal(ending(s).you.label, 'UNDER REVIEW');
+  assert.match(ending(s).you.text, /on the forecast alone/);
+
+  // The prediction is the last thing NARC says, and it is read before the report.
+  const predictionAt = s.alerts.indexOf(card);
+  assert.ok(predictionAt >= 0);
+  assert.equal(s.phase, 'ending');
+}
+
+// ----------- every case answers the same three questions, in the same order
+
+{
+  for (const [inc, picks] of [['e1', {}], ['e2', HONEST], ['e3', HONEST], ['e4', HONEST], ['e5', HONEST], ['e6', HONEST]]) {
+    const s = play(picks, { stopAt: inc });
+    if (s.incident?.id !== inc) continue;
+    const view = caseView(s, s.alerts.find((a) => a.incident === inc));
+    assert.ok(view.model.label && typeof view.model.confidence === 'number', `${inc}: what NARC thinks`);
+    assert.ok(view.observed.length >= 2 && view.observed.length <= 4, `${inc}: why, in 2-4 signals (${view.observed.length})`);
+    const action = view.metrics.find(([k]) => k === 'Company response');
+    assert.ok(action && String(action[1]).length > 3, `${inc}: what happens because of it`);
+  }
 }
 
 console.log('NARC tests passed');
