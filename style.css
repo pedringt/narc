@@ -263,8 +263,16 @@ button { cursor: pointer; }
      these widths. Stacked and left-aligned, it stays readable. */
   .company-action { flex-direction: column; align-items: flex-start; gap: 4px; }
   .company-action b { text-align: left; }
-  /* Long signal lines and the metric values would run under the rail. */
-  .case ul, .context-facts, .model-box, .notice-copy { max-width: 420px; }
+}
+/* Reserve the rail's width in the case column so every line in it -- title
+   included -- wraps before the notifications rather than under them. */
+@media (min-width: 901px) and (max-width: 1399px) {
+  .narc-main .detail { padding-right: 252px; }
+}
+/* Too narrow to reserve a rail without squeezing the case to nothing, so the
+   rail itself gets out of the way as much as it can. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .toasts { width: 200px; }
 }
 .toast {
   pointer-events: auto; display: block; text-align: left; width: 100%; position: relative;

@@ -285,12 +285,19 @@ player had no way to know the toy was there.
    the incidents and into the space between them, where the player can explore. Brisk
    run 5.3 min, reading every hint 7.1 min.
 7. **#12 fixed:** the clock stops at 17:59 instead of running past midnight.
-8. **The notification rail** narrows from 340px to 240px between 761 and 1399px, where
-   it used to cover the top of the case (at 1100px it hid the title and the assessment).
-   Wide screens and phones are unchanged. Measured with text rectangles, not element
-   boxes, across every case: nothing is covered now. Found while checking this: the
-   rail was not redrawn on resize, so rotating a phone left a stack sized for the old
-   screen sitting over the game. `render()` now runs on resize.
+8. **The notification rail** used to cover the top of the case below about 1400px (at
+   1100px it hid the title and the assessment). Now: the rail narrows to 240px from 761
+   to 1399px, and from 901 to 1399px the case column reserves the rail's width so every
+   line, title included, wraps before it. Verified by measuring text rectangles, not
+   element boxes, at 1024, 1100 and 1399: nothing is covered. Wide screens (>=1400px)
+   and phones are unchanged.
+   **Known limit:** between 761 and 900px the case is too narrow to reserve a rail
+   without squeezing it to nothing, so the rail only shrinks (to 200px) and the title
+   and a couple of signal lines can still run under it. Fixing that band properly means
+   reserving a rail in the desktop layout itself, which is a design decision for Paige.
+   Found while checking this: the rail was not redrawn on resize, so rotating a phone
+   left a stack sized for the old screen sitting over the game. `render()` now runs on
+   resize.
 
 Two QA notes for whoever is next: the static preview server serves `style.css` from
 cache, so force a fresh fetch before trusting a CSS check; and `?tick=N` is
