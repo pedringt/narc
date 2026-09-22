@@ -1,14 +1,24 @@
 # NARC Handoff
 
-## Current status
+## Current status (2026-09-22)
 
-NARC is in **prototype interaction redesign**.
+**Playable end to end and live in production at https://narc-opal.vercel.app** (`main` at `1853476`). `prototype-v1` is the working branch and is level with `main` apart from docs.
 
-The current `prototype-v1` build already uses the new human-vs-NARC premise: the player is an employee, the game has six deterministic encounters, and the old reviewer-player loop has been removed.
+The premise, the desktop rework and the clarity pass are all **done** — do not redo them. The last pass (issue #13) covered pacing, an assessment update on every branch, the Employee 4417 prediction, and the three-part case card.
 
-The next problem is not the core premise. It is the interaction model.
+Where the build stands:
 
-The current build still feels too much like a sequence of full-screen scenario cards with explicit game choices. The next pass should make the same logic feel like a normal workday on a fictional corporate laptop.
+- a brisk run is about **5.3 minutes**, reading every hint about **7.1**; exploring adds to that
+- after a case opens, the game points at something to do within **10 seconds** (asserted by tests)
+- every branch, including "let NARC handle it", ends in a visible assessment change
+- `node test.mjs` is green and covers all **2,400** routes
+
+**What is genuinely open** is in GitHub, not here:
+
+- **#13** stays open until Paige plays the new pacing. Two things to ask her about: whether the gap *between* incidents now feels like dead air (the pacing fix moved waiting there, `GAP` 14 → 24 s), and whether the notification rail should be reserved in the desktop layout (between 761 and 900px it still covers part of the case).
+- **#6** playtest plan, **#7** handoff upkeep, **#1–#5** older framing and spec work.
+
+Before starting anything, read `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`: it is the code-accurate description of the engine, the week, and the known limits.
 
 ## Current premise
 
@@ -108,15 +118,9 @@ Current implementation (desktop rework + playtest clarity pass, on `prototype-v1
 Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
 
 
-## Latest playtest conclusion
+## Settled principles (from the feedback rounds; all now implemented)
 
-The desktop concept is working better than the old scenario-card structure, but the current build has a new primary usability problem:
-
-> **The player often does not know what to do.**
-
-The next pass is not "add more content." It is **clarify the loop without exposing the branch tree**.
-
-Settled principles from the feedback round:
+These came out of the round where the primary problem was "the player often does not know what to do". That pass, and the pacing pass after it, are complete — the list is kept because the principles still govern new work, not as a to-do list.
 
 - **Hide the branching structure, not the available affordances.**
 - **NARC is the pressure. Coworkers and the rest of the desktop are the counterplay.**
@@ -126,7 +130,7 @@ Settled principles from the feedback round:
 - The opening needs a gated orientation before consequential events begin.
 - The People Ops email should spell out **Networked Assessment & Risk Coordination** and plainly-but-corporately state that workplace activity is monitored.
 - First-contact coworker messages must make sense without assuming the player already opened a NARC alert.
-- The hidden 60-second auto-fallback is too easy to trigger while the player is legitimately investigating.
+- No hidden auto-fallback: exploring is never treated as inaction (the old 60-second fallback is gone, and a test holds that line).
 - Active NARC cases must be distinguished from passive NARC history/notices.
 - The AI-learning goal is experiential: the player learns about proxies, inference, gaming, context loss, feedback loops, and authority by outsmarting NARC rather than reading explanations.
 
@@ -138,7 +142,17 @@ Detailed implementation notes:
 
 ## Next recommended implementation action
 
-Address the current first-run clarity, orientation, notification, and pacing problems before adding encounters or coworkers. Keep the existing deterministic content small while making the counterplay discoverable.
+**Wait for Paige's playtest of the current build before building anything new.** The open question is whether the pacing now feels right, not what to add. If she asks for work in the meantime, prefer the two decisions parked on #13 (the between-incident gap; whether to reserve a rail for notifications in the desktop layout) over new content.
+
+Do **not** add Nina or Maya, more scenarios, more meters, hidden rules or explainer text. The target is still: easy to understand in seconds, interesting because the consequences are weird.
+
+### How to work on this repo
+
+- Feature work on `prototype-v1`; `main` is production and only Paige authorizes a merge, each time.
+- `node test.mjs` (about 16 s) must be green before pushing. Mutation-check new rules by breaking them deliberately and confirming a test fails.
+- Serve over http, not `file://`. `?tick=N` in the URL is **milliseconds per game second** (`?tick=200` is 5x), not a multiplier.
+- The static preview server serves `style.css` from cache: force a fresh fetch before trusting any CSS check.
+- Vercel is on the shared Hobby budget, so batch work and avoid unnecessary production builds.
 
 Detailed UX source of truth: `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`
 
