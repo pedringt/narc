@@ -472,7 +472,22 @@ Guardrails: one obvious judgment per incident, a little context, two or three me
 
 **Attribution:** Paige set the loop, the guardrails, and the reference feeling, and approved the route cuts. Claude Code reviewed the build against them, proposed the in-place assessment approach, implemented it, and wrote the tests. Paige decides what stays.
 
-**Open:** the behavioral forecast still arrives as its own beat rather than changing a card, and only Monday's incident lets the player change NARC's belief about their *own* case.
+**Open:** only Monday's incident lets the player change NARC's belief about their *own* case.
+
+### Playtest follow-up: six small fixes (2026-09-21)
+
+Paige's playtest plus an outside AI review surfaced six things; Paige approved all six and asked for them to ship together.
+
+- **"Still hardly ever any replies for Dana."** The manager, the player's most frequent contact, talked *at* them. Now her reaction lines can be answered with one of two short chips and she answers back. Product decision: these replies are conversation only and never change an outcome, so the game stays easy to reason about while the relationship feels two-way.
+- **A line that read oddly** (Marcus's "you have just invented money") was replaced with one that lands the joke on the metric: "91%. i have never been 91% of anything."
+- **"A lull after the NARC 2.0 email", then "it's just a lot of NARC notifications".** Two complaints that look opposite had one fix: NARC 2.0 now gives one notification (the strongest reversal), and the gap is filled by coworkers reacting in Messages instead of more system alerts. Lesson: silence and noise can both come from the system talking; people talking fixes both.
+- **"Missed the short window for Culture Champion nominations."** The window was only open during Priya's flag. It now opens when the email arrives, and nominating her early prevents the flag altogether: the loophole, used ahead of time.
+- **A real bug from the outside review.** Marking the contract block as Focus time *before* the first flag did nothing, and NARC still said "Focus time scheduled: none". The equivalent early move with the keepalive already worked. Now both pay off, and the observed line reflects real state. Lesson: when two moves are equivalent in the fiction, the player expects them to be equivalent in the rules. Verify an outside reviewer's claim by reproducing it first (it was reproduced in a small script before any fix).
+- **A shorter lead-in** before the first case (22 → 10 s).
+
+**QA honesty:** a browser check first "failed" because the QA speed flag (`?tick=`) is milliseconds per tick, not a multiplier, so the game ran hundreds of times faster than intended. Measuring the real chip window in the engine (about 50 s) settled it before any code changed. The same check found an older clock bug (no daily cap), logged as a separate issue rather than folded in.
+
+**Attribution:** Paige playtested and chose all six. An outside AI review found the Focus-time bug. Claude Code reproduced it, implemented the six, added tests, and verified in the browser.
 
 ## Scope decisions
 

@@ -94,7 +94,7 @@ Coworker statuses: employed / promoted / warning / heavily monitored / absurdly 
 
 ## Pacing (asserted by tests)
 
-- A brisk player who clears everything immediately: about 5-6 minutes.
+- A brisk player who clears everything immediately: about 5 minutes (asserted 4.5-7; the shorter orientation lead-in and tighter NARC 2.0 beat took about 20 s off).
 - A player who reads every coworker hint before deciding: about 8 minutes (asserted 7-10).
 - Exploring and experimenting add to that. Stated target: about 8-10 minutes healthy, 5-15 overall.
 - No two notifications land within 3 seconds of each other (asserted across several routes).
@@ -238,10 +238,23 @@ What was built:
 
 Still open from this direction (not done):
 
-- The forward-looking **behavioral forecast** still arrives as its own beat; it does not yet change any card.
+- ~~The behavioral forecast arrives as its own beat~~: folded into the single NARC 2.0 beat (see the follow-up pass below).
 - Not every incident has a strong "I changed what NARC believes" moment on the player's *own* case: e1 has three, the rest happen on teammates' cards.
 - A pass over remaining follow-up messages for length (some coworker lines still land in pairs).
 - No new scenarios, no Nina or Maya, no new meters (deliberately).
+
+## Playtest follow-up pass (done, 2026-09-21)
+
+From Paige's playtest and an outside AI review. All six are on `prototype-v1` and covered by tests:
+
+1. **Dana can be answered.** Her reaction lines (low activity, "Got your note!", "Love the energy!", "Focus time!", Luis's numbers, the Culture reminder, the Council line) and her Monday check-in each offer two short chips, and she answers in one line. These are conversation only (`free: true` in `REPLIES`, with an `answer`): they never change an outcome. A chip is answerable while that line is the latest thing Dana said and until the next case is settled (`doneAt` on the message), about 50 s at normal speed.
+2. **Marcus's paper line** is now "91%. i have never been 91% of anything."
+3. **NARC 2.0 is one notification.** The strongest reversal (Monday's card if your keepalive was on, else Luis's card if his was caught, else the forecast) is the only toast and the gate. The forecast sentence is folded into it; the other findings are quiet history. Coworkers react in Messages while it works (Priya always; Luis if caught; Marcus if his paperwork was verified). The first result lands about 3 s after opening the email, and Priya's case arms about 4 s after the beat is opened, once the people have finished talking.
+4. **Culture Champion window.** Open from the Culture email's arrival until Priya's case ends (`s.culture.open`). Nominating Priya early pre-empts her flag: e4 resolves as `champion` on arrival, with one toast.
+5. **Focus time marked before the first flag pays off.** Like an early keepalive, it resolves e1 on arrival (no flag). The e1 observed calendar line now reflects real state ("Focus time scheduled: 3 h 15 min" vs "none").
+6. **Shorter lead-in.** `ORIENT_LEAD` 22 → 10 s.
+
+Found during QA, not fixed (separate issue): the clock gains a minute every 3 s with no daily cap, so a tab idle for about 45 minutes on one day shows times past 24:00. Also note `?tick=N` is **milliseconds per game second** (`?tick=200` = 5×), not a multiplier.
 
 Useful progression to preserve in behavior, not chapter labels:
 **watch → infer → adapt → predict → act**.

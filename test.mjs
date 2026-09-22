@@ -177,7 +177,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
   assert.equal(s.oriented, true);
   assert.equal(replies(s, 'dana').length, 0);
-  s = ticks(s, 20);
+  s = ticks(s, 5);
   assert.equal(s.incident, null, 'the first case is not sprung on the player the moment they finish');
   s = until(s, atIncident('e1'));
   assert.equal(s.indexVisible, true);
@@ -448,7 +448,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // ------------ in Messages, choices arrive with the message that prompts them
 
 {
-  const opts = (s, thread) => replies(s, thread).map((r) => r.text);
+  const opts = (s, thread) => replies(s, thread).filter((r) => !r.free).map((r) => r.text);
 
   let s = play({}, { stopAt: 'e1' });
   assert.deepEqual(opts(s, 'dana'), [], 'Dana reply chips do not appear before her low-activity message');
@@ -470,7 +470,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = play({ e1: 'explain' }, { stopAt: 'e2' });
   assert.deepEqual(opts(s, 'luis'), [], 'Luis advice does not appear before he asks for it');
   assert.deepEqual(opts(s, 'dana'), [], 'Dana choices do not appear before her verification message');
-  s = until(s, (x) => replies(x, 'luis').length && replies(x, 'dana').length);
+  s = until(s, (x) => replies(x, 'luis').length && opts(x, 'dana').length);
   assert.deepEqual(opts(s, 'luis'), [
     'You could block that time as Focus time on your calendar.',
   ]);
@@ -618,7 +618,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(first(e3, 'marcus'), /NARC flagged me for attendance again.*raccoon/);
 
   const e4 = at(HONEST, 'e4');
-  assert.match(first(e4, 'priya'), /NARC flagged me for too much messaging/);
+  assert.ok(has(texts(e4, 'priya'), /NARC flagged me for too much messaging/));
 
   const g = at({ ...HONEST, e2: 'script' }, 'e5');
   assert.match(g.threads.luis.at(-1).text, /NARC says my keyboard input arrives every 59 seconds/);
@@ -670,7 +670,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   ['narc', 'mark:email', 'mark:files'].forEach((k) => assert.ok(l.includes(k), `e4 leads: ${l}`));
   assert.match(texts(s, 'priya').join(' '), /Collaboration Index of 97/);
   assert.match(texts(s, 'priya').join(' '), /Should I just post less/, 'Priya opens the door to advice');
-  assert.match(texts(s, 'dana').at(-1), /Culture Champion nominations open today/);
+  assert.match(texts(s, 'dana').at(-1), /Culture Champion nominations close today/);
 
   s = patient({ ...HONEST, e2: 'script' }, 'e5');
   l = leads(s, 'e5');
@@ -730,8 +730,20 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(email.form, 'nominate');
   assert.match(email.body.join(' '), /Collaboration Index of 90/);
   assert.match(email.body.join(' '), /exempt from Communication Load/);
-  assert.match(email.body.join(' '), /open Thursday/);
-  assert.equal(act(s, { do: 'nominate', who: 'priya' }).people.priya.champion, false, 'the window is not open yet');
+  assert.match(email.body.join(' '), /open now and close on Thursday/);
+  assert.equal(act(newGame(), { do: 'nominate', who: 'priya' }).nominations.priya, undefined, 'nothing can be nominated before the email arrives');
+  assert.equal(s.culture.open, true, 'the window opens with the email');
+
+  // Nominate Priya early and her flag never fires: the loophole, used ahead of time.
+  {
+    let early = act(s, { do: 'nominate', who: 'priya' });
+    assert.equal(early.nominations.priya, 'submitted');
+    assert.equal(early.people.priya.champion, true);
+    early = until(DO.e3.stay(early), (x) => x.done.includes('e4'));
+    assert.equal(early.picked.e4, 'champion', 'e4 resolves on arrival as the champion outcome');
+    assert.equal(early.people.priya.status, 'promoted');
+    assert.equal(early.incident?.id === 'e4', false, 'no flag is left open for Priya');
+  }
 
   s = ticks(play(HONEST, { stopAt: 'e4' }), 5);
   assert.equal(s.inbox.filter((m) => /Culture Champion nominations/.test(m.subject)).length, 1, 'and it is not sent again');
@@ -774,9 +786,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.awaiting, null);
   assert.equal(s.toasts.some((t) => t.nudgeFor === 'update' && !t.gone), false);
   assert.equal(s.alerts.length, before, 'nothing lands the instant you open it');
-  s = ticks(s, 5);
-  assert.equal(s.alerts.length, before);
+  const opened = s.t;
   s = until(s, (x) => !!x.awaitingAlert, { reads: false });
+  assert.ok(s.t - opened <= 5, 'the first result lands within a few seconds of opening it');
   const forecast = s.alerts.find((a) => a.id === s.awaitingAlert);
   assert.match(forecast.title, /Behavioral forecast/);
   assert.match(forecast.text, /Policy-workaround likelihood/);
@@ -1137,7 +1149,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
 {
   const brisk = play(HONEST);
-  assert.ok(brisk.t >= 5 * 60 && brisk.t <= 7 * 60, `a brisk run is 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
+  assert.ok(brisk.t >= 4.5 * 60 && brisk.t <= 7 * 60, `a brisk run (no reading, no exploring) is about 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
 
   let s = oriented();
   for (const inc of INCIDENTS) {
@@ -1186,6 +1198,99 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×5 · e4 ×4 · e6 ×3
   assert.equal(count, 4 * 10 * 5 * 4 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
+}
+
+// ------------------------------------ Focus time marked before the flag pays off
+
+{
+  let s = newGame();
+  s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
+  s = act(s, { do: 'ack' });
+  s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'view', app: 'calendar' });
+  s = act(s, { do: 'markFocus', event: 'c1' });
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
+  s = until(s, (x) => x.done.includes('e1') || x.incident?.id === 'e1');
+  assert.equal(s.picked.e1, 'focus', 'Focus time marked during orientation resolves the first case on arrival');
+  assert.equal(s.you.covered, true);
+  assert.ok(!s.alerts.some((a) => a.incident === 'e1' && !a.live), 'NARC never gets an open low-activity flag to show');
+  s = until(s, (x) => has(texts(x, 'dana'), /Focus time! Love that for you/));
+  const chips = replies(s, 'dana');
+  assert.equal(chips.length, 2, 'Dana’s reaction can be answered');
+
+  // The observed calendar line reflects real state.
+  const late = DO.e1.focus(play({}, { stopAt: 'e1' }));
+  assert.match(caseView(late, late.alerts.find((a) => a.incident === 'e1')).observed.join(' '), /Focus time scheduled: 3 h 15 min/);
+  const plain = play({}, { stopAt: 'e1' });
+  assert.match(caseView(plain, plain.alerts.find((a) => a.incident === 'e1')).observed.join(' '), /Focus time scheduled: none/);
+}
+
+// ---------------------------------------------------- Dana can be answered
+
+{
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  s = until(s, (x) => has(texts(x, 'dana'), /Got your note/));
+  const ids = replies(s, 'dana').map((r) => r.id);
+  assert.deepEqual(ids.sort(), ['e1nA', 'e1nB']);
+  const before = s.picked;
+  const spec = replies(s, 'dana').find((r) => r.id === 'e1nB');
+  const rev = s.rev;
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'e1nB' });
+  assert.notEqual(s.rev, rev);
+  assert.deepEqual(s.picked, before, 'a conversation-only reply never changes an outcome');
+  assert.equal(replies(s, 'dana').length, 0, 'answered once');
+  s = ticks(s, 4);
+  assert.ok(has(texts(s, 'dana'), /I read the first line/), 'Dana answers');
+
+  // Chips expire when the moment has passed.
+  let stale = play({ e1: 'explain' }, { stopAt: 'e2' });
+  stale = until(stale, (x) => has(texts(x, 'dana'), /Got your note/));
+  stale = DO.e2.ignore(until(stale, atIncident('e2')));
+  assert.equal(replies(stale, 'dana').filter((r) => r.free).length, 0, 'an old reaction can no longer be answered');
+
+  // Every reaction line Dana sends has a way to answer it.
+  const wait = until(play({}, { stopAt: 'e1' }), (x) => x.incident?.id === 'e1');
+  const done = until(logoff(wait), (x) => has(texts(x, 'dana'), /NARC says your activity is still low/));
+  assert.equal(replies(done, 'dana').filter((r) => r.free).length, 2);
+}
+
+// ------------------------------------------------- Marcus’s paper line
+
+{
+  const s = play({ ...HONEST, e3: 'paper' }, { stopAt: 'e4' });
+  const all = texts(s, 'marcus').join(' | ');
+  assert.match(all, /91%\. i have never been 91% of anything\./);
+  assert.ok(!/invented money/.test(all));
+}
+
+// -------------------------- NARC 2.0 is one notification, plus people reacting
+
+{
+  for (const picks of [HONEST, { ...HONEST, e1: 'jiggle', e2: 'script', e3: 'paper' }]) {
+    const s = play(picks, { stopAt: 'e4' });
+    const beat = s.toasts.filter((x) => !x.nudgeFor && x.at >= 100 && x.at <= s.t && (/reassess|Assessment updated|Behavioral forecast/.test(`${x.title} ${x.text}`)));
+    assert.equal(beat.length, 1, `NARC 2.0 gives one toast, not a stack (${JSON.stringify(picks)})`);
+    assert.ok(has(texts(s, 'priya'), /NARC 2\.0 email/), 'coworkers react while it works');
+  }
+  const exploit = play({ ...HONEST, e1: 'jiggle', e2: 'script', e3: 'paper' }, { stopAt: 'e4' });
+  assert.ok(has(texts(exploit, 'luis'), /59 seconds/));
+  assert.ok(has(texts(exploit, 'marcus'), /verified all three/));
+  const opened = act(play(HONEST, { stopAt: 'e3' }), { do: 'nominate', who: 'luis' });
+  assert.equal(opened.nominations.luis, 'rejected', 'the window is open from the email onward');
+}
+
+// ------------------------------------------------- the lead-in is short
+
+{
+  let s = newGame();
+  s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
+  s = act(s, { do: 'ack' });
+  s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'view', app: 'calendar' });
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
+  const t0 = s.t;
+  s = until(s, atIncident('e1'));
+  assert.ok(s.t - t0 <= 14, `the first case arrives within ~14 s of finishing orientation (${s.t - t0})`);
 }
 
 console.log('NARC tests passed');

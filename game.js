@@ -24,7 +24,7 @@
 // week, which is what the tests rely on.
 
 const GAP = 14; // seconds between the last consequence and the next problem
-const ORIENT_LEAD = 22; // seconds between finishing orientation and the first NARC case
+const ORIENT_LEAD = 10; // seconds between finishing orientation and the first NARC case
 const ORDER = ['e1', 'e2', 'e3', 'update', 'e4', 'e5', 'e6'];
 
 export const PEOPLE = {
@@ -59,7 +59,7 @@ const CULTURE_MAIL = {
   body: [
     'Culture Champions are colleagues who make our workplace feel like a workplace.',
     'Nominees must have a Collaboration Index of 90 or higher. Culture Champions are exempt from Communication Load monitoring.',
-    'Nominations open Thursday at 09:00. Any colleague may nominate any colleague.',
+    'Nominations are open now and close on Thursday. Any colleague may nominate any colleague.',
   ],
   form: 'nominate',
 };
@@ -83,6 +83,7 @@ export function newGame() {
     awaitingAlert: null, // a major NARC beat that must be opened before the next incident
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
+    culture: { open: false }, // the nomination window: from the email until Priya's case ends
     you: { gamed: false, covered: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
@@ -186,7 +187,7 @@ function deliver(s, d) {
   if (d.awaiting && s.awaiting !== d.awaiting) return;
   switch (d.k) {
     case 'msg':
-      s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt });
+      s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt, doneAt: s.done.length });
       toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
       break;
     case 'notice':
@@ -213,8 +214,9 @@ function deliver(s, d) {
       const shown = a ? a.live.model : null;
       const histTitle = d.title || (shown ? (shown.was ? `${shown.label}: ${shown.was.confidence}% → ${shown.confidence}%` : 'Assessment unchanged') : 'Assessment updated');
       const hist = raise(s, { title: histTitle, text: d.text, quiet: true });
+      const target = a || hist;
+      if (d.gate) s.awaitingAlert = target.id;
       if (d.toast) {
-        const target = a || hist;
         toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false });
       }
       break;
@@ -226,6 +228,7 @@ function deliver(s, d) {
     }
     case 'mail': {
       const m = addMail(s, d.mail);
+      if (m.form === 'nominate') s.culture.open = true;
       toast(s, { app: 'email', title: m.from, text: m.subject, open: `email:${m.id}` });
       break;
     }
@@ -379,56 +382,58 @@ function announce(s) {
 }
 
 function scan(s) {
-  let n = 6;
-  let found = false;
-  if (s.helper.on) {
-    found = true;
-    s.flags += 1;
+  const caughtYou = s.helper.on;
+  const caughtLuis = !!(s.people.luis.gamed && s.helper.luis);
+  const marcusOk = s.people.marcus.gamed;
+  if (caughtYou) s.flags += 1;
+  if (caughtLuis) s.people.luis.caught = true;
+  const signals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
+  const risk = signals >= 2 ? 78 : signals === 1 ? 56 : 24;
+  const found = caughtYou || caughtLuis || marcusOk;
+  const forecast = found
+    ? `Policy-workaround likelihood: ${risk}%. NARC detected unusual recent behavior and will use this forecast for future monitoring.`
+    : `Policy-workaround likelihood: ${risk}%. No synthetic activity detected. NARC has established your workplace baseline.`;
+
+  // NARC 2.0 is ONE thing to open, not a string of notifications. The strongest
+  // reversal is the beat (and the gate); everything else it found is quiet history.
+  const beat = caughtYou ? 'monday' : caughtLuis ? 'tuesday' : 'forecast';
+  if (caughtYou) {
     const from = s.score;
     const to = s.you.gamed ? Math.max(20, from - 25) : from;
-    react(s, n, {
+    react(s, 3, {
       incident: 'e1',
       where: 'narc',
       label: 'Synthetic activity: pattern detected',
       conf: 96,
       tone: 'bad',
-      toast: true,
+      toast: beat === 'monday',
+      gate: beat === 'monday',
       title: 'Assessment updated',
-      text: `Monday reassessed: input repeats every 59 seconds. ${s.you.gamed ? `Visible Activity Index recalculated: ${from} → ${to}. ` : ''}Integrity flag added.`,
+      text: `Monday reassessed: input repeats every 59 seconds. ${s.you.gamed ? `Visible Activity Index recalculated: ${from} → ${to}. ` : ''}Integrity flag added. Forecast: policy-workaround likelihood ${risk}%.`,
     });
-    if (s.you.gamed) score(s, n, to - from, 'Recalculated', 'Visible Activity Index recalculated: {from} → {to}.', { quiet: true });
-    n += 8;
+    if (s.you.gamed) score(s, 3, to - from, 'Recalculated', 'Visible Activity Index recalculated: {from} → {to}.', { quiet: true });
   }
-  if (s.people.luis.gamed && s.helper.luis) {
-    found = true;
-    s.people.luis.caught = true;
-    react(s, n, {
+  if (caughtLuis) {
+    react(s, 3, {
       incident: 'e2',
       where: 'narc',
       label: 'Automated presence: pattern detected',
       conf: 96,
       tone: 'bad',
-      toast: true,
+      toast: beat === 'tuesday',
+      gate: beat === 'tuesday',
       title: 'Assessment updated',
-      text: 'Tuesday reassessed: Luis Perez’s input repeats every 59 seconds. Synthetic activity detected. Under review.',
+      text: `Tuesday reassessed: Luis Perez’s input repeats every 59 seconds. Synthetic activity detected. Under review.${beat === 'tuesday' ? ` Forecast: policy-workaround likelihood ${risk}%.` : ''}`,
     });
-    n += 8;
   }
-  if (s.people.marcus.gamed) {
-    found = true;
-    notice(s, n, 'Scan complete', 'Marcus Reed: 3 supporting documents verified. No anomalies.');
-    n += 8;
-  }
-  const workaroundSignals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
-  const risk = workaroundSignals >= 2 ? 78 : workaroundSignals === 1 ? 56 : 24;
-  push(s, {
-    at: later(s, n + 8),
-    k: 'forecast',
-    title: 'Behavioral forecast',
-    text: found
-      ? `Policy-workaround likelihood: ${risk}%. NARC detected unusual recent behavior and will use this forecast for future monitoring.`
-      : `Policy-workaround likelihood: ${risk}%. No synthetic activity detected. NARC has established your workplace baseline.`,
-  });
+  if (marcusOk) notice(s, 3, 'Scan complete', 'Marcus Reed: 3 supporting documents verified. No anomalies.', { quiet: true });
+  if (beat === 'forecast') push(s, { at: later(s, 3), k: 'forecast', title: 'Behavioral forecast', text: forecast });
+  else notice(s, 3, 'Behavioral forecast', forecast, { quiet: true });
+
+  // While NARC works, people react: something to read instead of waiting.
+  say(s, 6, 'priya', 'Did you read the NARC 2.0 email? “Employees are encouraged to be themselves.” I’ve been myself all week and it has not gone well.');
+  if (caughtLuis) say(s, 12, 'luis', 'NARC 2.0 says my keyboard has a pattern. I am told the pattern is 59 seconds.');
+  if (marcusOk) say(s, 18, 'marcus', 'NARC verified all three of my documents. I have never felt so seen.');
 }
 
 function finish(s) {
@@ -462,8 +467,11 @@ const INCIDENTS = {
         ],
       });
       s.marks.files = true;
-      if (s.helper.on) {
-        resolve(s, 'jiggle');
+      // A move made before the flag pays off: NARC never gets to flag it.
+      if (s.helper.on || s.calendar.find((e) => e.id === 'c1')?.focus) {
+        s.earlyMove = true;
+        resolve(s, s.helper.on ? 'jiggle' : 'focus');
+        delete s.earlyMove;
         return;
       }
       raise(s, {
@@ -480,24 +488,24 @@ const INCIDENTS = {
       wait(s) {
         react(s, 1, { incident: 'e1', where: 'narc', label: 'Engagement concern: moderate to high', conf: 71, tone: 'bad', text: `Nothing on record to explain it. Visible Activity Index ${s.score} → ${s.score - 6}.` });
         score(s, 1, -6, 'Visible activity', 'Index {from} → {to}. Recommended action: increase visible activity.', { quiet: true });
-        say(s, 12, 'dana', 'NARC says your activity is still low. If you’re buried in something off-screen, just keep me posted.');
+        say(s, 12, 'dana', 'NARC says your activity is still low. If you’re buried in something off-screen, just keep me posted.', { prompt: 'dana-e1w' });
       },
       explain(s) {
         react(s, 1, { incident: 'e1', where: 'narc', tone: 'flat', text: 'Assessment unchanged. Notes are archived. They are not scored.' });
         score(s, 1, -3, 'Note archived', 'Visible Activity Index: {from} → {to}. Notes are archived. They are not scored.', { quiet: true });
-        say(s, 12, 'dana', 'Got your note! Haven’t had time to read it, but I love that you wrote it.');
+        say(s, 12, 'dana', 'Got your note! Haven’t had time to read it, but I love that you wrote it.', { prompt: 'dana-e1n' });
       },
       jiggle(s) {
         s.you.gamed = true;
-        react(s, 1, { incident: 'e1', where: 'utilities', label: 'Engagement trend: positive', conf: 91, tone: 'good', text: `Engagement trend: positive. Visible Activity Index ${s.score} → ${s.score + 14}.` });
+        react(s, 1, { incident: 'e1', where: 'utilities', label: 'Engagement trend: positive', conf: 91, tone: 'good', toast: !!s.earlyMove, text: `Engagement trend: positive. Visible Activity Index ${s.score} → ${s.score + 14}.` });
         score(s, 1, 14, 'Engagement trend: positive', 'Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 16, 'dana', 'Love the energy!');
+        say(s, 16, 'dana', 'Love the energy!', { prompt: 'dana-e1j' });
       },
       focus(s) {
         s.you.covered = true;
-        react(s, 1, { incident: 'e1', where: 'calendar:c1', label: 'Engagement concern: low', conf: 22, tone: 'good', text: `Focus time recognized. 3 h 15 min reclassified. Visible Activity Index ${s.score} → ${s.score + 11}.` });
+        react(s, 1, { incident: 'e1', where: 'calendar:c1', label: 'Engagement concern: low', conf: 22, tone: 'good', toast: !!s.earlyMove, text: `Focus time recognized. 3 h 15 min reclassified. Visible Activity Index ${s.score} → ${s.score + 11}.` });
         score(s, 1, 11, 'Focus time recognized', 'Calendar: 3 h 15 min reclassified as Focus Time. Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 14, 'dana', 'Focus time! Love that for you.');
+        say(s, 14, 'dana', 'Focus time! Love that for you.', { prompt: 'dana-e1f' });
       },
     },
   },
@@ -557,7 +565,7 @@ const INCIDENTS = {
         say(s, 3, 'luis', 'ok what does this do');
         react(s, 5, { incident: 'e2', where: 'thread:luis', label: 'Engagement: exceptional', conf: 97, tone: 'good', text: 'Luis Perez: Activity Index 340% of baseline. Exceptionally engaged. Time-on-task concern dismissed.' });
         say(s, 20, 'luis', 'I have never been more productive, and I am not at my desk.');
-        say(s, 32, 'dana', 'Have you seen Luis’s numbers?? Nominating him for the Innovation Council.');
+        say(s, 32, 'dana', 'Have you seen Luis’s numbers?? Nominating him for the Innovation Council.', { prompt: 'dana-e2s' });
       },
       focus(s) {
         const p = s.people.luis;
@@ -607,7 +615,7 @@ const INCIDENTS = {
         p.trust += 2;
         react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', text: 'Story corroborated by 3 sources: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Attendance credibility 38% → 91%.' });
         say(s, 12, 'marcus', 'i did visit the vendor. the vendor was a windmill.');
-        say(s, 22, 'marcus', 'you have just invented money');
+        say(s, 22, 'marcus', '91%. i have never been 91% of anything.');
       },
       stay(s) {
         const p = s.people.marcus;
@@ -633,6 +641,12 @@ const INCIDENTS = {
     allowed: () => ['quiet', 'champion', 'leave', 'sync'],
     fallback: () => 'leave',
     arrive(s) {
+      if (s.people.priya.champion) {
+        s.earlyMove = true;
+        resolve(s, 'champion');
+        delete s.earlyMove;
+        return;
+      }
       s.files.unshift(
         {
           id: 'f-esc',
@@ -661,7 +675,7 @@ const INCIDENTS = {
       });
       say(s, 8, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
       say(s, 18, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
-      say(s, 28, 'dana', 'Reminder that Culture Champion nominations open today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4' });
+      say(s, 28, 'dana', 'Reminder that Culture Champion nominations close today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4', prompt: 'dana-e4c' });
       mark(s, 28, 'email', { when: 'e4' });
     },
     branches: {
@@ -682,7 +696,7 @@ const INCIDENTS = {
         const p = s.people.priya;
         p.champion = true;
         p.status = 'promoted';
-        react(s, 1, { incident: 'e4', where: 'narc', label: 'Communication Load: exempt', conf: 100, metrics: { 'Company response': 'None. Flag cleared' }, tone: 'good', text: 'Culture Champion: nomination cites Collaboration Index 97. Exempt from Communication Load monitoring. Flag cleared.' });
+        react(s, 1, { incident: 'e4', where: 'narc', label: 'Communication Load: exempt', conf: 100, metrics: { 'Company response': 'None. Flag cleared' }, tone: 'good', toast: !!s.earlyMove, text: 'Culture Champion: nomination cites Collaboration Index 97. Exempt from Communication Load monitoring. Flag cleared.' });
         say(s, 14, 'priya', 'I have a badge. I can now talk to people officially.');
         cal(s, 24, { who: 'team', day: 'Fri', start: '10:00', end: '16:00', title: 'Connection Circle ×6 (Culture Champion)', where: 'Five required per week' });
         catchUp(s, 14, 'priya');
@@ -760,7 +774,7 @@ const INCIDENTS = {
         s.people.luis.status = 'rewarded';
         react(s, 1, { incident: 'e5', where: 'utilities', label: 'Automated presence: not detected', conf: 31, tone: 'good', text: 'Luis Perez: input interval randomized (± 40 sec). Synthetic pattern not detected. Innovation Council nomination approved.' });
         say(s, 14, 'luis', 'I chair the Council now. We meet at two. I stand up at nine past.');
-        say(s, 24, 'dana', 'The Innovation Council has 11 meetings a week and no windows. Congrats!');
+        say(s, 24, 'dana', 'The Innovation Council has 11 meetings a week and no windows. Congrats!', { prompt: 'dana-e5h' });
         catchUp(s, 5, 'luis');
       },
       blame(s) {
@@ -951,7 +965,7 @@ function open(s, ref) {
     if (a.incident && s.incident?.id === a.incident) s.pulled[a.incident] = true;
     if (s.awaitingAlert === id) {
       s.awaitingAlert = null;
-      push(s, { at: later(s, 8), k: 'arm', id: 'e4' });
+      push(s, { at: settledAt(s) + 4, k: 'arm', id: 'e4' });
     }
   } else {
     return false;
@@ -965,8 +979,23 @@ function open(s, ref) {
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
-  'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true },
-  'dana:e1checking': { text: 'I’m checking what NARC saw.', when: 'e1', prompt: 'dana-e1', ackOnly: true },
+  'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good. Those contracts are never as boring as they look.' },
+  'dana:e1checking': { text: 'I’m checking what NARC saw.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good idea. It compares everyone to one team average, so it may just be off.' },
+  // Dana's reactions to what you did. Conversation only: they never change an outcome.
+  'dana:e1wA': { text: 'I’m buried in the Halvorsen contract.', free: true, prompt: 'dana-e1w', answer: 'Good. That one matters.' },
+  'dana:e1wB': { text: 'Is NARC always this eager?', free: true, prompt: 'dana-e1w', answer: 'It’s a pilot. Everyone’s numbers are a little dramatic.' },
+  'dana:e1nA': { text: 'It was mostly about the contract.', free: true, prompt: 'dana-e1n', answer: 'Then it’s long. Send me the short version next time.' },
+  'dana:e1nB': { text: 'Do you actually read the notes?', free: true, prompt: 'dana-e1n', answer: 'I read the first line. NARC says it archives the rest.' },
+  'dana:e1jA': { text: 'Thanks. It’s been a productive morning.', free: true, prompt: 'dana-e1j', answer: 'It shows. Literally, in the numbers.' },
+  'dana:e1jB': { text: 'It’s just a keepalive.', free: true, prompt: 'dana-e1j', answer: 'A what? Anyway, the numbers are up.' },
+  'dana:e1fA': { text: 'Thanks.', free: true, prompt: 'dana-e1f', answer: 'Protect that time.' },
+  'dana:e1fB': { text: 'It seemed like the right label.', free: true, prompt: 'dana-e1f', answer: 'It is. NARC seems to agree.' },
+  'dana:e2sA': { text: 'Wild.', free: true, prompt: 'dana-e2s', answer: 'Right? The Council will be thrilled.' },
+  'dana:e2sB': { text: 'Not my doing.', free: true, prompt: 'dana-e2s', answer: 'Sure. Sure.' },
+  'dana:e4cA': { text: 'Thanks, I saw the email.', free: true, prompt: 'dana-e4c', answer: 'Good. Anyone can nominate anyone. I’m not saying who.' },
+  'dana:e4cB': { text: 'Who should I nominate?', free: true, prompt: 'dana-e4c', answer: 'Whoever has the best Collaboration Index. The email has the rules.' },
+  'dana:e5hA': { text: 'Good for him.', free: true, prompt: 'dana-e5h', answer: 'He’s very excited about the room.' },
+  'dana:e5hB': { text: 'Is there a window anywhere?', free: true, prompt: 'dana-e5h', answer: 'There is not.' },
   'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
   'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
   'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
@@ -994,12 +1023,18 @@ export function replies(s, thread) {
     .filter(([key, r]) => {
       if (!key.startsWith(`${thread}:`)) return false;
       if (r.orient) return !s.oriented && s.orient.ack && !!s.seen.calendar;
+      if (r.free) {
+        // Answerable while it is the latest thing they said, until the next case is settled.
+        const heard = s.threads[thread].filter((m) => m.from === 'them');
+        const last = heard[heard.length - 1];
+        return !!last && last.prompt === r.prompt && last.doneAt === s.done.length && !s.answered[r.prompt];
+      }
       if (s.incident?.id !== r.when || (r.variant && s.incident.variant !== r.variant)) return false;
       if (!r.prompt) return true;
       const promptArrived = s.threads[thread].some((m) => m.prompt === r.prompt);
       return promptArrived && !s.answered[r.prompt];
     })
-    .map(([key, r]) => ({ id: key.split(':')[1], text: r.text }));
+    .map(([key, r]) => ({ id: key.split(':')[1], text: r.text, free: !!r.free }));
 }
 
 // You can only hand Luis the helper once you have found it and installed it.
@@ -1080,6 +1115,7 @@ export function act(state, a) {
         if (spec.prompt) s.answered[spec.prompt] = true;
         if (spec.event) s.calendar.push({ id: `c${++s.uid}`, focus: false, ...spec.event });
         if (spec.branch) resolve(s, spec.branch);
+        if (spec.answer) say(s, 3, a.thread, spec.answer);
       }
       changed = true;
       break;
@@ -1126,10 +1162,12 @@ export function act(state, a) {
       break;
     }
     case 'nominate':
-      if (s.incident?.id === 'e4' && PEOPLE[a.who] && !s.nominations[a.who]) {
+      if (s.culture.open && !s.done.includes('e4') && PEOPLE[a.who] && !s.nominations[a.who]) {
         if (a.who === 'priya') {
           s.nominations[a.who] = 'submitted';
-          resolve(s, 'champion');
+          // Nominate her early and her flag never fires: the loophole, used ahead of time.
+          if (s.incident?.id === 'e4') resolve(s, 'champion');
+          else s.people.priya.champion = true;
         } else {
           s.nominations[a.who] = 'rejected';
         }
@@ -1224,7 +1262,9 @@ function baseCaseView(s, alert) {
           'Keyboard and mouse activity: none, 09:02–12:14 (3 h 12 min)',
           'Messages sent: 0',
           'Active window: none',
-          'Calendar: 1 event shown as Busy, 09:15–12:30. Focus time scheduled: none',
+          s.calendar.find((e) => e.id === 'c1')?.focus
+            ? 'Calendar: 1 event shown as Focus time, 09:15–12:30. Focus time scheduled: 3 h 15 min'
+            : 'Calendar: 1 event shown as Busy, 09:15–12:30. Focus time scheduled: none',
         ],
         model: { label: 'Engagement concern: low to moderate', confidence: 64 },
         metrics: [['Visible Activity Index', s.score], ['Team average', 84]],

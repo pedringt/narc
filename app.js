@@ -296,9 +296,9 @@ function nominateForm() {
     return box;
   }
 
-  const open = state.incident?.id === 'e4';
+  const open = !!state.culture?.open && !state.done.includes('e4');
   if (!open) {
-    box.append(h('div', null, state.picked.e4 ? 'Nominations are now closed.' : 'Nominations open Thursday at 09:00.'));
+    box.append(h('div', null, state.picked.e4 ? 'Nominations are now closed.' : 'Nominations open when the Culture email arrives.'));
     return box;
   }
 
