@@ -301,7 +301,9 @@ function deliverDue(s) {
 export function tick(state) {
   if (state.phase !== 'desk') return state;
   const t = state.t + 1;
-  const min = state.clock.min + (t % 3 === 0 ? 1 : 0);
+  // The working day stops at 17:59 rather than running past midnight in a tab
+  // someone left open; the next incident sets the clock forward on its own.
+  const min = Math.min(state.clock.min + (t % 3 === 0 ? 1 : 0), hm(17, 59));
   // Most seconds nothing is due. A shallow copy is safe: nested data is only
   // ever changed on a full clone, inside this function or act().
   if (!state.pending.some((p) => p.at <= t)) return { ...state, t, clock: { ...state.clock, min } };

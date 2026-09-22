@@ -1357,4 +1357,17 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(noReact, [], 'every listed branch has a driver');
 }
 
+// ------------------------------- the clock does not run past the working day
+
+{
+  let s = newGame();
+  for (let i = 0; i < 6000; i++) s = tick(s);   // a tab left open through orientation
+  assert.equal(clockText(s), 'Mon 17:59', 'an idle day stops at the end of it, instead of reading 25:17');
+  const later = ticks(s, 600);
+  assert.equal(clockText(later), 'Mon 17:59');
+  // An incident still moves the clock on to its own day and time.
+  let s2 = play(HONEST, { stopAt: 'e3' });
+  assert.equal(clockText(s2), 'Wed 10:52', 'a case still sets the clock to its own day and time');
+}
+
 console.log('NARC tests passed');
