@@ -35,7 +35,7 @@ Design rules the build follows (all from the docs, see `DESKTOP_INTERACTION_REWO
 | `index.html` | One `#desk` div plus the module script. |
 | `test.mjs` | `node test.mjs`. About 15 s. |
 
-Plain static site, ES modules (serve over http, not `file://`). QA aid: add `?tick=150` to the URL to speed up the game clock (`tick=1000` is normal; idle timers do not exist, so it is safe to script).
+Plain static site, ES modules (serve over http, not `file://`). QA aid: `?tick=N` sets **milliseconds per game second** (`?tick=1000` is normal speed, `?tick=200` is 5x). It is not a multiplier — `?tick=2` runs about 500x and a scripted check will fly past whatever it meant to look at. Idle timers do not exist, so scripting is otherwise safe.
 
 ## Engine in one screen
 
@@ -49,8 +49,8 @@ Read-only helpers the UI uses: `caseView`, `replies`, `canAttachHelper`, `fileAc
 
 - **Everything is plain data and pure.** `act`/`tick` never mutate their input (tested). `tick` copies shallowly when nothing is due; everything else clones.
 - **Incidents arrive on the clock; consequences are scheduled deliveries.** Deliveries are data in `state.pending`: `msg`, `notice`, `mail`, `score`, `cal`, `mark`, `shown`, `offline`, `nudge`, `arm`, `end`. A delivery tagged `when: 'e3'` is dropped if that incident is already resolved (used for follow-up hints and NARC nudges).
-- **`resolve(state, branch)`** closes the open incident, records `state.picked[incident]`, runs the branch (which only schedules deliveries), then arms the next incident `GAP` (14 s) after the last real delivery. Consequences start after any remaining unguarded arrival chatter (`state.base`), so nothing overlaps even for a fast player.
-- **Orientation gate:** nothing consequential is scheduled until the player acknowledges the welcome email, checks the Calendar, and replies to Dana (`oriented`). The first case then arrives `ORIENT_LEAD` (22 s) later.
+- **`resolve(state, branch)`** closes the open incident, records `state.picked[incident]`, runs the branch (which only schedules deliveries), then arms the next incident `GAP` (24 s) after the last real delivery. Consequences start after any remaining unguarded arrival chatter (`state.base`), so nothing overlaps even for a fast player.
+- **Orientation gate:** nothing consequential is scheduled until the player acknowledges the welcome email, checks the Calendar, and replies to Dana (`oriented`). The first case then arrives `ORIENT_LEAD` (10 s) later.
 - **NARC 2.0 is a beat:** the announcement lands (`state.awaiting`), NARC nudges about it, and the scan only runs after the player opens the email. The scan now also generates a forward-looking behavioral forecast for Employee 4417 so the AI arc visibly moves from signals → inference → prediction.
 - **Marks** (`state.marks`) are the small blue "new" dots on the dock (Files, Calendar, Utilities, Email). Viewing the app clears it.
 - **Action vocabulary** (`act` `do:` values): `view`, `open`, `gone` (close a toast; decides nothing), `clear`, `ack`, `dismiss` (own alert only), `logoff`, `case` (only the note on your own case), `reply` (a Messages chip), `attach` (helper to Luis), `sendFile` (file to Dana), `markFocus`, `helper` (`install` / `toggle` / `randomize`), `nominate`, `addEvent`, `restart`. Invalid actions return the state unchanged.
@@ -200,7 +200,7 @@ Implemented on `prototype-v1` after the latest live playthrough:
 - the activity workaround is now an unverified `keepalive.pkg` passed through Messages and cannot be installed before the player discovers it
 - the disabled Message input is replaced by contextual reply chips or a simple no-reply-needed state
 - removed the redundant blue Team pill from NARC team-alert rows
-- simplified NARC case detail to **Signals → NARC assessment → Company response**
+- simplified NARC case detail to **Signals → NARC assessment → Company response** (superseded 2026-09-22: what NARC thinks → why → what happens because of it)
 - opening NARC from the tray/dock prefers the current alert instead of leaving an old historical item looking stuck
 
 Current design north star from Paige: **more fun and hyper, but not more notification spam**. Energy should come from faster feedback, discovery, player-caused state changes, and escalating absurdity.
