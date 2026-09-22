@@ -370,6 +370,125 @@ Tone direction:
 
 Coworker reply chips were also revised to remove explicit design labels like **Sincere tip** and **Polite sabotage**, because those exposed the branch structure.
 
+## Playtest round: fun, pacing, and action feedback
+
+A later live playthrough exposed a deeper issue: fixing clarity was not enough. The game still felt too passive and procedural.
+
+Paige's clearest direction became:
+
+> **Make the whole thing feel more fun and hyper.**
+
+The useful interpretation was not "add more notifications." In fact, the playtest showed that timed notifications were part of the problem.
+
+### What failed
+
+- Dana and coworkers could ask questions before the player had a usable response.
+- Reply chips could appear before the message that logically prompted them.
+- NARC 2.0 could stack a scan result, behavioral forecast, ambient workstyle notice, and the next coworker incident before the player had processed the first beat.
+- A fake disabled Message field looked like a broken input.
+- Culture Champion nominations had no immediate success state, so repeated clicks created duplicate responses.
+- The mouse/activity exploit was presented like normal company software in Utilities, making it feel approved rather than discovered or risky.
+- NARC's detailed case screen successfully exposed signals/inference/confidence, but became too dense and read like an admin/debug console.
+- Historical NARC details could remain selected after the system had moved on, making the interface feel stuck.
+- Even with the UX bugs fixed, the core loop still needed more "I did that" moments and fewer "I read what happened" moments.
+
+### New pacing rule
+
+> **Meaningful beats should be interaction-gated, not merely delayed.**
+
+Direct replies now wait for the actual prompting message. NARC 2.0's behavioral forecast becomes a major beat the player must open before Priya's next incident begins.
+
+This is different from simply slowing the game down: the experience can stay energetic while still waiting for player comprehension.
+
+### Counterplay should feel discovered
+
+The mouse/activity workaround was reframed from an official-looking utility into an unverified `keepalive.pkg` shared by Marcus through Messages.
+
+The intended loop is now:
+
+**hear about workaround → acquire it → decide whether to install it → see NARC reward the fake signal → later watch NARC adapt to it**
+
+This better supports the game's "reverse-engineer the system" fantasy.
+
+### NARC readability
+
+The case view is being simplified from a visible conceptual framework ("workplace signals → inference → company action") into a scan-first structure:
+
+- **Signals**
+- **NARC assessment**
+- **confidence**
+- **Company response**
+- contradictions/context when they matter
+
+The lesson should come from the contradiction, not from the interface explicitly teaching AI terminology.
+
+### Immediate action feedback
+
+The Culture Champion form now records a submission immediately and blocks duplicate submissions. Ineligible nominations return inline feedback instead of generating repeat emails.
+
+General product lesson:
+
+> If an action changes game state, the interface should acknowledge it immediately enough that the player never wonders whether the click worked.
+
+### Fun / energy north star
+
+The next iterations should favor:
+- shorter messages
+- immediate visible cause/effect
+- discoveries and unlocks
+- state changes the player causes directly
+- escalating absurdity
+- more moments where a workaround changes what NARC believes
+
+A useful test:
+
+> **Every major incident should give the player at least one satisfying action that changes what NARC believes.**
+
+
+## Strengthening the loop without adding complexity
+
+**Direction (Paige):** the game should feel more like a game and less like reading workplace software, but must stay easy to understand in seconds. The loop she named:
+
+> **NARC makes a judgment → the player pokes one or two things → NARC changes its belief → something funny or consequential happens.**
+
+Guardrails: one obvious judgment per incident, a little context, two or three meaningful actions, one visible model reaction, one consequence or reversal. No new meters, hidden rules, notifications, dashboards, or explainer copy. Reference feeling: *The Stanley Parable*, where the system notices what you did and confidently reinterprets it. Do not copy the narrator structure.
+
+**Finding from reviewing the build against that loop:** the reaction to the player's action arrived as a *separate notification 4-16 seconds later*, in Recent activity. The card the player had been looking at never changed. So the player read what NARC concluded instead of watching it change its mind, and each action was followed by a pile of restating messages. That was the passivity.
+
+**Decisions:**
+
+1. **Rewrite the assessment where the player is looking, fast.** The card's label and confidence change in place within a couple of seconds, the old value stays visible struck through, and numbers count to the new value. (Product lesson: an immediate, visible change in the thing you just touched is worth more than any amount of text explaining it.)
+2. **Put the same one line at the place the player acted**, not only in NARC: on the calendar event, on the keepalive card, under the reply in the conversation. NARC "watching your hand".
+3. **Fewer notifications, not more.** The immediate reaction is quiet. Only a reversal gets a toast, so the toast means something.
+4. **The best reversal is reinterpretation of the same behavior.** When NARC 2.0 arrives, Monday's card (which said engagement was up) is rewritten to "synthetic activity: pattern detected", and the toast opens that same card. The Focus-time workaround is left alone, so the player learns NARC adapts to one workaround and not another. This is the Stanley Parable principle applied without a narrator.
+5. **Let a contradiction play out inside one card.** Priya's Communication Load improves, then her Collaboration Index falls and the company's response becomes "Termination pending", all in the card, so the player watches one metric's improvement cause the other's collapse.
+6. **Cut routes that repeat a lesson.** Luis's comment-box tip repeated Monday's "notes are not scored". Marcus had three routes to the same outcome. Paige approved the cuts to keep each incident to about 2-3 meaningful actions.
+
+**Engineering / QA findings worth telling honestly:**
+
+- **Drift between sessions.** The branch had been edited by more than one session and the suite was red before any change (four assertions still expected copy that had since been shortened). No logic was broken. Lesson: run the suite before starting, and treat "green" as something to re-establish, not assume.
+- **Test the felt latency, not just the outcome.** A silent discovery marker, added for a good reason, was counted as something the player had to wait for, so the first reaction to a fast Monday action took 23 seconds instead of one. It was invisible to the existing tests because the *outcome* was right. A test that asserts "NARC reacts within N seconds of the action" caught it immediately.
+- **A stray old name** ("Mouse Activity Helper") survived in one button after the tool became `keepalive.pkg`. Small, but exactly what a user notices.
+
+**Attribution:** Paige set the loop, the guardrails, and the reference feeling, and approved the route cuts. Claude Code reviewed the build against them, proposed the in-place assessment approach, implemented it, and wrote the tests. Paige decides what stays.
+
+**Open:** only Monday's incident lets the player change NARC's belief about their *own* case.
+
+### Playtest follow-up: six small fixes (2026-09-21)
+
+Paige's playtest plus an outside AI review surfaced six things; Paige approved all six and asked for them to ship together.
+
+- **"Still hardly ever any replies for Dana."** The manager, the player's most frequent contact, talked *at* them. Now her reaction lines can be answered with one of two short chips and she answers back. Product decision: these replies are conversation only and never change an outcome, so the game stays easy to reason about while the relationship feels two-way.
+- **A line that read oddly** (Marcus's "you have just invented money") was replaced with one that lands the joke on the metric: "91%. i have never been 91% of anything."
+- **"A lull after the NARC 2.0 email", then "it's just a lot of NARC notifications".** Two complaints that look opposite had one fix: NARC 2.0 now gives one notification (the strongest reversal), and the gap is filled by coworkers reacting in Messages instead of more system alerts. Lesson: silence and noise can both come from the system talking; people talking fixes both.
+- **"Missed the short window for Culture Champion nominations."** The window was only open during Priya's flag. It now opens when the email arrives, and nominating her early prevents the flag altogether: the loophole, used ahead of time.
+- **A real bug from the outside review.** Marking the contract block as Focus time *before* the first flag did nothing, and NARC still said "Focus time scheduled: none". The equivalent early move with the keepalive already worked. Now both pay off, and the observed line reflects real state. Lesson: when two moves are equivalent in the fiction, the player expects them to be equivalent in the rules. Verify an outside reviewer's claim by reproducing it first (it was reproduced in a small script before any fix).
+- **A shorter lead-in** before the first case (22 → 10 s).
+
+**QA honesty:** a browser check first "failed" because the QA speed flag (`?tick=`) is milliseconds per tick, not a multiplier, so the game ran hundreds of times faster than intended. Measuring the real chip window in the engine (about 50 s) settled it before any code changed. The same check found an older clock bug (no daily cap), logged as a separate issue rather than folded in.
+
+**Attribution:** Paige playtested and chose all six. An outside AI review found the Focus-time bug. Claude Code reproduced it, implemented the six, added tests, and verified in the browser.
+
 ## Scope decisions
 
 Things intentionally deferred:
@@ -469,6 +588,9 @@ For the eventual public case study, record:
 - whether they discover at least two ways to game NARC without help
 - whether they understand that confidence is not truth
 - whether NARC 2.0 feels like escalation/adaptation
+- how long after acting the player notices NARC has changed its mind (asserted at 6 s or less in tests; check it feels immediate)
+- whether the struck-through old assessment reads as "it changed its mind" without explanation
+- whether the NARC 2.0 rewrite of Monday's card lands as a reversal or is missed
 - whether the player understands why someone was fired or rewarded
 - whether the player wants to replay
 - screenshots of major iteration stages if available
