@@ -629,15 +629,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const e4 = at(HONEST, 'e4');
   assert.ok(has(texts(e4, 'priya'), /NARC flagged me for too much messaging/));
 
-  const g = at({ ...HONEST, e2: 'script' }, 'e5');
-  assert.match(g.threads.luis.at(-1).text, /NARC says my keyboard input arrives every 59 seconds/);
-  const n = at(HONEST, 'e5');
-  assert.match(n.threads.luis.at(-1).text, /NARC says I have hit “sustained unexplained productivity loss”/);
-
-  const b = at({ ...HONEST, e3: 'truth' }, 'e6');
-  assert.match(b.threads.marcus.at(-1).text, /NARC just scheduled my termination.*bird situation/);
-  const pg = at({ ...HONEST, e3: 'paper' }, 'e6');
-  assert.match(pg.threads.marcus.at(-1).text, /NARC gave me “Documentation Excellence” for the bird paperwork/);
+  // The first thing they say when the case opens explains it, whatever came before.
+  const opener = (picks, inc, who) => {
+    const before = play(picks, { stopAt: inc });
+    return ticks(before, 12).threads[who][before.threads[who].length].text;
+  };
+  assert.match(opener({ ...HONEST, e2: 'script' }, 'e5', 'luis'), /NARC says my keyboard input arrives every 59 seconds/);
+  assert.match(opener(HONEST, 'e5', 'luis'), /NARC says I have hit “sustained unexplained productivity loss”/);
+  assert.match(opener({ ...HONEST, e3: 'truth' }, 'e6', 'marcus'), /NARC just scheduled my termination.*bird situation/);
+  assert.match(opener({ ...HONEST, e3: 'paper' }, 'e6', 'marcus'), /NARC gave me “Documentation Excellence” for the bird paperwork/);
 
   Object.values(THREADS).forEach((t) => assert.ok(t.role));
 }
@@ -723,7 +723,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(m.marks.calendar, true);
   m = act(m, { do: 'view', app: 'calendar' });
   assert.equal(m.marks.calendar, undefined);
-  let quick = ticks(play({}, { stopAt: 'e3' }), 9);
+  let quick = ticks(play({}, { stopAt: 'e3' }), 6);
   quick = DO.e3.stay(quick);
   quick = ticks(quick, 90);
   assert.ok(!has(texts(quick, 'marcus'), /Wednesday calendar is completely empty/));
@@ -1158,7 +1158,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
 {
   const brisk = play(HONEST);
-  assert.ok(brisk.t >= 4.5 * 60 && brisk.t <= 7 * 60, `a brisk run (no reading, no exploring) is about 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
+  assert.ok(brisk.t >= 5 * 60 && brisk.t <= 7 * 60, `a brisk run (no reading, no exploring) is 5–7 minutes (${(brisk.t / 60).toFixed(1)})`);
 
   let s = oriented();
   for (const inc of INCIDENTS) {
@@ -1368,6 +1368,46 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   // An incident still moves the clock on to its own day and time.
   let s2 = play(HONEST, { stopAt: 'e3' });
   assert.equal(clockText(s2), 'Wed 10:52', 'a case still sets the clock to its own day and time');
+}
+
+// -------- when a case opens, the game points at something to do within 10 s
+
+{
+  // #13's benchmark: from the moment a problem appears, how long until the player
+  // can do something that visibly changes what NARC believes?
+  const routes = [HONEST, { e1: 'jiggle', e2: 'script', e3: 'paper', e4: 'quiet', e5: 'blame', e6: 'expose' }];
+  for (const picks of routes) {
+    for (const inc of INCIDENTS) {
+      let s = play(picks, { stopAt: inc });
+      if (s.incident?.id !== inc) continue; // resolved on arrival by an earlier move
+      const said = ['dana', 'luis', 'marcus', 'priya'].map((th) => s.threads[th].length).join();
+      const moves = (x) => [
+        ...['dana', 'luis', 'marcus', 'priya'].flatMap((th) => replies(x, th).filter((r) => !r.free)),
+        ...Object.keys(fileActions(x)),
+        ...(calendarAction(x) ? ['calendar'] : []),
+        ...(canAttachHelper(x) ? ['helper'] : []),
+        ...(x.incident?.id === 'e1' ? ['focus'] : []),
+        ...(x.helper.installed ? ['randomize'] : []),
+        ...(x.culture?.open && !x.done.includes('e4') ? ['nominate'] : []),
+      ];
+      let pointed = null;
+      for (let i = 0; i <= 10 && pointed === null; i += 1) {
+        const explained = ['dana', 'luis', 'marcus', 'priya'].map((th) => s.threads[th].length).join() !== said;
+        if (moves(s).length && explained) pointed = i;
+        else s = tick(s);
+      }
+      assert.ok(pointed !== null, `${inc} on ${JSON.stringify(picks)}: nothing is pointed at within 10 s of the case opening`);
+
+      // The app the player needs is lit within 10 s, and the chips that carry the
+      // main decision arrive within 20 s, not 40.
+      const start = play(picks, { stopAt: inc });
+      const scheduled = (k) => start.pending.filter((p) => p.k === k && p.when === inc).map((p) => p.at - start.t);
+      const prompts = start.pending.filter((p) => p.k === 'msg' && p.prompt).map((p) => p.at - start.t);
+      const pointers = [...scheduled('mark'), ...prompts];
+      assert.ok(Math.min(...pointers) <= 10, `${inc} on ${JSON.stringify(picks)}: the first pointer (a lit app or a choice) lands at +${Math.min(...pointers)}s`);
+      if (prompts.length) assert.ok(Math.min(...prompts) <= 20, `${inc}: the first prompted choice lands at +${Math.min(...prompts)}s`);
+    }
+  }
 }
 
 console.log('NARC tests passed');
