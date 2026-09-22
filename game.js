@@ -84,7 +84,7 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     culture: { open: false }, // the nomination window: from the email until Priya's case ends
-    you: { gamed: false, covered: false },
+    you: { gamed: false, covered: false, predicted: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
@@ -259,6 +259,23 @@ function deliver(s, d) {
     case 'arm':
       arrive(s, d.id);
       break;
+    case 'profile': {
+      // NARC has watched, inferred and adapted all week. Last, it predicts.
+      const likelihood = riskPct(workarounds(s) + s.flags);
+      s.you.predicted = likelihood >= 78;
+      raise(s, {
+        title: 'Employee 4417',
+        text: `Policy-workaround likelihood: ${likelihood}%. Prediction: likely to alter monitored behavior when evaluated.${
+          s.you.predicted ? ' Predictive Integrity Review scheduled. Visible Activity Index frozen pending review.' : ' No review scheduled.'}`,
+      });
+      // The prediction is not just an observation: it does something on its own.
+      // Scheduled from this moment, not after the week's remaining chatter:
+      // the cost has to land before the report does.
+      if (s.you.predicted) {
+        push(s, { at: s.t + 8, k: 'score', delta: -10, title: 'Pending review', text: 'Visible Activity Index frozen: {from} → {to}.', quiet: true });
+      }
+      break;
+    }
     case 'end':
       finish(s);
       break;
@@ -342,6 +359,7 @@ function resolve(s, branch) {
   const last = settledAt(s);
   if (def.after) def.after(s, last);
   const next = ORDER[ORDER.indexOf(inc.id) + 1];
+  if (!next) push(s, { at: last + 6, k: 'profile' });
   push(s, { at: last + GAP, k: next ? 'arm' : 'end', id: next });
   s.rev += 1;
   return true;
@@ -383,14 +401,28 @@ function announce(s) {
   [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaiting: m.id }));
 }
 
+// Every workaround NARC can see, whether or not it ever caught one. The
+// forecast is built from behavior patterns, not from proven violations.
+function workarounds(s) {
+  return [
+    s.you.gamed,                                   // your own signal, faked
+    s.you.covered,                                 // your own time, relabelled
+    !!s.helper.luis,                               // the tool, passed on
+    s.picked.e3 === 'paper' || s.picked.e3 === 'cover', // a record, supplied late
+    s.picked.e6 === 'backdate',                    // a record, backdated
+    s.picked.e4 === 'champion',                    // an exemption, used
+  ].filter(Boolean).length;
+}
+
+const riskPct = (n) => (n >= 3 ? 91 : n === 2 ? 78 : n === 1 ? 56 : 24);
+
 function scan(s) {
   const caughtYou = s.helper.on;
   const caughtLuis = !!(s.people.luis.gamed && s.helper.luis);
   const marcusOk = s.people.marcus.gamed;
   if (caughtYou) s.flags += 1;
   if (caughtLuis) s.people.luis.caught = true;
-  const signals = Number(s.you.gamed) + Number(s.you.covered) + s.flags;
-  const risk = signals >= 2 ? 78 : signals === 1 ? 56 : 24;
+  const risk = riskPct(workarounds(s) + s.flags);
   const found = caughtYou || caughtLuis || marcusOk;
   const forecast = found
     ? `Policy-workaround likelihood: ${risk}%. NARC detected unusual recent behavior and will use this forecast for future monitoring.`
@@ -1506,6 +1538,12 @@ function playerResult(s) {
   }
   if (s.flags === 1) {
     return { label: 'UNDER REVIEW', text: 'One integrity flag. NARC has opened an Employee Integrity Review.' };
+  }
+  if (s.you.predicted) {
+    return {
+      label: 'UNDER REVIEW',
+      text: 'No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.',
+    };
   }
   if (s.score >= 65) {
     return {

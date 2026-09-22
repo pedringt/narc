@@ -1410,4 +1410,44 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   }
 }
 
+// ------------- before the report, NARC models Employee 4417 and acts on it
+
+{
+  // A clean week: NARC predicts little and does nothing about it.
+  const clean = play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' });
+  const cleanCard = clean.alerts.find((a) => /Employee 4417/.test(a.title));
+  assert.ok(cleanCard, 'the prediction always arrives');
+  assert.match(cleanCard.text, /Policy-workaround likelihood: 24%/);
+  assert.match(cleanCard.text, /likely to alter monitored behavior when evaluated/);
+  assert.match(cleanCard.text, /No review scheduled/);
+  assert.equal(clean.you.predicted, false);
+  assert.equal(ending(clean).you.label, 'MODEL EMPLOYEE');
+
+  // A player who gamed their own signal and covered it, and was never caught:
+  // the forecast alone is enough.
+  // Relabelled her own time, then used the Culture Champion exemption: two
+  // workarounds, no rule broken that NARC ever caught.
+  let s = play({ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' });
+  assert.equal(s.flags, 0, 'nothing was ever caught');
+  const card = s.alerts.find((a) => /Employee 4417/.test(a.title));
+  assert.match(card.text, /Policy-workaround likelihood: 78%/);
+  assert.match(card.text, /Predictive Integrity Review scheduled/);
+
+  // It acts before the report, not only in it.
+  // It acts before the report, not only in it: the index is frozen 10 lower.
+  let run = play({ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' }, { afterAll: false });
+  run = until(run, (x) => x.alerts.some((a) => /Employee 4417/.test(a.title)), { reads: false });
+  const atPrediction = run.score;
+  run = until(run, (x) => x.phase === 'ending', { reads: false });
+  assert.equal(run.score, atPrediction - 10, 'the index is frozen 10 lower before the week ends');
+  assert.equal(s.score, atPrediction - 10, 'and the report shows the frozen index');
+  assert.equal(ending(s).you.label, 'UNDER REVIEW');
+  assert.match(ending(s).you.text, /on the forecast alone/);
+
+  // The prediction is the last thing NARC says, and it is read before the report.
+  const predictionAt = s.alerts.indexOf(card);
+  assert.ok(predictionAt >= 0);
+  assert.equal(s.phase, 'ending');
+}
+
 console.log('NARC tests passed');
