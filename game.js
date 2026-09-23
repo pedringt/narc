@@ -593,7 +593,7 @@ const INCIDENTS = {
           metrics: { 'Company response': 'Time-on-Task Advisory' },
           text: 'No peer contradiction on file. Unchallenged: confidence 71% → 74%. Time-on-Task Advisory issued: Luis Perez.',
         });
-        say(s, 14, 'luis', 'Thank you for not asking. The advisory has a chart. The chart has a title. The title is my name.');
+        say(s, 14, 'luis', 'No pushback, no corroboration requested. Advisory issued anyway. It has a chart. The chart has a title. The title is my name.');
       },
       script(s) {
         const p = s.people.luis;
