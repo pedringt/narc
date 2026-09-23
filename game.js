@@ -652,7 +652,7 @@ const INCIDENTS = {
 
   e3: {
     at: { day: 'Wed', min: hm(10, 52) },
-    allowed: () => ['truth', 'paper', 'stay', 'badtip'],
+    allowed: () => ['truth', 'paper', 'transit', 'stay', 'badtip'],
     fallback: () => 'stay',
     arrive(s) {
       raise(s, {
@@ -708,6 +708,23 @@ const INCIDENTS = {
         react(s, 16, { incident: 'e3', where: 'thread:marcus', conf: 12, tone: 'bad', text: 'Calendar entry created after the flag. Pattern: retroactive. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
         say(s, 26, 'marcus', 'It said “retroactive.” I thought I was being natural.');
         catchUp(s, 17, 'marcus');
+      },
+      transit(s) {
+        // A genuine help route from his own thread: real evidence, not a
+        // record supplied after the fact. It only covers part of the
+        // morning, so it lands short of a fabricated full corroboration --
+        // more evidence is not automatically more true.
+        const p = s.people.marcus;
+        p.cred = 67;
+        p.trust += 1;
+        say(s, 3, 'marcus', 'Oh, good call. I forget that thing exists.');
+        react(s, 8, {
+          incident: 'e3', where: 'thread:marcus', conf: 67, tone: 'good',
+          metrics: { 'Company response': 'Attendance Advisory (informational)' },
+          text: 'Transit alert confirms an 11-minute delay on the 8:14 bus. Device location for the remaining 40 minutes is unaccounted for. Partial corroboration: attendance credibility 38% → 67%.',
+        });
+        say(s, 16, 'marcus', 'It doesn’t explain the whole morning, but it explains the bus, which is the part people don’t believe.');
+        catchUp(s, 9, 'marcus');
       },
     },
   },
@@ -1125,6 +1142,7 @@ const REPLIES = {
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
   'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', prompt: 'luis-e2', branch: 'focus' },
   'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
+  'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', when: 'e3', prompt: 'marcus-e3', branch: 'transit' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
   'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', prompt: 'priya-e4', branch: 'sync' },
   'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', prompt: 'priya-e4', branch: 'quiet' },

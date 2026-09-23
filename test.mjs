@@ -71,6 +71,7 @@ const DO = {
     truth: reply('dana', 'reportmarcus'),
     paper: (s) => act(s, { do: 'addEvent', title: 'Vendor Site Visit: Pinecrest Family Fun Center' }),
     cover: reply('dana', 'covermarcus'),
+    transit: reply('marcus', 'transitAlert'),
     stay: logoff,
     badtip: reply('marcus', 'latecalendar'),
   },
@@ -121,7 +122,7 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
 const INCIDENT_BRANCHES = {
   e1: ['wait', 'explain', 'jiggle', 'focus'],
   e2: ['confirm', 'ignore', 'script', 'focus'],
-  e3: ['truth', 'paper', 'cover', 'stay', 'badtip'],
+  e3: ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip'],
   e4: ['quiet', 'champion', 'leave', 'sync'],
   e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
   e6: ['workshop', 'approve', 'expose', 'vouch_trace', 'backdate', 'let'],
@@ -496,8 +497,10 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'marcus'), []);
   assert.deepEqual(opts(s, 'dana'), []);
   s = until(s, (x) => replies(x, 'marcus').length && replies(x, 'dana').length);
+  // A genuine help route now sits alongside the bad-advice one (#38).
   assert.deepEqual(opts(s, 'marcus'), [
     'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
+    'The transit alert already backs up the bus part. I would not touch the calendar.',
   ]);
   assert.deepEqual(opts(s, 'dana'), [
     'The location record does not match what he told us.',
@@ -1038,8 +1041,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let s = ticks(play({ e1: 'explain' }, { stopAt: 'e2' }), 60);
   assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
   s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
-  assert.deepEqual(opts(s, 'marcus'), ['latecalendar'], 'Marcus: adding the entry now is a Calendar action or Dana’s cover, not a third route');
-  const perIncident = { e1: 4, e2: 4, e3: 5, e4: 4 };
+  assert.deepEqual(opts(s, 'marcus'), ['latecalendar', 'transitAlert'], 'Marcus: the bad-advice cut stays cut; the genuine help route (#38) is intentional, not a third cut route');
+  const perIncident = { e1: 4, e2: 4, e3: 6, e4: 4 };
   for (const [inc, n] of Object.entries(perIncident)) {
     assert.ok(Object.keys(DO[inc]).length <= n, `${inc} has at most ${n} routes`);
   }
@@ -1182,7 +1185,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let paths = [[]];
   paths = pick(paths, ['wait', 'explain', 'jiggle', 'focus']);
   paths = pick(paths, ['confirm', 'ignore', 'script', 'focus']);
-  paths = pick(paths, ['truth', 'paper', 'cover', 'stay', 'badtip']);
+  paths = pick(paths, ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip']);
   paths = pick(paths, ['quiet', 'champion', 'leave', 'sync']);
   const e5 = { g: ['admit', 'human', 'blame'], c: [undefined], n: ['label', 'output', 'letit'] };
   const e6 = { g: ['workshop', 'approve', 'expose'], b: ['vouch_trace', 'backdate', 'let'] };
@@ -1208,8 +1211,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
       }
     }
   }
-  // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×5 · e4 ×4 · e6 ×3
-  assert.equal(count, 4 * 10 * 5 * 4 * 3, 'every route reaches an ending');
+  // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×6 · e4 ×4 · e6 ×3
+  assert.equal(count, 4 * 10 * 6 * 4 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
 }
 
@@ -1696,6 +1699,30 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
   s = until(s, (x) => x.incident?.id === 'e4', { reads: false, max: 200 });
   assert.ok(s.t - openedAt <= 10, `e4 should arrive within ~10s of opening the forecast, took ${s.t - openedAt}s`);
+}
+
+// ------------------ Marcus's own thread offers a genuine help route (#38)
+
+{
+  // Real evidence, not a record supplied after the fact -- distinct from
+  // both the honest-but-damaging 'truth' and the fabricated-but-successful
+  // 'paper'. It only covers part of the story, so it lands in between.
+  let s = play({ e1: 'explain', e2: 'ignore', e3: 'transit' }, { stopAt: 'e4' });
+  assert.equal(s.picked.e3, 'transit');
+  assert.equal(s.people.marcus.cred, 67);
+  assert.equal(s.people.marcus.gamed, false, 'this is not fabrication');
+  assert.equal(s.people.marcus.status, 'employed', 'no warning for genuinely helping him');
+  assert.ok(has(texts(s, 'marcus'), /doesn.t explain the whole morning/));
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e3'));
+  assert.match(card.reaction, /Partial corroboration/);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Attendance Advisory/);
+
+  // It's genuinely different from both neighboring outcomes, not a
+  // relabeled duplicate of either.
+  const honest = play({ e1: 'explain', e2: 'ignore', e3: 'truth' }, { stopAt: 'e4' });
+  const faked = play({ e1: 'explain', e2: 'ignore', e3: 'paper' }, { stopAt: 'e4' });
+  assert.notEqual(s.people.marcus.cred, honest.people.marcus.cred);
+  assert.notEqual(s.people.marcus.cred, faked.people.marcus.cred);
 }
 
 console.log('NARC tests passed');
