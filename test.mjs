@@ -1432,6 +1432,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const card = s.alerts.find((a) => /Employee 4417/.test(a.title));
   assert.match(card.text, /Policy-workaround likelihood: 78%/);
   assert.match(card.text, /Predictive Integrity Review scheduled/);
+  // The model score and the policy that acts on it are stated separately (#27).
+  assert.match(card.text, /Company policy: scores of 78% or higher trigger a Predictive Integrity Review/);
 
   // It acts before the report, not only in it.
   // It acts before the report, not only in it: the index is frozen 10 lower.

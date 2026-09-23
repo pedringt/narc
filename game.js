@@ -273,7 +273,7 @@ function deliver(s, d) {
       s.you.predicted = likelihood >= 78;
       raise(s, {
         title: 'Employee 4417',
-        text: `Policy-workaround likelihood: ${likelihood}%. Prediction: likely to alter monitored behavior when evaluated.${
+        text: `Policy-workaround likelihood: ${likelihood}%. Company policy: scores of 78% or higher trigger a Predictive Integrity Review. Prediction: likely to alter monitored behavior when evaluated.${
           s.you.predicted ? ' Predictive Integrity Review scheduled. Visible Activity Index frozen pending review.' : ' No review scheduled.'}`,
       });
       // The prediction is not just an observation: it does something on its own.
@@ -1656,7 +1656,7 @@ const DEBRIEF = [
     id: 'goodhart',
     when: (s) => s.you.gamed && s.flags >= 1,
     title: 'Metric gaming, caught',
-    text: 'The keepalive tool inflated your Visible Activity Index \u2014 until NARC 2.0 learned to detect the exact pattern it produces. Game the metric, the system adapts, repeat: Goodhart\u2019s Law as an arms race.',
+    text: 'The keepalive tool inflated your Visible Activity Index \u2014 until NARC 2.0 learned to detect the exact pattern it produces. The metric moved without the underlying work changing, and the system adapted the moment it noticed.',
   },
   {
     id: 'exemption',
