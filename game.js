@@ -1260,7 +1260,20 @@ export function act(state, a) {
     }
     case 'helper': {
       if (a.op === 'install') {
-        if (s.helper.discovered && !s.helper.installed) { s.helper.installed = true; changed = true; }
+        if (s.helper.discovered && !s.helper.installed) {
+          s.helper.installed = true;
+          // Installing it during your own low-activity flag starts it
+          // running immediately -- a player who installs and never finds
+          // the separate toggle should not miss the point (#36). Installing
+          // it at any other time (e.g. to hand it to Luis in e2) does not:
+          // downloading a copy to share is not the same as choosing to run
+          // your own.
+          if (s.incident?.id === 'e1') {
+            s.helper.on = true;
+            resolve(s, 'jiggle');
+          }
+          changed = true;
+        }
       } else if (a.op === 'toggle' && s.helper.installed) {
         s.helper.on = !s.helper.on;
         if (s.helper.on && s.incident?.id === 'e1') resolve(s, 'jiggle');

@@ -56,7 +56,8 @@ const DO = {
     explain: (s) => act(opened(s, 'e1'), { do: 'case', id: 'submitNote', text: 'I was reading a contract on paper.' }),
     jiggle: (s) => {
       s = until(s, (x) => x.helper.discovered);
-      return act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' });
+      // Installing it now starts it running by itself (#36); no separate toggle needed.
+      return act(s, { do: 'helper', op: 'install' });
     },
     focus: (s) => act(s, { do: 'markFocus', event: 'c1' }),
   },
@@ -390,10 +391,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')));
   s = act(s, { do: 'helper', op: 'install' });
   assert.equal(s.helper.installed, true);
-  assert.equal(s.incident.id, 'e1', 'installing alone is not yet the exploit');
-  s = act(s, { do: 'helper', op: 'toggle' });
-  assert.equal(s.picked.e1, 'jiggle', 'turning it On is the exploit');
+  // Installing it starts it running (#36): a player who installs and never
+  // finds the separate toggle should not miss the point of the tool.
+  assert.equal(s.helper.on, true, 'installing turns it on by default');
+  assert.equal(s.picked.e1, 'jiggle', 'installing during e1 is itself the exploit now');
   assert.equal(s.you.gamed, true);
+  s = act(s, { do: 'helper', op: 'toggle' });
+  assert.equal(s.helper.on, false, 'the toggle still works, to turn it back off');
 
   assert.equal(s.score, before, 'the index has not moved yet');
   s = until(s, (x) => x.score !== before);
