@@ -1591,4 +1591,40 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(!clean.toasts.some((x) => x.big));
 }
 
+// -------- the forecast/beat gate reminds the player too, not just the email (#19)
+
+{
+  // Before the fix, s.awaitingAlert had zero reminder nudges on EITHER path
+  // that sets it: a player who missed the toast had no way to be told the
+  // game was waiting on them.
+  for (const picks of [{}, { e1: 'jiggle' }]) {
+    // Never opens it: reminders must eventually appear on their own.
+    let s = play(picks, { stopAt: 'e3' });
+    s = act(s, { do: 'logoff' });
+    s = until(s, (x) => x.awaiting, { reads: false });
+    s = act(s, { do: 'open', ref: `email:${s.awaiting}` });
+    s = until(s, (x) => x.awaitingAlert, { reads: false });
+    const id = s.awaitingAlert;
+    const at = s.t;
+    s = ticks(s, 95); // past all three reminder times
+    const nudges = s.toasts.filter((x) => x.nudgeFor === id && x.at > at);
+    assert.ok(nudges.length >= 1, `a reminder eventually appears while the gate sits unopened (${JSON.stringify(picks)})`);
+    assert.equal(s.incident, null, 'still correctly waiting -- e4 has not started');
+
+    // Opens it right away: none of the three reminders that were already
+    // scheduled should still fire later. (The toast list caps at 24 and
+    // drops from the front, so compare by time, not by array position.)
+    let fast = play(picks, { stopAt: 'e3' });
+    fast = act(fast, { do: 'logoff' });
+    fast = until(fast, (x) => x.awaiting, { reads: false });
+    fast = act(fast, { do: 'open', ref: `email:${fast.awaiting}` });
+    fast = until(fast, (x) => x.awaitingAlert, { reads: false });
+    const fastId = fast.awaitingAlert;
+    const openedAt = fast.t;
+    fast = act(fast, { do: 'open', ref: `alert:${fastId}` });
+    fast = ticks(fast, 95); // past where the same 30/60/90 reminders would have landed
+    assert.ok(!fast.toasts.some((x) => x.nudgeFor === fastId && x.at > openedAt), `no stale reminder after it has been opened immediately (${JSON.stringify(picks)})`);
+  }
+}
+
 console.log('NARC tests passed');

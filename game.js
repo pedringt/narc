@@ -185,6 +185,7 @@ function addMail(s, m) {
 function deliver(s, d) {
   if (d.when && s.incident?.id !== d.when) return;
   if (d.awaiting && s.awaiting !== d.awaiting) return;
+  if (d.awaitingAlert && s.awaitingAlert !== d.awaitingAlert) return;
   switch (d.k) {
     case 'msg':
       s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt, doneAt: s.done.length });
@@ -218,7 +219,10 @@ function deliver(s, d) {
       const histTitle = d.title || (shown ? (shown.was ? `${shown.label}: ${shown.was.confidence}% → ${shown.confidence}%` : 'Assessment unchanged') : 'Assessment updated');
       const hist = raise(s, { title: histTitle, text: d.text, quiet: true });
       const target = a || hist;
-      if (d.gate) s.awaitingAlert = target.id;
+      if (d.gate) {
+        s.awaitingAlert = target.id;
+        [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaitingAlert: target.id }));
+      }
       if (d.toast) {
         toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false, big: !!d.big });
       }
@@ -227,6 +231,7 @@ function deliver(s, d) {
     case 'forecast': {
       const a = raise(s, { title: d.title, text: d.text });
       s.awaitingAlert = a.id;
+      [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaitingAlert: a.id }));
       break;
     }
     case 'mail': {
@@ -290,11 +295,20 @@ function deliver(s, d) {
 // NARC's pushiness grows over the week: one polite reminder at first, then
 // two, and the wording stops pretending nothing is required.
 function nudge(s, d) {
-  s.toasts.forEach((t) => { if (t.nudgeFor === (d.when || 'update')) t.gone = true; });
+  s.toasts.forEach((t) => { if (t.nudgeFor === (d.when || d.awaitingAlert || 'update')) t.gone = true; });
   if (d.awaiting) {
     toast(s, {
       app: 'narc', title: 'NARC 2.0 announcement', text: 'Please review the announcement from People Operations. No action is required.',
       open: `email:${d.awaiting}`, nudgeFor: 'update',
+    });
+    return;
+  }
+  if (d.awaitingAlert) {
+    const alert = s.alerts.find((x) => x.id === d.awaitingAlert);
+    if (!alert) return;
+    toast(s, {
+      app: 'narc', title: alert.title, text: 'Open this to see what NARC found.',
+      open: `alert:${d.awaitingAlert}`, nudgeFor: d.awaitingAlert,
     });
     return;
   }
