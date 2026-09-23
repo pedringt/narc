@@ -789,7 +789,7 @@ function renderOverlay() {
   r.append(h('div', 'sect', `Achievements · ${earned.length} of ${earned.length + locked.length}`));
   const ach = h('div', 'ach');
   earned.forEach((a) => ach.append(h('div', 'ach-item earned', h('div', 'name', a.name), h('div', 'desc', a.desc))));
-  locked.forEach((a) => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', a.hint))));
+  locked.forEach(() => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', 'Locked.'))));
   r.append(ach);
 
   r.append(h('div', 'sect', 'What this run demonstrated'));
