@@ -553,7 +553,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
   assert.ok(!has(noticeTexts(s), /Social withdrawal/), 'the backfire lands later');
   s = until(s, (x) => has(noticeTexts(x), /Social withdrawal.*Collaboration Index 97 → 31/));
-  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*termination pending/));
+  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*terminated/));
   s = until(s, (x) => x.shown.priya === 'fired');
   assert.equal(s.people.priya.status, 'fired');
   assert.ok(has(texts(s, 'priya'), /exactly what it told me to do/));
@@ -1310,7 +1310,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     ['e2', 'ignore', /Time-on-Task Advisory/, 'Advisory issued'],
     ['e3', 'stay', /Attendance Integrity Notice/, 'Notice issued'],
     ['e4', 'leave', /Concise Communication Coaching/, 'Coaching enabled'],
-    ['e5', 'letit', /Termination pending/, 'Plan issued'],
+    ['e5', 'letit', /Termination confirmed/, 'Plan issued'],
     ['e6', 'let', /Termination confirmed/, 'Action confirmed'],
     ['e6', 'approve', /None\. Absence approved/, 'Absence approved'],
   ];
@@ -1481,6 +1481,26 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.flags, 1);
   assert.match(s.reactions.utilities.text, /Monday reassessed/, 'the panel that told the original story is corrected, not left showing the old numbers');
   assert.ok(!/Engagement trend: positive/.test(s.reactions.utilities.text));
+}
+
+// ---------------- a firing is never described as still pending (#18)
+
+{
+  // Every branch decides the outcome synchronously; none should say "pending"
+  // in the company response or the narration, which would imply a decision
+  // that has already been made.
+  const routes = [
+    [{ ...HONEST, e4: 'quiet' }, 'e4'],
+    [{ ...HONEST, e2: 'script', e5: 'blame' }, 'e5'],
+    [{ ...HONEST, e5: 'letit' }, 'e5'],
+    [{ ...HONEST, e3: 'paper', e6: 'expose' }, 'e6'],
+    [{ ...HONEST, e3: 'stay', e6: 'backdate' }, 'e6'],
+  ];
+  for (const [picks, inc] of routes) {
+    const s = play(picks);
+    const surface = JSON.stringify({ h: s.alerts, t: s.threads });
+    assert.ok(!/termination pending/i.test(surface), `${inc} on ${JSON.stringify(picks)}: no wording implies the firing is still pending`);
+  }
 }
 
 console.log('NARC tests passed');

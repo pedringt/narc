@@ -731,7 +731,7 @@ const INCIDENTS = {
         react(s, 3, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 91, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −71%.' });
         say(s, 8, 'priya', 'I am fine. I am being efficient.');
         react(s, 18, { incident: 'e4', where: 'thread:priya', label: 'Collaboration: below role threshold', conf: 88, metrics: { 'Collaboration Index': 31 }, tone: 'bad', toast: true, title: 'Assessment updated', text: 'Social withdrawal: 71% below personal baseline. Collaboration Index 97 → 31.' });
-        react(s, 32, { incident: 'e4', where: 'narc', metrics: { 'Company response': 'Termination pending' }, tone: 'bad', toast: true, title: 'Automatic action', text: 'Collaboration Index below role threshold. Priya Shah: termination pending.' });
+        react(s, 32, { incident: 'e4', where: 'narc', metrics: { 'Company response': 'Termination confirmed' }, tone: 'bad', toast: true, title: 'Automatic action', text: 'Collaboration Index below role threshold. Priya Shah: terminated.' });
         say(s, 42, 'priya', 'I did exactly what it told me to do.');
         goOffline(s, 52, 'priya');
         teamUpdate(s, 52, 'priya');
@@ -834,7 +834,7 @@ const INCIDENTS = {
         p.status = 'fired';
         p.trust -= 5;
         say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
-        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: termination pending. Nomination withdrawn.' });
+        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: terminated. Nomination withdrawn.' });
         score(s, 4, 6, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 18, 'luis', 'A peer. Again.');
         goOffline(s, 30, 'luis');
@@ -872,8 +872,8 @@ const INCIDENTS = {
         p.trust -= 3;
         react(s, 4, {
           incident: 'e5', where: 'narc', toast: true, title: 'Plan issued', conf: 94, tone: 'bad',
-          metrics: { 'Company response': 'Termination pending' },
-          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.',
+          metrics: { 'Company response': 'Termination confirmed' },
+          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Terminated: Time-on-Task.',
         });
         say(s, 14, 'luis', 'I was in the restroom when the email arrived.');
         notice(s, 24, 'Email status', 'Luis Perez: email read in 4 seconds.');
@@ -960,7 +960,7 @@ const INCIDENTS = {
         s.people.marcus.status = 'fired';
         s.flags += 1;
         say(s, 3, 'dana', 'Understood. I’ll pass that on.');
-        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Documents: authorship mismatch', conf: 100, tone: 'bad', text: `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: termination pending. Integrity flags: ${s.flags}.` });
+        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Documents: authorship mismatch', conf: 100, tone: 'bad', text: `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: terminated. Integrity flags: ${s.flags}.` });
         score(s, 4, 8, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 18, 'marcus', 'I’m in a lot of trouble, and I think you might be.');
         goOffline(s, 30, 'marcus');
@@ -980,7 +980,7 @@ const INCIDENTS = {
       backdate(s) {
         s.people.marcus.status = 'fired';
         s.flags += 1;
-        react(s, 1, { incident: 'e6', where: 'calendar:team', label: 'Records: retroactive pattern detected', conf: 97, metrics: { 'Company response': 'Termination pending' }, tone: 'bad', text: 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: termination pending. Integrity flag added to Employee 4417.' });
+        react(s, 1, { incident: 'e6', where: 'calendar:team', label: 'Records: retroactive pattern detected', conf: 97, metrics: { 'Company response': 'Termination confirmed' }, tone: 'bad', text: 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: terminated. Integrity flag added to Employee 4417.' });
         say(s, 14, 'marcus', 'It was a real goose. I had a real goose.');
         goOffline(s, 24, 'marcus');
         teamUpdate(s, 24, 'marcus');
