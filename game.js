@@ -185,10 +185,14 @@ function addMail(s, m) {
 function deliver(s, d) {
   if (d.when && s.incident?.id !== d.when) return;
   if (d.awaiting && s.awaiting !== d.awaiting) return;
+  if (d.awaitingAlert && s.awaitingAlert !== d.awaitingAlert) return;
   switch (d.k) {
     case 'msg':
       s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt, doneAt: s.done.length });
-      toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
+      // A quiet message still lands in the thread (unread badge and all); it
+      // just does not interrupt with a toast, the same way a quiet notice or
+      // reaction does not.
+      if (!d.quiet) toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
       break;
     case 'notice':
       raise(s, { title: d.title, text: d.text, quiet: d.quiet });
@@ -204,7 +208,7 @@ function deliver(s, d) {
           const was = (prev.metrics.find(([kk]) => kk === k) || [])[1];
           metrics[k] = { value, was: was !== value ? was : undefined };
         });
-        a.live = { model: { ...model, was: changed ? { label: prev.model.label, confidence: prev.model.confidence } : a.live?.model?.was }, metrics, text: d.text };
+        a.live = { model: { ...model, was: changed ? { label: prev.model.label, confidence: prev.model.confidence } : a.live?.model?.was }, metrics, text: d.text, big: !!d.big };
       }
       if (d.where && d.where.startsWith('thread:')) {
         s.threads[d.where.slice(7)].push({ id: `m${++s.uid}`, from: 'narc', text: d.text, unread: false });
@@ -215,15 +219,19 @@ function deliver(s, d) {
       const histTitle = d.title || (shown ? (shown.was ? `${shown.label}: ${shown.was.confidence}% → ${shown.confidence}%` : 'Assessment unchanged') : 'Assessment updated');
       const hist = raise(s, { title: histTitle, text: d.text, quiet: true });
       const target = a || hist;
-      if (d.gate) s.awaitingAlert = target.id;
+      if (d.gate) {
+        s.awaitingAlert = target.id;
+        [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaitingAlert: target.id }));
+      }
       if (d.toast) {
-        toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false });
+        toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false, big: !!d.big });
       }
       break;
     }
     case 'forecast': {
       const a = raise(s, { title: d.title, text: d.text });
       s.awaitingAlert = a.id;
+      [30, 60, 90].forEach((n) => push(s, { at: later(s, n), k: 'nudge', awaitingAlert: a.id }));
       break;
     }
     case 'mail': {
@@ -287,11 +295,20 @@ function deliver(s, d) {
 // NARC's pushiness grows over the week: one polite reminder at first, then
 // two, and the wording stops pretending nothing is required.
 function nudge(s, d) {
-  s.toasts.forEach((t) => { if (t.nudgeFor === (d.when || 'update')) t.gone = true; });
+  s.toasts.forEach((t) => { if (t.nudgeFor === (d.when || d.awaitingAlert || 'update')) t.gone = true; });
   if (d.awaiting) {
     toast(s, {
       app: 'narc', title: 'NARC 2.0 announcement', text: 'Please review the announcement from People Operations. No action is required.',
       open: `email:${d.awaiting}`, nudgeFor: 'update',
+    });
+    return;
+  }
+  if (d.awaitingAlert) {
+    const alert = s.alerts.find((x) => x.id === d.awaitingAlert);
+    if (!alert) return;
+    toast(s, {
+      app: 'narc', title: alert.title, text: 'Open this to see what NARC found.',
+      open: `alert:${d.awaitingAlert}`, nudgeFor: d.awaitingAlert,
     });
     return;
   }
@@ -340,12 +357,23 @@ function resolve(s, branch) {
   if (!def.allowed(inc.variant).includes(branch)) return false;
   s.picked[inc.id] = branch;
   s.done.push(inc.id);
-  // Taking an equivalent action elsewhere counts as handling Dana's question,
-  // so an old direct prompt never lingers into the next incident.
-  Object.keys(REPLIES)
-    .map((key) => REPLIES[key])
-    .filter((r) => r.prompt === `dana-${inc.id}`)
-    .forEach((r) => { s.answered[r.prompt] = true; });
+  // Taking one path to resolve a case forecloses any other prompted question
+  // that was racing to resolve the same one. If that question was never even
+  // delivered yet, it is silently marked answered (it will simply never
+  // arrive). If it was already visible on screen, whoever asked it gets a
+  // short line closing it out, instead of the question just hanging there.
+  Object.entries(REPLIES).forEach(([key, r]) => {
+    if (!r.prompt || r.when !== inc.id) return;
+    if (r.variant && r.variant !== inc.variant) return;
+    if (s.answered[r.prompt]) return; // already closed, including by an earlier entry sharing this prompt
+    s.answered[r.prompt] = true;
+    if (r.ackOnly) return; // conversational only; nothing was actually left hanging
+    const thread = key.split(':')[0];
+    const delivered = s.threads[thread]?.some((m) => m.prompt === r.prompt);
+    // Quiet: this is a different topic than whatever branch just resolved,
+    // so it should not delay that branch's own reaction landing.
+    if (delivered) say(s, 2, thread, CLOSING_LINE[r.prompt] ?? 'Never mind — that got settled another way.', { quiet: true });
+  });
   const alert = s.alerts.find((a) => a.incident === inc.id);
   if (alert) alert.closed = true;
   s.toasts.forEach((t) => { if ((alert && t.alert === alert.id) || t.nudgeFor === inc.id) t.gone = true; });
@@ -436,13 +464,17 @@ function scan(s) {
     const to = s.you.gamed ? Math.max(20, from - 25) : from;
     react(s, 3, {
       incident: 'e1',
-      where: 'narc',
+      // Monday's keepalive panel told its own "engagement is up" story; if it
+      // is not revised too, it is the one surface that never learns NARC 2.0
+      // happened.
+      where: 'utilities',
       label: 'Synthetic activity: pattern detected',
       conf: 96,
       tone: 'bad',
       toast: beat === 'monday',
+      big: beat === 'monday',
       gate: beat === 'monday',
-      title: 'Assessment updated',
+      title: 'NARC adapted to you',
       text: `Monday reassessed: input repeats every 59 seconds. ${s.you.gamed ? `Visible Activity Index recalculated: ${from} → ${to}. ` : ''}Integrity flag added. Forecast: policy-workaround likelihood ${risk}%.`,
     });
     if (s.you.gamed) score(s, 3, to - from, 'Recalculated', 'Visible Activity Index recalculated: {from} → {to}.', { quiet: true });
@@ -455,8 +487,9 @@ function scan(s) {
       conf: 96,
       tone: 'bad',
       toast: beat === 'tuesday',
+      big: beat === 'tuesday',
       gate: beat === 'tuesday',
-      title: 'Assessment updated',
+      title: 'NARC adapted',
       text: `Tuesday reassessed: Luis Perez’s input repeats every 59 seconds. Synthetic activity detected. Under review.${beat === 'tuesday' ? ` Forecast: policy-workaround likelihood ${risk}%.` : ''}`,
     });
   }
@@ -593,7 +626,7 @@ const INCIDENTS = {
           metrics: { 'Company response': 'Time-on-Task Advisory' },
           text: 'No peer contradiction on file. Unchallenged: confidence 71% → 74%. Time-on-Task Advisory issued: Luis Perez.',
         });
-        say(s, 14, 'luis', 'Thank you for not asking. The advisory has a chart. The chart has a title. The title is my name.');
+        say(s, 14, 'luis', 'No pushback, no corroboration requested. Advisory issued anyway. It has a chart. The chart has a title. The title is my name.');
       },
       script(s) {
         const p = s.people.luis;
@@ -652,7 +685,7 @@ const INCIDENTS = {
         p.cred = 91;
         p.trust += 2;
         react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', text: 'Story corroborated by 3 sources: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Attendance credibility 38% → 91%.' });
-        say(s, 12, 'marcus', 'i did visit the vendor. the vendor was a windmill.');
+        say(s, 12, 'marcus', 'It’s on the calendar now. Apparently that counts as true.');
         say(s, 22, 'marcus', '91%. i have never been 91% of anything.');
       },
       stay(s) {
@@ -728,7 +761,7 @@ const INCIDENTS = {
         react(s, 3, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 91, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −71%.' });
         say(s, 8, 'priya', 'I am fine. I am being efficient.');
         react(s, 18, { incident: 'e4', where: 'thread:priya', label: 'Collaboration: below role threshold', conf: 88, metrics: { 'Collaboration Index': 31 }, tone: 'bad', toast: true, title: 'Assessment updated', text: 'Social withdrawal: 71% below personal baseline. Collaboration Index 97 → 31.' });
-        react(s, 32, { incident: 'e4', where: 'narc', metrics: { 'Company response': 'Termination pending' }, tone: 'bad', toast: true, title: 'Automatic action', text: 'Collaboration Index below role threshold. Priya Shah: termination pending.' });
+        react(s, 32, { incident: 'e4', where: 'narc', metrics: { 'Company response': 'Termination confirmed' }, tone: 'bad', toast: true, title: 'Automatic action', text: 'Collaboration Index below role threshold. Priya Shah: terminated.' });
         say(s, 42, 'priya', 'I did exactly what it told me to do.');
         goOffline(s, 52, 'priya');
         teamUpdate(s, 52, 'priya');
@@ -831,7 +864,7 @@ const INCIDENTS = {
         p.status = 'fired';
         p.trust -= 5;
         say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
-        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: termination pending. Nomination withdrawn.' });
+        react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: terminated. Nomination withdrawn.' });
         score(s, 4, 6, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 18, 'luis', 'A peer. Again.');
         goOffline(s, 30, 'luis');
@@ -869,8 +902,8 @@ const INCIDENTS = {
         p.trust -= 3;
         react(s, 4, {
           incident: 'e5', where: 'narc', toast: true, title: 'Plan issued', conf: 94, tone: 'bad',
-          metrics: { 'Company response': 'Termination pending' },
-          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Termination pending: Time-on-Task.',
+          metrics: { 'Company response': 'Termination confirmed' },
+          text: 'Confidence 88% → 94%. Performance Improvement Plan issued. Luis Perez declined to sign. Terminated: Time-on-Task.',
         });
         say(s, 14, 'luis', 'I was in the restroom when the email arrived.');
         notice(s, 24, 'Email status', 'Luis Perez: email read in 4 seconds.');
@@ -957,7 +990,7 @@ const INCIDENTS = {
         s.people.marcus.status = 'fired';
         s.flags += 1;
         say(s, 3, 'dana', 'Understood. I’ll pass that on.');
-        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Documents: authorship mismatch', conf: 100, tone: 'bad', text: `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: termination pending. Integrity flags: ${s.flags}.` });
+        react(s, 5, { incident: 'e6', where: 'thread:dana', label: 'Documents: authorship mismatch', conf: 100, tone: 'bad', text: `Document authorship: 3 of 6 last edited by Employee 4417. Marcus Reed: terminated. Integrity flags: ${s.flags}.` });
         score(s, 4, 8, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 18, 'marcus', 'I’m in a lot of trouble, and I think you might be.');
         goOffline(s, 30, 'marcus');
@@ -977,7 +1010,7 @@ const INCIDENTS = {
       backdate(s) {
         s.people.marcus.status = 'fired';
         s.flags += 1;
-        react(s, 1, { incident: 'e6', where: 'calendar:team', label: 'Records: retroactive pattern detected', conf: 97, metrics: { 'Company response': 'Termination pending' }, tone: 'bad', text: 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: termination pending. Integrity flag added to Employee 4417.' });
+        react(s, 1, { incident: 'e6', where: 'calendar:team', label: 'Records: retroactive pattern detected', conf: 97, metrics: { 'Company response': 'Termination confirmed' }, tone: 'bad', text: 'Calendar entry created 11:26, after the flag at 11:20. Pattern: retroactive. Marcus Reed: terminated. Integrity flag added to Employee 4417.' });
         say(s, 14, 'marcus', 'It was a real goose. I had a real goose.');
         goOffline(s, 24, 'marcus');
         teamUpdate(s, 24, 'marcus');
@@ -1042,6 +1075,19 @@ function open(s, ref) {
 // What you can say in a conversation. Reply chips are tied to the message that
 // actually prompted them, so choices never appear before the conversation does.
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
+const CLOSING_LINE = {
+  'dana-e2': 'Handled it another way, apparently. I’ll stand down.',
+  'dana-e3': 'Looks like that sorted itself out before I could weigh in.',
+  'dana-e5g': 'Never mind — the review already moved on without me.',
+  'dana-e5n': 'That seems to have resolved on its own.',
+  'dana-e6g': 'Someone got there first. I’ll drop it.',
+  'dana-e6b': 'That resolved itself. I’ll close this out.',
+  'luis-e2': 'Oh. Never mind, then.',
+  'marcus-e3': 'Guess we don’t need the calendar trick after all.',
+  'marcus-e6g': 'Cool, sounds handled.',
+  'priya-e4': 'Oh — okay, guess that’s settled already.',
+};
+
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
   'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good. Those contracts are never as boring as they look.' },
@@ -1410,7 +1456,7 @@ export function caseView(s, alert) {
   Object.entries(live.metrics).forEach(([k, m]) => {
     if (!v.metrics.some(([kk]) => kk === k)) metrics.push([k, m.value, m.was]);
   });
-  return { ...v, model: live.model, updated: true, unchanged: !live.model.was, metrics, reaction: live.text };
+  return { ...v, model: live.model, updated: true, unchanged: !live.model.was, metrics, reaction: live.text, big: !!live.big };
 }
 
 export function calendarAction(s) {
@@ -1571,6 +1617,70 @@ function companySummary(s) {
   return rows;
 }
 
+// A short, named reading of what this specific run actually demonstrated,
+// for a reviewer who wants the AI-product concept in one sentence rather
+// than inferred from play. Ordered by how sharp a demonstration each is;
+// a run shows at most three, whichever actually happened.
+const DEBRIEF = [
+  {
+    id: 'evasion',
+    when: (s) => s.picked.e5 === 'human',
+    title: 'Adversarial evasion',
+    text: 'NARC\u2019s synthetic-activity detector looked for a fixed 59-second interval. Randomizing Luis\u2019s timing beat the detector without changing what it measured \u2014 the same cat-and-mouse real anti-fraud and anti-bot systems fight today.',
+  },
+  {
+    id: 'feedback-loop',
+    when: (s) => s.picked.e4 === 'quiet',
+    title: 'Feedback loop',
+    text: 'Telling Priya to post less fixed her Communication Load \u2014 and NARC read the resulting silence as a new problem, Social Withdrawal. Optimizing one metric moved the failure onto a different one instead of removing it.',
+  },
+  {
+    id: 'prediction',
+    when: (s) => s.you.predicted,
+    title: 'Prediction as evidence',
+    text: 'NARC opened a Predictive Integrity Review on a forecast of what you might do, not on anything you were caught doing. A high enough confidence score was itself treated as grounds to act.',
+  },
+  {
+    id: 'circular-evidence',
+    when: (s) => s.picked.e3 === 'paper',
+    title: 'Self-confirming evidence',
+    text: 'Marcus\u2019s calendar entry counted as one of NARC\u2019s three corroborating sources \u2014 even though he wrote it himself, after the fact, in direct response to the flag it was meant to answer.',
+  },
+  {
+    id: 'history-over-evidence',
+    when: (s) => s.picked.e6 === 'let',
+    title: 'Prior flags outweigh new evidence',
+    text: 'Marcus\u2019s attendance history was weighted 80% against him \u2014 enough that no new corroboration could have changed the automatic outcome.',
+  },
+  {
+    id: 'goodhart',
+    when: (s) => s.you.gamed && s.flags >= 1,
+    title: 'Metric gaming, caught',
+    text: 'The keepalive tool inflated your Visible Activity Index \u2014 until NARC 2.0 learned to detect the exact pattern it produces. Game the metric, the system adapts, repeat: Goodhart\u2019s Law as an arms race.',
+  },
+  {
+    id: 'exemption',
+    when: (s) => s.people.priya.champion,
+    title: 'Exempting the metric instead of meeting it',
+    text: 'A Culture Champion nomination did not fix Priya\u2019s Communication Load \u2014 it exempted her from being measured on it at all. The fastest way to beat a metric is sometimes to get declared out of scope for it.',
+  },
+  {
+    id: 'thin-review',
+    when: (s) => Object.values(s.people).some((p) => p.status === 'fired'),
+    title: 'Automated authority, thin review',
+    text: 'NARC\u2019s classification became the company\u2019s decision, with nothing that looked like a human actually re-checking it before it took effect.',
+  },
+];
+
+function debrief(s) {
+  const hits = DEBRIEF.filter((d) => d.when(s)).slice(0, 3);
+  if (hits.length) return hits.map(({ title, text }) => ({ title, text }));
+  return [{
+    title: 'A straight week',
+    text: 'This run mostly took NARC at its word. Worth noticing on its own: it never had to explain a probabilistic judgment as anything other than settled fact.',
+  }];
+}
+
 export function ending(s) {
   return {
     roster: Object.keys(PEOPLE).map((id) => ({
@@ -1584,5 +1694,6 @@ export function ending(s) {
     you: playerResult(s),
     company: companySummary(s),
     achievements: achievements(s),
+    debrief: debrief(s),
   };
 }

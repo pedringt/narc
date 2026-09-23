@@ -553,7 +553,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => has(noticeTexts(x), /Communication Load: elevated → normal/));
   assert.ok(!has(noticeTexts(s), /Social withdrawal/), 'the backfire lands later');
   s = until(s, (x) => has(noticeTexts(x), /Social withdrawal.*Collaboration Index 97 → 31/));
-  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*termination pending/));
+  s = until(s, (x) => has(noticeTexts(x), /Collaboration Index below role threshold.*terminated/));
   s = until(s, (x) => x.shown.priya === 'fired');
   assert.equal(s.people.priya.status, 'fired');
   assert.ok(has(texts(s, 'priya'), /exactly what it told me to do/));
@@ -1310,7 +1310,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     ['e2', 'ignore', /Time-on-Task Advisory/, 'Advisory issued'],
     ['e3', 'stay', /Attendance Integrity Notice/, 'Notice issued'],
     ['e4', 'leave', /Concise Communication Coaching/, 'Coaching enabled'],
-    ['e5', 'letit', /Termination pending/, 'Plan issued'],
+    ['e5', 'letit', /Termination confirmed/, 'Plan issued'],
     ['e6', 'let', /Termination confirmed/, 'Action confirmed'],
     ['e6', 'approve', /None\. Absence approved/, 'Absence approved'],
   ];
@@ -1462,6 +1462,200 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     const action = view.metrics.find(([k]) => k === 'Company response');
     assert.ok(action && String(action[1]).length > 3, `${inc}: what happens because of it`);
   }
+}
+
+// ------------------- e3 paper: the response doesn't assume a specific title
+
+{
+  let s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  s = act(s, { do: 'addEvent', title: 'Cryptid Sighting Follow-up' });
+  assert.equal(s.picked.e3, 'paper');
+  s = until(s, (x) => has(texts(x, 'marcus'), /calendar now/), { reads: false });
+  assert.ok(!has(texts(s, 'marcus'), /vendor|windmill/i), 'no leftover reference to a specific typed title');
+}
+
+// -------- the keepalive panel is revised too, not just the NARC card, after NARC 2.0
+
+{
+  let s = play({ e1: 'jiggle', e2: 'focus' }, { stopAt: 'e4' });
+  assert.equal(s.flags, 1);
+  assert.match(s.reactions.utilities.text, /Monday reassessed/, 'the panel that told the original story is corrected, not left showing the old numbers');
+  assert.ok(!/Engagement trend: positive/.test(s.reactions.utilities.text));
+}
+
+// ---------------- a firing is never described as still pending (#18)
+
+{
+  // Every branch decides the outcome synchronously; none should say "pending"
+  // in the company response or the narration, which would imply a decision
+  // that has already been made.
+  const routes = [
+    [{ ...HONEST, e4: 'quiet' }, 'e4'],
+    [{ ...HONEST, e2: 'script', e5: 'blame' }, 'e5'],
+    [{ ...HONEST, e5: 'letit' }, 'e5'],
+    [{ ...HONEST, e3: 'paper', e6: 'expose' }, 'e6'],
+    [{ ...HONEST, e3: 'stay', e6: 'backdate' }, 'e6'],
+  ];
+  for (const [picks, inc] of routes) {
+    const s = play(picks);
+    const surface = JSON.stringify({ h: s.alerts, t: s.threads });
+    assert.ok(!/termination pending/i.test(surface), `${inc} on ${JSON.stringify(picks)}: no wording implies the firing is still pending`);
+  }
+}
+
+// -------- a stranded question gets closed out instead of hanging (#17)
+
+{
+  // e2: Luis's own "block it as Focus time" suggestion is visible; the
+  // player answers Dana instead, which resolves the case a different way.
+  let s = play({}, { stopAt: 'e2' });
+  s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'noreportluis'), { reads: false });
+  const luisChipsBefore = replies(s, 'luis').map((r) => r.id);
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'noreportluis' });
+  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live before the race');
+  assert.equal(s.picked.e2, 'ignore');
+  assert.equal(s.answered['luis-e2'], true, 'the stranded prompt is marked answered, not left dangling');
+  s = until(s, (x) => has(texts(x, 'luis'), /Never mind, then\./), { reads: false });
+  assert.equal(replies(s, 'luis').length, 0, 'no chip is left behind for a question that is now moot');
+  assert.equal(texts(s, 'luis').filter((x) => x === 'Oh. Never mind, then.').length, 1, 'exactly one closing line, not the generic fallback');
+
+  // The closing line does not interrupt with a toast of its own.
+  const closingToasts = s.toasts.filter((x) => /Never mind, then/.test(x.text));
+  assert.equal(closingToasts.length, 0);
+}
+
+{
+  // A prompt shared by several reply options (e5g: ownscript/blameluis/
+  // unsurehelper all answer "dana-e5g") gets closed out exactly once, not
+  // once per option that shares it.
+  let s = play({ e1: 'jiggle', e2: 'script' }, { stopAt: 'e4' });
+  s = logoff(s);
+  s = until(s, (x) => x.incident?.id === 'e5', { reads: false });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'ownscript'), { reads: false });
+  s = act(s, { do: 'helper', op: 'randomize' });
+  s = until(s, (x) => has(texts(x, 'dana'), /moved on without me/), { reads: false });
+  assert.equal(texts(s, 'dana').filter((x) => /moved on without me/.test(x)).length, 1, 'one closing line, not one per shared option');
+}
+
+{
+  // The common case: e1 resolves without the player ever answering Dana's
+  // ackOnly setup chips. That prompt is quietly marked answered (existing
+  // behavior) and must NOT get a spurious "never mind" line -- ackOnly
+  // chips are conversational filler, not a real question left hanging.
+  let s = play({}, { stopAt: 'e1' });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'e1contract'), { reads: false });
+  s = DO.e1.jiggle(s);
+  assert.equal(s.answered['dana-e1'], true);
+  s = ticks(s, 10);
+  assert.ok(!has(texts(s, 'dana'), /moved on without me|got settled another way/), 'no closing line for ordinary ackOnly filler');
+}
+
+{
+  // e5g: the player randomizes the helper's timing in Utilities while
+  // Dana's own question ("who installed it?") is still unanswered.
+  let s = play({ e1: 'jiggle', e2: 'script' }, { stopAt: 'e4' });
+  s = logoff(s);
+  s = until(s, (x) => x.incident?.id === 'e5', { reads: false });
+  assert.equal(s.incident.variant, 'g');
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'ownscript'), { reads: false });
+  s = act(s, { do: 'helper', op: 'randomize' });
+  assert.equal(s.picked.e5, 'human');
+  assert.equal(s.answered['dana-e5g'], true);
+  s = until(s, (x) => has(texts(x, 'dana'), /moved on without me/), { reads: false });
+  assert.equal(replies(s, 'dana').filter((r) => !r.free).length, 0);
+}
+
+// -------------------------- the NARC 2.0 catch is a distinct moment (#20)
+
+{
+  // Caught your own gamed signal: the Monday card gets the big treatment.
+  let s = play({ e1: 'jiggle' }, { stopAt: 'e4' });
+  const a = s.alerts.find((x) => x.incident === 'e1');
+  const view = caseView(s, a);
+  assert.equal(view.big, true, 'the beat that caught the player is the big moment');
+  const beatToast = s.toasts.find((x) => x.big);
+  assert.equal(beatToast.title, 'NARC adapted to you');
+  assert.ok(beatToast, 'exactly the beat toast carries the big flag');
+  assert.equal(beatToast.alert, a.id);
+
+  // Caught Luis instead (no keepalive of your own): his card gets it.
+  let luisCaught = play({ e1: 'explain', e2: 'script' }, { stopAt: 'e4' });
+  const la = luisCaught.alerts.find((x) => x.incident === 'e2');
+  assert.equal(caseView(luisCaught, la).big, true);
+  assert.equal(luisCaught.alerts.find((x) => x.incident === 'e1') ? caseView(luisCaught, luisCaught.alerts.find((x) => x.incident === 'e1')).big : false, false, 'not caught, not the big moment');
+
+  // A clean run (nothing to catch): no card is ever marked big.
+  const clean = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e4' });
+  assert.ok(!clean.alerts.some((x) => caseView(clean, x).big), 'nothing to catch means no big moment, not a forced one');
+  assert.ok(!clean.toasts.some((x) => x.big));
+}
+
+// -------- the forecast/beat gate reminds the player too, not just the email (#19)
+
+{
+  // Before the fix, s.awaitingAlert had zero reminder nudges on EITHER path
+  // that sets it: a player who missed the toast had no way to be told the
+  // game was waiting on them.
+  for (const picks of [{}, { e1: 'jiggle' }]) {
+    // Never opens it: reminders must eventually appear on their own.
+    let s = play(picks, { stopAt: 'e3' });
+    s = act(s, { do: 'logoff' });
+    s = until(s, (x) => x.awaiting, { reads: false });
+    s = act(s, { do: 'open', ref: `email:${s.awaiting}` });
+    s = until(s, (x) => x.awaitingAlert, { reads: false });
+    const id = s.awaitingAlert;
+    const at = s.t;
+    s = ticks(s, 95); // past all three reminder times
+    const nudges = s.toasts.filter((x) => x.nudgeFor === id && x.at > at);
+    assert.ok(nudges.length >= 1, `a reminder eventually appears while the gate sits unopened (${JSON.stringify(picks)})`);
+    assert.equal(s.incident, null, 'still correctly waiting -- e4 has not started');
+
+    // Opens it right away: none of the three reminders that were already
+    // scheduled should still fire later. (The toast list caps at 24 and
+    // drops from the front, so compare by time, not by array position.)
+    let fast = play(picks, { stopAt: 'e3' });
+    fast = act(fast, { do: 'logoff' });
+    fast = until(fast, (x) => x.awaiting, { reads: false });
+    fast = act(fast, { do: 'open', ref: `email:${fast.awaiting}` });
+    fast = until(fast, (x) => x.awaitingAlert, { reads: false });
+    const fastId = fast.awaitingAlert;
+    const openedAt = fast.t;
+    fast = act(fast, { do: 'open', ref: `alert:${fastId}` });
+    fast = ticks(fast, 95); // past where the same 30/60/90 reminders would have landed
+    assert.ok(!fast.toasts.some((x) => x.nudgeFor === fastId && x.at > openedAt), `no stale reminder after it has been opened immediately (${JSON.stringify(picks)})`);
+  }
+}
+
+// ------------------------- post-report debrief names what happened (#21)
+
+{
+  // Each concept is reachable and produces its named title.
+  const cases = [
+    [{ e1: 'jiggle', e2: 'script', e5: 'human' }, 'Adversarial evasion'],
+    [{ ...HONEST, e4: 'quiet' }, 'Feedback loop'],
+    [{ ...HONEST, e3: 'paper', e6: 'approve' }, 'Self-confirming evidence'],
+    [{ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' }, 'Prediction as evidence'],
+    [{ ...HONEST, e3: 'stay', e6: 'let' }, 'Prior flags outweigh new evidence'],
+    [{ e1: 'jiggle' }, 'Metric gaming, caught'],
+    [{ ...HONEST, e4: 'champion' }, 'Exempting the metric instead of meeting it'],
+  ];
+  for (const [picks, title] of cases) {
+    const s = play(picks);
+    const titles = ending(s).debrief.map((d) => d.title);
+    assert.ok(titles.includes(title), `${JSON.stringify(picks)}: expected "${title}" in ${JSON.stringify(titles)}`);
+  }
+
+  // Never more than three, and never empty.
+  for (const picks of [HONEST, { e1: 'jiggle', e2: 'script', e4: 'quiet', e3: 'paper' }]) {
+    const d = ending(play(picks)).debrief;
+    assert.ok(d.length >= 1 && d.length <= 3, `debrief length ${d.length} out of range for ${JSON.stringify(picks)}`);
+    d.forEach((x) => assert.ok(x.title && x.text.length > 20));
+  }
+
+  // A fully honest, nothing-gamed run still gets something, not a blank section.
+  const clean = ending(play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' }));
+  assert.ok(clean.debrief.length >= 1);
 }
 
 console.log('NARC tests passed');

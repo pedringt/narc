@@ -427,3 +427,32 @@ button { cursor: pointer; }
 .num { transition: color 1.6s ease-out; }
 @keyframes noteIn { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .narcnote, .bubble.narc, .model-box.updated { animation: none; } }
+
+/* The one moment in the game where NARC catches something the player did and
+   revises a prior belief. Same update grammar as everywhere else, sized up:
+   reuses --n-warn (already the "something needs attention" color) rather
+   than introducing a new one. */
+.big-reveal {
+  font: 700 12px/1.4 var(--mono); letter-spacing: .14em; color: var(--n-warn);
+  margin-bottom: 8px;
+}
+.model-box.big {
+  border-color: var(--n-warn);
+  padding: 18px 20px;
+  animation: bigReveal .5s ease-out;
+}
+.model-box.big .assessment { font-size: 22px; }
+.model-box.big .updated-tag { color: var(--n-warn); font-size: 12px; }
+@keyframes bigReveal { from { opacity: 0; transform: scale(.97); } }
+
+.toast.big { border-color: var(--n-warn); box-shadow: 0 0 0 1px rgba(239, 196, 108, .3); }
+.toast.big .bigflag { display: block; font: 700 10px/1.4 var(--mono); letter-spacing: .12em; color: var(--n-warn); margin-bottom: 4px; }
+
+@media (prefers-reduced-motion: reduce) { .model-box.big { animation: none; } }
+
+/* The post-report debrief: what this run demonstrated, named for a reviewer
+   rather than left to be inferred. Same card language as achievements. */
+.debrief { display: grid; gap: 8px; }
+.debrief-item { border: 1px solid var(--n-line); border-left: 3px solid var(--n-accent); padding: 10px 12px; background: #101210; }
+.debrief-item .name { font-weight: 700; margin-bottom: 3px; }
+.debrief-item p { margin: 0; color: var(--n-muted); font-size: 13px; line-height: 1.5; }
