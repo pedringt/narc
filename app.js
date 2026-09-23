@@ -362,7 +362,18 @@ function renderMessages() {
         return;
       }
       const b = h('div', `bubble ${m.from === 'me' ? 'me' : m.from === 'system' ? 'system' : ''}`, m.text);
-      if (m.attach) b.append(h('span', 'attach', m.attach));
+      if (m.attach) {
+        // Something someone else sent you is worth being able to act on,
+        // not just read the name of. Right now the only such attachment in
+        // the game is Marcus's keepalive share, and the action lives in
+        // Utilities. Things the player already sent (from: 'me') are just a
+        // record of what happened, not something to click again.
+        if (m.from === 'them' && m.attach === 'keepalive.pkg') {
+          b.append(btn(m.attach, 'attach clickable', () => goApp('utilities')));
+        } else {
+          b.append(h('span', 'attach', m.attach));
+        }
+      }
       scroll.append(b);
     });
     wrap.append(scroll);

@@ -1658,4 +1658,20 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(clean.debrief.length >= 1);
 }
 
+// ---------------- the keepalive attachment Marcus shares is clickable
+
+{
+  // Verified with the player, not just inferred: it looked like a real
+  // attachment (paperclip icon) but was a plain span with no click handler.
+  const s0 = play({}, { stopAt: 'e1' });
+  const s = until(s0, (x) => x.threads.marcus.some((m) => m.attach === 'keepalive.pkg'), { reads: false });
+  const marcusMsg = s.threads.marcus.find((m) => m.attach === 'keepalive.pkg');
+  assert.ok(marcusMsg, 'Marcus shares the file');
+  assert.equal(marcusMsg.from, 'them');
+  // Outgoing copies of the same attachment are just a record, not a control.
+  const luisScript = DO.e2.script(play({ e1: 'explain' }, { stopAt: 'e2' }));
+  const sentMsg = luisScript.threads.luis.find((m) => m.attach === 'keepalive.pkg' && m.from === 'me');
+  assert.ok(sentMsg);
+}
+
 console.log('NARC tests passed');
