@@ -1674,4 +1674,22 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(sentMsg);
 }
 
+// ------------- Wednesday: no silent gap between reading things and Thursday
+
+{
+  // A player who reads everything as soon as it is available should reach
+  // e4 within a few seconds of the last thing they read -- not sit through
+  // a silent stretch caused by reminder nudges for a gate they already
+  // opened counting as "still to come" and inflating settledAt().
+  let s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  s = act(s, { do: 'logoff' });
+  s = until(s, (x) => x.awaiting, { reads: false });
+  s = act(s, { do: 'open', ref: `email:${s.awaiting}` });
+  s = until(s, (x) => x.awaitingAlert, { reads: false });
+  const openedAt = s.t;
+  s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
+  s = until(s, (x) => x.incident?.id === 'e4', { reads: false, max: 200 });
+  assert.ok(s.t - openedAt <= 10, `e4 should arrive within ~10s of opening the forecast, took ${s.t - openedAt}s`);
+}
+
 console.log('NARC tests passed');
