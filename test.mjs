@@ -1566,4 +1566,29 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(replies(s, 'dana').filter((r) => !r.free).length, 0);
 }
 
+// -------------------------- the NARC 2.0 catch is a distinct moment (#20)
+
+{
+  // Caught your own gamed signal: the Monday card gets the big treatment.
+  let s = play({ e1: 'jiggle' }, { stopAt: 'e4' });
+  const a = s.alerts.find((x) => x.incident === 'e1');
+  const view = caseView(s, a);
+  assert.equal(view.big, true, 'the beat that caught the player is the big moment');
+  const beatToast = s.toasts.find((x) => x.big);
+  assert.equal(beatToast.title, 'NARC adapted to you');
+  assert.ok(beatToast, 'exactly the beat toast carries the big flag');
+  assert.equal(beatToast.alert, a.id);
+
+  // Caught Luis instead (no keepalive of your own): his card gets it.
+  let luisCaught = play({ e1: 'explain', e2: 'script' }, { stopAt: 'e4' });
+  const la = luisCaught.alerts.find((x) => x.incident === 'e2');
+  assert.equal(caseView(luisCaught, la).big, true);
+  assert.equal(luisCaught.alerts.find((x) => x.incident === 'e1') ? caseView(luisCaught, luisCaught.alerts.find((x) => x.incident === 'e1')).big : false, false, 'not caught, not the big moment');
+
+  // A clean run (nothing to catch): no card is ever marked big.
+  const clean = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e4' });
+  assert.ok(!clean.alerts.some((x) => caseView(clean, x).big), 'nothing to catch means no big moment, not a forced one');
+  assert.ok(!clean.toasts.some((x) => x.big));
+}
+
 console.log('NARC tests passed');

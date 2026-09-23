@@ -592,12 +592,17 @@ function caseNode(a) {
 
   box.append(h('div', 'subject', c.subject));
 
+  // One moment in the game gets a distinct treatment: the first time NARC
+  // catches something the player did and revises its own prior belief. Same
+  // grammar as every other update, just not blended into it.
+  if (c.big) box.append(h('div', 'big-reveal', 'NARC ADAPTED'));
+
   // Three questions, in the order a reader asks them: what does NARC think,
   // why does it think that, and what happens because of it.
   const m = c.model;
   box.append(
     h('div', 'sect model', 'What NARC thinks'),
-    h('div', `model-box${c.updated ? ' updated' : ''}`,
+    h('div', `model-box${c.updated ? ' updated' : ''}${c.big ? ' big' : ''}`,
       c.updated ? h('div', 'updated-tag', c.unchanged ? 'Assessment unchanged' : 'Assessment updated') : null,
       m.was ? h('div', 'was', `${m.was.label} · ${m.was.confidence}% confidence`) : null,
       h('div', 'assessment', m.label),
@@ -682,8 +687,8 @@ function renderToasts() {
     const label = { narc: 'NARC', messages: 'Messages', email: 'Email' }[t.app];
     const fresh = !shownToasts.has(t.id);
     shownToasts.add(t.id);
-    const el = h('div', `toast ${t.app === 'narc' ? 'narc' : ''}${t.app === 'narc' && state.level >= 2 ? ' enhanced' : ''}${fresh ? ' enter' : ''}`);
-    const body = h('button', 'open', h('span', 'app', label), h('b', null, t.title), h('span', 'text', t.text),
+    const el = h('div', `toast ${t.app === 'narc' ? 'narc' : ''}${t.app === 'narc' && state.level >= 2 ? ' enhanced' : ''}${fresh ? ' enter' : ''}${t.big ? ' big' : ''}`);
+    const body = h('button', 'open', t.big ? h('span', 'bigflag', 'NARC JUST LEARNED SOMETHING') : null, h('span', 'app', label), h('b', null, t.title), h('span', 'text', t.text),
       t.app === 'narc' ? h('span', 'cta', 'Open in NARC ›') : null);
     body.type = 'button';
     body.addEventListener('click', () => openRef(t.open));

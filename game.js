@@ -207,7 +207,7 @@ function deliver(s, d) {
           const was = (prev.metrics.find(([kk]) => kk === k) || [])[1];
           metrics[k] = { value, was: was !== value ? was : undefined };
         });
-        a.live = { model: { ...model, was: changed ? { label: prev.model.label, confidence: prev.model.confidence } : a.live?.model?.was }, metrics, text: d.text };
+        a.live = { model: { ...model, was: changed ? { label: prev.model.label, confidence: prev.model.confidence } : a.live?.model?.was }, metrics, text: d.text, big: !!d.big };
       }
       if (d.where && d.where.startsWith('thread:')) {
         s.threads[d.where.slice(7)].push({ id: `m${++s.uid}`, from: 'narc', text: d.text, unread: false });
@@ -220,7 +220,7 @@ function deliver(s, d) {
       const target = a || hist;
       if (d.gate) s.awaitingAlert = target.id;
       if (d.toast) {
-        toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false });
+        toast(s, { app: 'narc', title: d.title || 'Assessment updated', text: d.text, open: `alert:${target.id}`, alert: target.id, incident: false, big: !!d.big });
       }
       break;
     }
@@ -458,8 +458,9 @@ function scan(s) {
       conf: 96,
       tone: 'bad',
       toast: beat === 'monday',
+      big: beat === 'monday',
       gate: beat === 'monday',
-      title: 'Assessment updated',
+      title: 'NARC adapted to you',
       text: `Monday reassessed: input repeats every 59 seconds. ${s.you.gamed ? `Visible Activity Index recalculated: ${from} → ${to}. ` : ''}Integrity flag added. Forecast: policy-workaround likelihood ${risk}%.`,
     });
     if (s.you.gamed) score(s, 3, to - from, 'Recalculated', 'Visible Activity Index recalculated: {from} → {to}.', { quiet: true });
@@ -472,8 +473,9 @@ function scan(s) {
       conf: 96,
       tone: 'bad',
       toast: beat === 'tuesday',
+      big: beat === 'tuesday',
       gate: beat === 'tuesday',
-      title: 'Assessment updated',
+      title: 'NARC adapted',
       text: `Tuesday reassessed: Luis Perez’s input repeats every 59 seconds. Synthetic activity detected. Under review.${beat === 'tuesday' ? ` Forecast: policy-workaround likelihood ${risk}%.` : ''}`,
     });
   }
@@ -1440,7 +1442,7 @@ export function caseView(s, alert) {
   Object.entries(live.metrics).forEach(([k, m]) => {
     if (!v.metrics.some(([kk]) => kk === k)) metrics.push([k, m.value, m.was]);
   });
-  return { ...v, model: live.model, updated: true, unchanged: !live.model.was, metrics, reaction: live.text };
+  return { ...v, model: live.model, updated: true, unchanged: !live.model.was, metrics, reaction: live.text, big: !!live.big };
 }
 
 export function calendarAction(s) {
