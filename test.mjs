@@ -69,7 +69,7 @@ const DO = {
   },
   e3: {
     truth: reply('dana', 'reportmarcus'),
-    paper: (s) => act(s, { do: 'addEvent', title: 'Vendor Site Visit: Pinecrest Family Fun Center' }),
+    paper: (s) => act(s, { do: 'addEvent', title: 'Approved absence: transit delay' }),
     cover: reply('dana', 'covermarcus'),
     transit: reply('marcus', 'transitAlert'),
     stay: logoff,
@@ -504,7 +504,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   ]);
   assert.deepEqual(opts(s, 'dana'), [
     'The location record does not match what he told us.',
-    'His calendar is missing context. There was a vendor visit that morning.',
+    'I’ll add something to his calendar backing up the bus story.',
     'I don’t know enough to confirm the location trace.',
   ]);
 
@@ -537,8 +537,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   // Marcus: covering for him through Dana adds the entry; advice to add it late backfires.
   s = DO.e3.cover(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
-  assert.ok(s.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title) && /Marcus Reed/.test(e.where)));
-  s = until(s, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
+  assert.ok(s.calendar.some((e) => e.who === 'marcus' && /Approved absence/.test(e.title) && /Employee 4417/.test(e.where)));
+  s = until(s, (x) => has(noticeTexts(x), /Same-day calendar entry added/));
   assert.equal(s.people.marcus.gamed, true);
 
   s = DO.e3.badtip(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
@@ -602,8 +602,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let m = play({}, { stopAt: 'e3' });
   assert.deepEqual(calendarAction(m), { day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
   m = DO.e3.paper(m);
-  assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title)));
-  m = until(m, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
+  assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Approved absence/.test(e.title)));
+  m = until(m, (x) => has(noticeTexts(x), /Same-day calendar entry added/));
   assert.equal(m.people.marcus.cred, 91);
   assert.equal(calendarAction(m), null);
   assert.equal(act(m, { do: 'addEvent', title: 'again' }).calendar.length, m.calendar.length, 'no second attempt');
@@ -962,7 +962,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(DO.e3.paper(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' })), (x) => card(x, 'e3').updated);
   assert.equal(card(s, 'e3').model.confidence, 91);
   assert.equal(card(s, 'e3').model.was.confidence, 38);
-  assert.match(s.reactions['calendar:team'].text, /corroborated by 3 sources/);
+  assert.match(s.reactions['calendar:team'].text, /Same-day calendar entry added/);
 
   // Every first reaction lands within a few seconds of the action, once they have read what was said.
   for (const [inc, picks, action] of [
@@ -1723,6 +1723,47 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const faked = play({ e1: 'explain', e2: 'ignore', e3: 'paper' }, { stopAt: 'e4' });
   assert.notEqual(s.people.marcus.cred, honest.people.marcus.cred);
   assert.notEqual(s.people.marcus.cred, faked.people.marcus.cred);
+}
+
+// -------- Marcus's Wednesday: one coherent story, source/timing legible (#40a)
+
+{
+  // The bus delay is real (the transit branch already proves this); the
+  // fabrication, if any, is the calendar record formalizing it, not a
+  // second unrelated story. Every outcome now names its evidence source.
+  const source = (s, inc) => caseView(s, s.alerts.find((a) => a.incident === inc)).metrics.find(([k]) => k === 'Evidence source')?.[1];
+
+  const truth = play({ e1: 'explain', e2: 'ignore', e3: 'truth' }, { stopAt: 'e4' });
+  assert.match(source(truth, 'e3'), /Device location trace \(official\)/);
+
+  const paper = play({ e1: 'explain', e2: 'ignore', e3: 'paper' }, { stopAt: 'e4' });
+  assert.match(source(paper, 'e3'), /Self-reported, same-day \+ transit alert/);
+  assert.ok(!has(noticeTexts(paper), /facilities ticket/i), 'no second invented document');
+  assert.ok(!has(noticeTexts(paper), /vendor visit/i), 'no unrelated second story');
+
+  const badtip = play({ e1: 'explain', e2: 'ignore', e3: 'badtip' }, { stopAt: 'e4' });
+  assert.match(source(badtip, 'e3'), /Self-reported, after the flag/);
+
+  const stay = play({ e1: 'explain', e2: 'ignore', e3: 'stay' }, { stopAt: 'e4' });
+  assert.match(source(stay, 'e3'), /None submitted/);
+
+  const transit = play({ e1: 'explain', e2: 'ignore', e3: 'transit' }, { stopAt: 'e4' });
+  assert.match(source(transit, 'e3'), /Third-party \(transit alert\)/);
+
+  // The calendar record itself now formalizes the same bus story, not a
+  // separate, unconnected excuse.
+  const rec = paper.calendar.find((e) => e.who === 'marcus');
+  assert.match(rec.title, /transit delay/i);
+  assert.match(rec.where, /Employee 4417/);
+
+  // Every outcome updates "what happens because of it", not just the
+  // do-nothing routes -- the default "Corroborating records requested"
+  // must not survive a resolution.
+  const response = (s) => caseView(s, s.alerts.find((a) => a.incident === 'e3')).metrics.find(([k]) => k === 'Company response')?.[1];
+  assert.match(response(truth), /Written Attendance Warning/);
+  assert.match(response(paper), /Corroborated/);
+  assert.match(response(badtip), /Written Attendance Warning/);
+  [truth, paper, badtip, stay, transit].forEach((s) => assert.notEqual(response(s), 'Corroborating records requested'));
 }
 
 console.log('NARC tests passed');

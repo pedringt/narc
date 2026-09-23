@@ -675,7 +675,7 @@ const INCIDENTS = {
         p.status = 'warning';
         p.trust -= 2;
         say(s, 3, 'dana', 'Thanks for being straight with me. I’ll pass that along.');
-        react(s, 5, { incident: 'e3', where: 'thread:dana', conf: 12, tone: 'bad', text: 'Location trace confirmed. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
+        react(s, 5, { incident: 'e3', where: 'thread:dana', conf: 12, tone: 'bad', metrics: { 'Company response': 'Written Attendance Warning', 'Evidence source': 'Device location trace (official)' }, text: 'Location trace confirmed. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
         score(s, 4, 5, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
         say(s, 18, 'marcus', 'Mini-golf is a cognitive reset. Ask anyone. Don’t ask anyone.');
         catchUp(s, 5, 'marcus');
@@ -685,7 +685,7 @@ const INCIDENTS = {
         p.gamed = true;
         p.cred = 91;
         p.trust += 2;
-        react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', text: 'Story corroborated by 3 sources: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Attendance credibility 38% → 91%.' });
+        react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', metrics: { 'Company response': 'None. Corroborated', 'Evidence source': 'Self-reported, same-day + transit alert' }, text: 'Same-day calendar entry added, backed by the transit alert already on file. NARC treats a same-day employee record plus a matching public alert as sufficient corroboration. Attendance credibility 38% → 91%.' });
         say(s, 12, 'marcus', 'It’s on the calendar now. Apparently that counts as true.');
         say(s, 22, 'marcus', '91%. i have never been 91% of anything.');
       },
@@ -694,7 +694,7 @@ const INCIDENTS = {
         p.status = 'warning';
         react(s, 4, {
           incident: 'e3', where: 'narc', toast: true, title: 'Notice issued', label: 'Attendance credibility: uncorroborated', tone: 'bad',
-          metrics: { 'Company response': 'Attendance Integrity Notice' },
+          metrics: { 'Company response': 'Attendance Integrity Notice', 'Evidence source': 'None submitted' },
           text: 'No corroboration submitted. Attendance credibility stands at 38% and is now on file as uncorroborated. Attendance Integrity Notice issued: Marcus Reed.',
         });
         say(s, 14, 'marcus', 'I’m going to need a better raccoon.');
@@ -705,7 +705,7 @@ const INCIDENTS = {
         p.cred = 12;
         p.status = 'warning';
         say(s, 8, 'marcus', 'Fair. I’ll add the calendar entry after HR gets back to me. Will look more natural.');
-        react(s, 16, { incident: 'e3', where: 'thread:marcus', conf: 12, tone: 'bad', text: 'Calendar entry created after the flag. Pattern: retroactive. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
+        react(s, 16, { incident: 'e3', where: 'thread:marcus', conf: 12, tone: 'bad', metrics: { 'Company response': 'Written Attendance Warning', 'Evidence source': 'Self-reported, after the flag' }, text: 'Calendar entry created after the flag. Pattern: retroactive. Attendance credibility 38% → 12%. Written Attendance Warning issued.' });
         say(s, 26, 'marcus', 'It said “retroactive.” I thought I was being natural.');
         catchUp(s, 17, 'marcus');
       },
@@ -720,7 +720,7 @@ const INCIDENTS = {
         say(s, 3, 'marcus', 'Oh, good call. I forget that thing exists.');
         react(s, 8, {
           incident: 'e3', where: 'thread:marcus', conf: 67, tone: 'good',
-          metrics: { 'Company response': 'Attendance Advisory (informational)' },
+          metrics: { 'Company response': 'Attendance Advisory (informational)', 'Evidence source': 'Third-party (transit alert)' },
           text: 'Transit alert confirms an 11-minute delay on the 8:14 bus. Device location for the remaining 40 minutes is unaccounted for. Partial corroboration: attendance credibility 38% → 67%.',
         });
         say(s, 16, 'marcus', 'It doesn’t explain the whole morning, but it explains the bus, which is the part people don’t believe.');
@@ -1092,7 +1092,7 @@ function open(s, ref) {
 
 // What you can say in a conversation. Reply chips are tied to the message that
 // actually prompted them, so choices never appear before the conversation does.
-const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
+const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Approved absence \u2014 transit delay', where: 'Added by Employee 4417' };
 const CLOSING_LINE = {
   'dana-e2': 'Handled it another way, apparently. I’ll stand down.',
   'dana-e3': 'Looks like that sorted itself out before I could weigh in.',
@@ -1128,7 +1128,7 @@ const REPLIES = {
   'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
   'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
   'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
-  'dana:covermarcus': { text: 'His calendar is missing context. There was a vendor visit that morning.', when: 'e3', prompt: 'dana-e3', branch: 'paper', event: CALENDAR_TIP },
+  'dana:covermarcus': { text: 'I\u2019ll add something to his calendar backing up the bus story.', when: 'e3', prompt: 'dana-e3', branch: 'paper', event: CALENDAR_TIP },
   'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', prompt: 'dana-e3', branch: 'stay' },
   'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'admit' },
   'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'blame' },
