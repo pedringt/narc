@@ -141,7 +141,7 @@ const later = (s, n) => (s.base ?? s.t) + n;
 // never will, so they are not waited for.
 // Silent deliveries (markers, quiet history entries, in-place reactions) never
 // make the player wait: only things they would have to read do.
-const isNoisy = (p) => !p.when && !p.awaiting && !['mark', 'shown', 'react', 'cal'].includes(p.k) && !p.quiet;
+const isNoisy = (p) => !p.when && !p.awaiting && !p.awaitingAlert && !['mark', 'shown', 'react', 'cal'].includes(p.k) && !p.quiet;
 const settledAt = (s) => Math.max(s.t, ...s.pending.filter(isNoisy).map((p) => p.at));
 const say = (s, n, thread, text, extra = {}) => push(s, { at: later(s, n), k: 'msg', thread, text, ...extra });
 const notice = (s, n, title, text, extra = {}) => push(s, { at: later(s, n), k: 'notice', title, text, ...extra });

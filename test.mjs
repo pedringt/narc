@@ -1658,4 +1658,38 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(clean.debrief.length >= 1);
 }
 
+// ---------------- the keepalive attachment Marcus shares is clickable
+
+{
+  // Verified with the player, not just inferred: it looked like a real
+  // attachment (paperclip icon) but was a plain span with no click handler.
+  const s0 = play({}, { stopAt: 'e1' });
+  const s = until(s0, (x) => x.threads.marcus.some((m) => m.attach === 'keepalive.pkg'), { reads: false });
+  const marcusMsg = s.threads.marcus.find((m) => m.attach === 'keepalive.pkg');
+  assert.ok(marcusMsg, 'Marcus shares the file');
+  assert.equal(marcusMsg.from, 'them');
+  // Outgoing copies of the same attachment are just a record, not a control.
+  const luisScript = DO.e2.script(play({ e1: 'explain' }, { stopAt: 'e2' }));
+  const sentMsg = luisScript.threads.luis.find((m) => m.attach === 'keepalive.pkg' && m.from === 'me');
+  assert.ok(sentMsg);
+}
+
+// ------------- Wednesday: no silent gap between reading things and Thursday
+
+{
+  // A player who reads everything as soon as it is available should reach
+  // e4 within a few seconds of the last thing they read -- not sit through
+  // a silent stretch caused by reminder nudges for a gate they already
+  // opened counting as "still to come" and inflating settledAt().
+  let s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  s = act(s, { do: 'logoff' });
+  s = until(s, (x) => x.awaiting, { reads: false });
+  s = act(s, { do: 'open', ref: `email:${s.awaiting}` });
+  s = until(s, (x) => x.awaitingAlert, { reads: false });
+  const openedAt = s.t;
+  s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
+  s = until(s, (x) => x.incident?.id === 'e4', { reads: false, max: 200 });
+  assert.ok(s.t - openedAt <= 10, `e4 should arrive within ~10s of opening the forecast, took ${s.t - openedAt}s`);
+}
+
 console.log('NARC tests passed');
