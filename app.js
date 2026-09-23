@@ -744,6 +744,11 @@ function renderOverlay() {
   locked.forEach((a) => ach.append(h('div', 'ach-item locked', h('div', 'name', '???'), h('div', 'desc', a.hint))));
   r.append(ach);
 
+  r.append(h('div', 'sect', 'What this run demonstrated'));
+  const debrief = h('div', 'debrief');
+  e.debrief.forEach((d) => debrief.append(h('div', 'debrief-item', h('div', 'name', d.title), h('p', null, d.text))));
+  r.append(debrief);
+
   r.append(h('p', 'replay-note', 'Want to see what changes if you make different choices?'));
   const again = btn('Replay this week', 'nbtn primary', restart);
   again.style.marginTop = '12px';

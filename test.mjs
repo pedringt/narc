@@ -1627,4 +1627,35 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   }
 }
 
+// ------------------------- post-report debrief names what happened (#21)
+
+{
+  // Each concept is reachable and produces its named title.
+  const cases = [
+    [{ e1: 'jiggle', e2: 'script', e5: 'human' }, 'Adversarial evasion'],
+    [{ ...HONEST, e4: 'quiet' }, 'Feedback loop'],
+    [{ ...HONEST, e3: 'paper', e6: 'approve' }, 'Self-confirming evidence'],
+    [{ e1: 'focus', e2: 'ignore', e3: 'stay', e4: 'champion', e5: 'label', e6: 'let' }, 'Prediction as evidence'],
+    [{ ...HONEST, e3: 'stay', e6: 'let' }, 'Prior flags outweigh new evidence'],
+    [{ e1: 'jiggle' }, 'Metric gaming, caught'],
+    [{ ...HONEST, e4: 'champion' }, 'Exempting the metric instead of meeting it'],
+  ];
+  for (const [picks, title] of cases) {
+    const s = play(picks);
+    const titles = ending(s).debrief.map((d) => d.title);
+    assert.ok(titles.includes(title), `${JSON.stringify(picks)}: expected "${title}" in ${JSON.stringify(titles)}`);
+  }
+
+  // Never more than three, and never empty.
+  for (const picks of [HONEST, { e1: 'jiggle', e2: 'script', e4: 'quiet', e3: 'paper' }]) {
+    const d = ending(play(picks)).debrief;
+    assert.ok(d.length >= 1 && d.length <= 3, `debrief length ${d.length} out of range for ${JSON.stringify(picks)}`);
+    d.forEach((x) => assert.ok(x.title && x.text.length > 20));
+  }
+
+  // A fully honest, nothing-gamed run still gets something, not a blank section.
+  const clean = ending(play({ e1: 'explain', e2: 'confirm', e3: 'truth', e4: 'leave', e5: 'letit', e6: 'let' }));
+  assert.ok(clean.debrief.length >= 1);
+}
+
 console.log('NARC tests passed');

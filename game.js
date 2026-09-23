@@ -1617,6 +1617,70 @@ function companySummary(s) {
   return rows;
 }
 
+// A short, named reading of what this specific run actually demonstrated,
+// for a reviewer who wants the AI-product concept in one sentence rather
+// than inferred from play. Ordered by how sharp a demonstration each is;
+// a run shows at most three, whichever actually happened.
+const DEBRIEF = [
+  {
+    id: 'evasion',
+    when: (s) => s.picked.e5 === 'human',
+    title: 'Adversarial evasion',
+    text: 'NARC\u2019s synthetic-activity detector looked for a fixed 59-second interval. Randomizing Luis\u2019s timing beat the detector without changing what it measured \u2014 the same cat-and-mouse real anti-fraud and anti-bot systems fight today.',
+  },
+  {
+    id: 'feedback-loop',
+    when: (s) => s.picked.e4 === 'quiet',
+    title: 'Feedback loop',
+    text: 'Telling Priya to post less fixed her Communication Load \u2014 and NARC read the resulting silence as a new problem, Social Withdrawal. Optimizing one metric moved the failure onto a different one instead of removing it.',
+  },
+  {
+    id: 'prediction',
+    when: (s) => s.you.predicted,
+    title: 'Prediction as evidence',
+    text: 'NARC opened a Predictive Integrity Review on a forecast of what you might do, not on anything you were caught doing. A high enough confidence score was itself treated as grounds to act.',
+  },
+  {
+    id: 'circular-evidence',
+    when: (s) => s.picked.e3 === 'paper',
+    title: 'Self-confirming evidence',
+    text: 'Marcus\u2019s calendar entry counted as one of NARC\u2019s three corroborating sources \u2014 even though he wrote it himself, after the fact, in direct response to the flag it was meant to answer.',
+  },
+  {
+    id: 'history-over-evidence',
+    when: (s) => s.picked.e6 === 'let',
+    title: 'Prior flags outweigh new evidence',
+    text: 'Marcus\u2019s attendance history was weighted 80% against him \u2014 enough that no new corroboration could have changed the automatic outcome.',
+  },
+  {
+    id: 'goodhart',
+    when: (s) => s.you.gamed && s.flags >= 1,
+    title: 'Metric gaming, caught',
+    text: 'The keepalive tool inflated your Visible Activity Index \u2014 until NARC 2.0 learned to detect the exact pattern it produces. Game the metric, the system adapts, repeat: Goodhart\u2019s Law as an arms race.',
+  },
+  {
+    id: 'exemption',
+    when: (s) => s.people.priya.champion,
+    title: 'Exempting the metric instead of meeting it',
+    text: 'A Culture Champion nomination did not fix Priya\u2019s Communication Load \u2014 it exempted her from being measured on it at all. The fastest way to beat a metric is sometimes to get declared out of scope for it.',
+  },
+  {
+    id: 'thin-review',
+    when: (s) => Object.values(s.people).some((p) => p.status === 'fired'),
+    title: 'Automated authority, thin review',
+    text: 'NARC\u2019s classification became the company\u2019s decision, with nothing that looked like a human actually re-checking it before it took effect.',
+  },
+];
+
+function debrief(s) {
+  const hits = DEBRIEF.filter((d) => d.when(s)).slice(0, 3);
+  if (hits.length) return hits.map(({ title, text }) => ({ title, text }));
+  return [{
+    title: 'A straight week',
+    text: 'This run mostly took NARC at its word. Worth noticing on its own: it never had to explain a probabilistic judgment as anything other than settled fact.',
+  }];
+}
+
 export function ending(s) {
   return {
     roster: Object.keys(PEOPLE).map((id) => ({
@@ -1630,5 +1694,6 @@ export function ending(s) {
     you: playerResult(s),
     company: companySummary(s),
     achievements: achievements(s),
+    debrief: debrief(s),
   };
 }

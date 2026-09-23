@@ -449,3 +449,10 @@ button { cursor: pointer; }
 .toast.big .bigflag { display: block; font: 700 10px/1.4 var(--mono); letter-spacing: .12em; color: var(--n-warn); margin-bottom: 4px; }
 
 @media (prefers-reduced-motion: reduce) { .model-box.big { animation: none; } }
+
+/* The post-report debrief: what this run demonstrated, named for a reviewer
+   rather than left to be inferred. Same card language as achievements. */
+.debrief { display: grid; gap: 8px; }
+.debrief-item { border: 1px solid var(--n-line); border-left: 3px solid var(--n-accent); padding: 10px 12px; background: #101210; }
+.debrief-item .name { font-weight: 700; margin-bottom: 3px; }
+.debrief-item p { margin: 0; color: var(--n-muted); font-size: 13px; line-height: 1.5; }
