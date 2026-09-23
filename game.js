@@ -436,7 +436,10 @@ function scan(s) {
     const to = s.you.gamed ? Math.max(20, from - 25) : from;
     react(s, 3, {
       incident: 'e1',
-      where: 'narc',
+      // Monday's keepalive panel told its own "engagement is up" story; if it
+      // is not revised too, it is the one surface that never learns NARC 2.0
+      // happened.
+      where: 'utilities',
       label: 'Synthetic activity: pattern detected',
       conf: 96,
       tone: 'bad',
@@ -652,7 +655,7 @@ const INCIDENTS = {
         p.cred = 91;
         p.trust += 2;
         react(s, 1, { incident: 'e3', where: 'calendar:team', conf: 91, tone: 'good', text: 'Story corroborated by 3 sources: transit alert, facilities ticket #4471 (filed 09:31), calendar entry. Attendance credibility 38% → 91%.' });
-        say(s, 12, 'marcus', 'i did visit the vendor. the vendor was a windmill.');
+        say(s, 12, 'marcus', 'It’s on the calendar now. Apparently that counts as true.');
         say(s, 22, 'marcus', '91%. i have never been 91% of anything.');
       },
       stay(s) {

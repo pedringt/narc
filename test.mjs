@@ -1464,4 +1464,23 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   }
 }
 
+// ------------------- e3 paper: the response doesn't assume a specific title
+
+{
+  let s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  s = act(s, { do: 'addEvent', title: 'Cryptid Sighting Follow-up' });
+  assert.equal(s.picked.e3, 'paper');
+  s = until(s, (x) => has(texts(x, 'marcus'), /calendar now/), { reads: false });
+  assert.ok(!has(texts(s, 'marcus'), /vendor|windmill/i), 'no leftover reference to a specific typed title');
+}
+
+// -------- the keepalive panel is revised too, not just the NARC card, after NARC 2.0
+
+{
+  let s = play({ e1: 'jiggle', e2: 'focus' }, { stopAt: 'e4' });
+  assert.equal(s.flags, 1);
+  assert.match(s.reactions.utilities.text, /Monday reassessed/, 'the panel that told the original story is corrected, not left showing the old numbers');
+  assert.ok(!/Engagement trend: positive/.test(s.reactions.utilities.text));
+}
+
 console.log('NARC tests passed');
