@@ -470,3 +470,9 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
   margin: 0 0 8px; padding: 8px 12px; background: var(--app-accent-bg); color: var(--app-accent);
   font-size: 13px; border-radius: 6px; border-left: 3px solid var(--app-accent);
 }
+
+/* The Loop: a small, static company feed to sit in between incidents. */
+.intranet-list { padding: 18px 22px; overflow-y: auto; display: grid; gap: 10px; max-width: 62ch; }
+.intranet-post { border: 1px solid var(--app-line); border-radius: 8px; padding: 10px 14px; background: var(--app-panel); }
+.intranet-from { font-size: 12px; font-weight: 700; color: var(--app-muted); letter-spacing: .02em; margin-bottom: 4px; }
+.intranet-post p { margin: 0; font-size: 14px; line-height: 1.5; }

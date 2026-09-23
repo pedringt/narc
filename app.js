@@ -14,6 +14,7 @@ const ICON = {
   files: svg('<path d="M3 6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   utilities: svg('<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'),
   narc: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>'),
+  intranet: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h4M7 16h7"/>'),
 };
 
 const APPS = [
@@ -23,6 +24,21 @@ const APPS = [
   { id: 'files', label: 'Files' },
   { id: 'utilities', label: 'Utilities' },
   { id: 'narc', label: 'NARC' },
+  { id: 'intranet', label: 'The Loop' },
+];
+
+// A short, mostly-static feed of company nonsense -- somewhere to sit while
+// time passes that isn't "click around looking for a trigger". Nothing here
+// is required, tracked, or ever produces a mark/badge/notification.
+const INTRANET_POSTS = [
+  { from: 'People Operations', text: 'Wellness Wednesday: take a mandatory break to think about how relaxed you are.' },
+  { from: 'Facilities', text: 'The plant on the 3rd floor is not real. Please stop watering it.' },
+  { from: 'IT', text: 'Please do not name your devices after raccoons. We are not going to say why.' },
+  { from: 'People Operations', text: 'Employee Kudos: shoutout to Facilities for locating the source of the printer smell (still unconfirmed).' },
+  { from: 'Culture Team', text: 'Lunch Poll: Taco Tuesday vs. Tuesday Tacos. Voting closes whenever someone remembers to close it.' },
+  { from: 'HR', text: '\u201cCulture\u201d is now a Tuesday.' },
+  { from: 'People Operations', text: 'NARC Workforce Support Pilot Satisfaction Survey. Employee sentiment: Excellent. Survey responses received: 0.' },
+  { from: 'Facilities', text: 'The microwave rotation chart is not a NARC surface. Please stop reporting it.' },
 ];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -194,7 +210,7 @@ function trayLabel() {
 // actually introduced. Keep the current app visible so notification deep-links
 // never strand the player.
 function visibleApps() {
-  const ids = new Set(['email', ui.app]);
+  const ids = new Set(['email', 'intranet', ui.app]);
   if (state.threads.dana.length || state.seen.messages) {
     ids.add('messages');
     ids.add('calendar');
@@ -253,6 +269,7 @@ function renderWindow() {
   const views = {
     email: renderEmail, messages: renderMessages, calendar: renderCalendar,
     files: renderFiles, utilities: renderUtilities, narc: renderNarc,
+    intranet: renderIntranet,
   };
   const nodes = views[ui.app]();
   els.win.className = `window${ui.app === 'narc' ? ' narc' : ''}${ui.detail ? ' show-detail' : ''}`;
@@ -421,6 +438,12 @@ function eventRow(e, team) {
   const note = narcNote(team && /^Added by/.test(e.where) ? 'calendar:team' : `calendar:${e.id}`);
   if (note) body.append(note);
   return h('div', `event${team ? ' team' : ''}${e.focus ? ' focus' : ''}`, h('div', 'time', `${e.start}–${e.end}`), body);
+}
+
+function renderIntranet() {
+  const list = h('div', 'intranet-list');
+  INTRANET_POSTS.forEach((p) => list.append(h('div', 'intranet-post', h('div', 'intranet-from', p.from), h('p', null, p.text))));
+  return windowShell('The Loop', h('div', 'body', list));
 }
 
 function renderCalendar() {
