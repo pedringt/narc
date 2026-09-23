@@ -1503,4 +1503,67 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   }
 }
 
+// -------- a stranded question gets closed out instead of hanging (#17)
+
+{
+  // e2: Luis's own "block it as Focus time" suggestion is visible; the
+  // player answers Dana instead, which resolves the case a different way.
+  let s = play({}, { stopAt: 'e2' });
+  s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'noreportluis'), { reads: false });
+  const luisChipsBefore = replies(s, 'luis').map((r) => r.id);
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'noreportluis' });
+  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live before the race');
+  assert.equal(s.picked.e2, 'ignore');
+  assert.equal(s.answered['luis-e2'], true, 'the stranded prompt is marked answered, not left dangling');
+  s = until(s, (x) => has(texts(x, 'luis'), /Never mind, then\./), { reads: false });
+  assert.equal(replies(s, 'luis').length, 0, 'no chip is left behind for a question that is now moot');
+  assert.equal(texts(s, 'luis').filter((x) => x === 'Oh. Never mind, then.').length, 1, 'exactly one closing line, not the generic fallback');
+
+  // The closing line does not interrupt with a toast of its own.
+  const closingToasts = s.toasts.filter((x) => /Never mind, then/.test(x.text));
+  assert.equal(closingToasts.length, 0);
+}
+
+{
+  // A prompt shared by several reply options (e5g: ownscript/blameluis/
+  // unsurehelper all answer "dana-e5g") gets closed out exactly once, not
+  // once per option that shares it.
+  let s = play({ e1: 'jiggle', e2: 'script' }, { stopAt: 'e4' });
+  s = logoff(s);
+  s = until(s, (x) => x.incident?.id === 'e5', { reads: false });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'ownscript'), { reads: false });
+  s = act(s, { do: 'helper', op: 'randomize' });
+  s = until(s, (x) => has(texts(x, 'dana'), /moved on without me/), { reads: false });
+  assert.equal(texts(s, 'dana').filter((x) => /moved on without me/.test(x)).length, 1, 'one closing line, not one per shared option');
+}
+
+{
+  // The common case: e1 resolves without the player ever answering Dana's
+  // ackOnly setup chips. That prompt is quietly marked answered (existing
+  // behavior) and must NOT get a spurious "never mind" line -- ackOnly
+  // chips are conversational filler, not a real question left hanging.
+  let s = play({}, { stopAt: 'e1' });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'e1contract'), { reads: false });
+  s = DO.e1.jiggle(s);
+  assert.equal(s.answered['dana-e1'], true);
+  s = ticks(s, 10);
+  assert.ok(!has(texts(s, 'dana'), /moved on without me|got settled another way/), 'no closing line for ordinary ackOnly filler');
+}
+
+{
+  // e5g: the player randomizes the helper's timing in Utilities while
+  // Dana's own question ("who installed it?") is still unanswered.
+  let s = play({ e1: 'jiggle', e2: 'script' }, { stopAt: 'e4' });
+  s = logoff(s);
+  s = until(s, (x) => x.incident?.id === 'e5', { reads: false });
+  assert.equal(s.incident.variant, 'g');
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'ownscript'), { reads: false });
+  s = act(s, { do: 'helper', op: 'randomize' });
+  assert.equal(s.picked.e5, 'human');
+  assert.equal(s.answered['dana-e5g'], true);
+  s = until(s, (x) => has(texts(x, 'dana'), /moved on without me/), { reads: false });
+  assert.equal(replies(s, 'dana').filter((r) => !r.free).length, 0);
+}
+
 console.log('NARC tests passed');

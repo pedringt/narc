@@ -188,7 +188,10 @@ function deliver(s, d) {
   switch (d.k) {
     case 'msg':
       s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt, doneAt: s.done.length });
-      toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
+      // A quiet message still lands in the thread (unread badge and all); it
+      // just does not interrupt with a toast, the same way a quiet notice or
+      // reaction does not.
+      if (!d.quiet) toast(s, { app: 'messages', title: THREADS[d.thread].name, text: d.text, open: `thread:${d.thread}` });
       break;
     case 'notice':
       raise(s, { title: d.title, text: d.text, quiet: d.quiet });
@@ -340,12 +343,23 @@ function resolve(s, branch) {
   if (!def.allowed(inc.variant).includes(branch)) return false;
   s.picked[inc.id] = branch;
   s.done.push(inc.id);
-  // Taking an equivalent action elsewhere counts as handling Dana's question,
-  // so an old direct prompt never lingers into the next incident.
-  Object.keys(REPLIES)
-    .map((key) => REPLIES[key])
-    .filter((r) => r.prompt === `dana-${inc.id}`)
-    .forEach((r) => { s.answered[r.prompt] = true; });
+  // Taking one path to resolve a case forecloses any other prompted question
+  // that was racing to resolve the same one. If that question was never even
+  // delivered yet, it is silently marked answered (it will simply never
+  // arrive). If it was already visible on screen, whoever asked it gets a
+  // short line closing it out, instead of the question just hanging there.
+  Object.entries(REPLIES).forEach(([key, r]) => {
+    if (!r.prompt || r.when !== inc.id) return;
+    if (r.variant && r.variant !== inc.variant) return;
+    if (s.answered[r.prompt]) return; // already closed, including by an earlier entry sharing this prompt
+    s.answered[r.prompt] = true;
+    if (r.ackOnly) return; // conversational only; nothing was actually left hanging
+    const thread = key.split(':')[0];
+    const delivered = s.threads[thread]?.some((m) => m.prompt === r.prompt);
+    // Quiet: this is a different topic than whatever branch just resolved,
+    // so it should not delay that branch's own reaction landing.
+    if (delivered) say(s, 2, thread, CLOSING_LINE[r.prompt] ?? 'Never mind — that got settled another way.', { quiet: true });
+  });
   const alert = s.alerts.find((a) => a.incident === inc.id);
   if (alert) alert.closed = true;
   s.toasts.forEach((t) => { if ((alert && t.alert === alert.id) || t.nudgeFor === inc.id) t.gone = true; });
@@ -1045,6 +1059,19 @@ function open(s, ref) {
 // What you can say in a conversation. Reply chips are tied to the message that
 // actually prompted them, so choices never appear before the conversation does.
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Vendor Site Visit: Pinecrest Family Fun Center', where: 'Added by Marcus Reed' };
+const CLOSING_LINE = {
+  'dana-e2': 'Handled it another way, apparently. I’ll stand down.',
+  'dana-e3': 'Looks like that sorted itself out before I could weigh in.',
+  'dana-e5g': 'Never mind — the review already moved on without me.',
+  'dana-e5n': 'That seems to have resolved on its own.',
+  'dana-e6g': 'Someone got there first. I’ll drop it.',
+  'dana-e6b': 'That resolved itself. I’ll close this out.',
+  'luis-e2': 'Oh. Never mind, then.',
+  'marcus-e3': 'Guess we don’t need the calendar trick after all.',
+  'marcus-e6g': 'Cool, sounds handled.',
+  'priya-e4': 'Oh — okay, guess that’s settled already.',
+};
+
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
   'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good. Those contracts are never as boring as they look.' },
