@@ -724,7 +724,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   // Looking at an app clears its marker; hints do not appear once you have decided.
   let m = patient({}, 'e3');
-  assert.equal(m.marks.calendar, true);
+  assert.equal(m.marks.calendar, 'Wednesday has no entry for Marcus.', 'the dot has a reason, not just a boolean (#39)');
   m = act(m, { do: 'view', app: 'calendar' });
   assert.equal(m.marks.calendar, undefined);
   let quick = ticks(play({}, { stopAt: 'e3' }), 6);

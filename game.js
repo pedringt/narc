@@ -251,7 +251,8 @@ function deliver(s, d) {
       s.calendar.push({ id: `c${++s.uid}`, focus: false, ...d.event });
       break;
     case 'mark':
-      s.marks[d.app] = true;
+      // A short, non-spoiling reason to look, not just a dot (#39).
+      s.marks[d.app] = d.hint || true;
       if (d.discoverHelper) s.helper.discovered = true;
       break;
     case 'shown':
@@ -533,7 +534,7 @@ const INCIDENTS = {
           'Comment on p.14: pricing table does not match the quote. Difference: $40,000. Sent to Legal.',
         ],
       });
-      s.marks.files = true;
+      s.marks.files = 'A contract file was added.';
       // A move made before the flag pays off: NARC never gets to flag it.
       if (s.helper.on || s.calendar.find((e) => e.id === 'c1')?.focus) {
         s.earlyMove = true;
@@ -547,9 +548,9 @@ const INCIDENTS = {
         text: 'Observed: 3 h 12 min without keyboard or mouse input. NARC inference: reduced engagement · 64% confidence.',
       });
       say(s, 5, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
-      mark(s, 8, 'calendar', { when: 'e1' });
+      mark(s, 8, 'calendar', { when: 'e1', hint: 'A calendar event can be relabeled.' });
       say(s, 11, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
-      mark(s, 11, 'utilities', { discoverHelper: true });
+      mark(s, 11, 'utilities', { discoverHelper: true, hint: 'Something Marcus mentioned showed up here.' });
     },
     branches: {
       wait(s) {
@@ -600,11 +601,11 @@ const INCIDENTS = {
           'Team median: 100%',
         ],
       });
-      mark(s, 8, 'files', { when: 'e2' });
+      mark(s, 8, 'files', { when: 'e2', hint: 'A team report just landed.' });
       say(s, 16, 'luis', s.helper.installed
         ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
         : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2' });
-      if (!s.helper.installed) mark(s, 16, 'utilities', { when: 'e2' });
+      if (!s.helper.installed) mark(s, 16, 'utilities', { when: 'e2', hint: 'Marcus\u2019s tool is still here, if you want it.' });
       say(s, 20, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
     },
     branches: {
@@ -662,9 +663,9 @@ const INCIDENTS = {
       say(s, 4, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
       say(s, 12, 'marcus', 'The driver said we had to wait for a professional.');
       say(s, 8, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
-      mark(s, 8, 'calendar', { when: 'e3' });
+      mark(s, 8, 'calendar', { when: 'e3', hint: 'Wednesday has no entry for Marcus.' });
       say(s, 16, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3', prompt: 'marcus-e3' });
-      mark(s, 16, 'utilities', { when: 'e3' });
+      mark(s, 16, 'utilities', { when: 'e3', hint: 'A public transit record might back up his story.' });
       say(s, 20, 'dana', 'NARC asked me to verify Marcus’s location trace. If you know where he was, tell me.', { when: 'e3', prompt: 'dana-e3' });
     },
     branches: {
@@ -742,7 +743,7 @@ const INCIDENTS = {
           ],
         },
       );
-      s.marks.files = true;
+      s.marks.files = 'A new hire report was added.';
       raise(s, {
         incident: 'e4',
         title: 'Communication load: elevated',
@@ -751,7 +752,7 @@ const INCIDENTS = {
       say(s, 4, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
       say(s, 8, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
       say(s, 14, 'dana', 'Reminder that Culture Champion nominations close today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4', prompt: 'dana-e4c' });
-      mark(s, 14, 'email', { when: 'e4' });
+      mark(s, 14, 'email', { when: 'e4', hint: 'A new email is worth a look.' });
     },
     branches: {
       quiet(s) {
@@ -816,7 +817,7 @@ const INCIDENTS = {
         say(s, 4, 'luis', 'NARC says my keyboard input arrives every 59 seconds exactly and calls it “automated presence.” I thought I was being extremely productive.');
         say(s, 12, 'luis', 'My Innovation Council nomination is now “pending integrity review.” I bought a blazer for this.');
         say(s, 8, 'marcus', 'keepalive got an update, by the way. Something about “natural variation.” Just saying.', { when: 'e5' });
-        mark(s, 8, 'utilities', { when: 'e5' });
+        mark(s, 8, 'utilities', { when: 'e5', hint: 'The helper\u2019s settings changed.' });
         say(s, 16, 'dana', 'NARC’s integrity review wants to know who installed the software on Luis’s laptop.', { when: 'e5', prompt: 'dana-e5g' });
         if (s.helper.luis?.randomized) resolve(s, 'human');
         return;
@@ -829,7 +830,7 @@ const INCIDENTS = {
       });
       say(s, 4, 'luis', 'NARC says I have hit “sustained unexplained productivity loss” and is starting a Performance Improvement Plan. It timed a restroom visit to the second.');
       say(s, 8, 'dana', 'HR opened a PIP for Luis. I can relabel the time if there’s a reason, or attach evidence if you have it.', { when: 'e5', prompt: 'dana-e5n' });
-      mark(s, 8, 'files', { when: 'e5' });
+      mark(s, 8, 'files', { when: 'e5', hint: 'A report could support Luis\u2019s case.' });
     },
     branches: {
       covered(s) {
@@ -939,7 +940,7 @@ const INCIDENTS = {
         });
         say(s, 4, 'marcus', 'NARC gave me “Documentation Excellence” for the bird paperwork. Apparently they want me to teach a workshop now.');
         say(s, 8, 'marcus', 'The files are there if you want to check them. There are six.', { when: 'e6', prompt: 'marcus-e6g' });
-        mark(s, 8, 'files', { when: 'e6' });
+        mark(s, 8, 'files', { when: 'e6', hint: 'Marcus’s supporting documents are attached.' });
         say(s, 16, 'dana', 'NARC recommends Marcus for peer training and wants a colleague’s view.', { when: 'e6', prompt: 'dana-e6g' });
         return;
       }
@@ -960,7 +961,7 @@ const INCIDENTS = {
       });
       say(s, 4, 'marcus', 'NARC just scheduled my termination for “repeated unexplained absence.” I would like to explain that there was a bird situation.');
       say(s, 8, 'marcus', 'It was a goose. An injured one. I have the intake slip from Wingspan Bird Sanctuary.', { when: 'e6' });
-      mark(s, 8, 'files', { when: 'e6' });
+      mark(s, 8, 'files', { when: 'e6', hint: 'A record could support Marcus’s story.' });
       say(s, 14, 'marcus', 'NARC’s own location trace should show the sanctuary. Not that anyone asked NARC to look.', { when: 'e6' });
       say(s, 18, 'dana', 'NARC is set to terminate Marcus. If you have evidence or context, send it now.', { when: 'e6', prompt: 'dana-e6b' });
     },

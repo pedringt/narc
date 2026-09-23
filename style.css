@@ -464,3 +464,9 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .debrief-item { border: 1px solid var(--n-line); border-left: 3px solid var(--n-accent); padding: 10px 12px; background: #101210; }
 .debrief-item .name { font-weight: 700; margin-bottom: 3px; }
 .debrief-item p { margin: 0; color: var(--n-muted); font-size: 13px; line-height: 1.5; }
+
+/* A short reason a dock dot appeared, shown once when the app is opened. */
+.hint-banner {
+  margin: 0 0 8px; padding: 8px 12px; background: var(--app-accent-bg); color: var(--app-accent);
+  font-size: 13px; border-radius: 6px; border-left: 3px solid var(--app-accent);
+}

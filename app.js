@@ -41,6 +41,7 @@ function freshUi() {
     team: false,
     narcHistoryPinned: false,
     draft: { note: '', title: '', attribute: '', nominee: '' },
+    lastHint: {}, // the reason a dock dot appeared, kept for one visit after it's cleared (#39)
   };
 }
 
@@ -96,6 +97,13 @@ function num(key, value) {
   return el;
 }
 
+// A short reason a dock dot appeared, shown once when the player opens that
+// app -- what changed, not which option is good or bad (#39).
+function hintBanner(app) {
+  const hint = ui.lastHint[app];
+  return hint ? h('div', 'hint-banner', hint) : null;
+}
+
 // NARC's one-line reaction, right where the player did the thing.
 const narcNote = (where) => {
   const r = state.reactions && state.reactions[where];
@@ -117,8 +125,14 @@ function openRef(ref) {
 }
 
 function goApp(id) {
+  // A hint banner lives for exactly one visit: gone once you leave the app,
+  // so it never resurfaces stale on a later, unrelated visit.
+  if (ui.app !== id) delete ui.lastHint[ui.app];
   ui.app = id;
   ui.detail = false;
+  // The dock dot is about to be cleared by the view action below; keep the
+  // reason it was there so the app can still say what changed.
+  if (typeof state.marks[id] === 'string') ui.lastHint[id] = state.marks[id];
   if (id === 'narc') {
     ui.narcHistoryPinned = false;
     const { active, team } = narcSections(state);
@@ -274,7 +288,7 @@ function renderEmail() {
     if (m.form === 'ack') detail.append(ackForm());
     if (m.form === 'nominate') detail.append(nominateForm());
   }
-  return windowShell('Email', h('div', 'body', list, detail));
+  return windowShell('Email', h('div', 'body', hintBanner('email'), list, detail));
 }
 
 function ackForm() {
@@ -445,7 +459,7 @@ function renderCalendar() {
       }
     });
   }
-  return windowShell('Calendar', h('div', 'body', pane));
+  return windowShell('Calendar', h('div', 'body', hintBanner('calendar'), pane));
 }
 
 function slotForm(slot) {
@@ -486,7 +500,7 @@ function renderFiles() {
     const fa = fileActions(state)[f.id];
     if (fa) detail.append(btn(fa.label, 'btn primary', () => dispatch({ do: 'sendFile', file: fa.file })));
   }
-  return windowShell('Files', h('div', 'body', list, detail));
+  return windowShell('Files', h('div', 'body', hintBanner('files'), list, detail));
 }
 
 // --------------------------------------------------------------- utilities
@@ -530,7 +544,7 @@ function renderUtilities() {
     ['Mon 08:05', 'Route 22 · Service resumed'],
   ].forEach(([when, what]) => feed.append(h('div', 'line', h('span', null, when), h('span', null, what))));
   cards.append(feed);
-  return windowShell('Utilities', h('div', 'body', cards));
+  return windowShell('Utilities', h('div', 'body', hintBanner('utilities'), cards));
 }
 
 // -------------------------------------------------------------------- NARC
