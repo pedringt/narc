@@ -722,7 +722,11 @@ function caseNode(a) {
 // in the app badges and NARC's history.
 function renderToasts() {
   const live = state.phase === 'ending' ? [] : state.toasts.filter((t) => !t.gone);
-  const max = matchMedia('(max-width: 760px)').matches ? 2 : 3;
+  // One focal notification at a time, so it never competes with whatever the
+  // player is already looking at (#44). The one deliberate exception is the
+  // NARC 2.0 catch (#20's `big` flag), which can still share the rail with
+  // one more rather than being buried under routine stacking.
+  const max = live.some((t) => t.big) ? 2 : 1;
   const shown = live.slice(-max);
   const more = live.length - shown.length;
   els.toasts.replaceChildren();
