@@ -309,3 +309,38 @@ This supports the current interaction direction:
   https://journals.sagepub.com/doi/10.1177/00187267251379698
 - Fernández-Ruiz, Piña & Vilasís-Pamos (2025/2026), *Video games as spaces for providing information and awareness of algorithmic control in the gig economy*  
   https://journals.sagepub.com/doi/10.1177/14614448241307036
+
+
+## Current verification pass (2026-09-23)
+
+A fresh source check reinforces the realism boundary used by the game.
+
+### Clearly grounded monitoring capabilities
+
+The UK Information Commissioner's Office worker-monitoring guidance explicitly discusses current monitoring methods including webcams/screenshots, timekeeping and access control, keystroke logging, productivity tools that log how workers spend time, internet activity, and location tracking through body-worn devices. The same guidance notes that employers increasingly use data analytics to infer worker performance and wellbeing, and that automated/people-analytics tools can make predictions, inferences, and decisions about workers.
+
+Sources:
+- ICO, *Data protection and monitoring workers*: https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/employment/monitoring-workers/data-protection-and-monitoring-workers/
+- ICO, *What do we need to do if we use monitoring tools that use solely automated processes?*: https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/employment/monitoring-workers/what-do-we-need-to-do-if-we-use-monitoring-tools-that-use-solely-automated-processes/
+
+These sources support NARC's grounded foundation of activity/time signals, access/location traces, productivity monitoring, and an inference layer on top of worker data.
+
+### Collaboration / work-pattern analytics are real, but context matters
+
+Microsoft Viva Insights currently documents metrics such as after-hours collaboration, email/chat/call activity, meeting hours, focus time, network size, and other collaboration patterns. Microsoft also describes privacy/confidentiality controls and, in some surfaces, minimum-group or role-based access. These products therefore support the realism of NARC drawing on communication volume, focus time, after-hours work, and collaboration-pattern data.
+
+Sources:
+- Microsoft, *Advanced analysis metric descriptions*: https://learn.microsoft.com/en-us/viva/insights/advanced/reference/metrics
+- Microsoft, *Introduction to Viva Insights*: https://learn.microsoft.com/en-us/viva/insights/
+- Microsoft, *Network in Viva Insights*: https://learn.microsoft.com/viva/insights/personal/teams/network
+- Microsoft, *Export Viva Insights data to Viva Glint*: https://learn.microsoft.com/en-us/viva/insights/advanced/admin/export-insights-data-glint
+
+### Important claim boundary
+
+These sources **do not** establish that ordinary employers routinely use every metric at the individual level to make punitive employment decisions. They also do not validate NARC's later fictional constructs such as Policy-workaround likelihood, automatic termination based on a forecast, leadership alignment, sarcasm probability, or preemptive access restriction.
+
+For public case-study language, use the pattern:
+
+> grounded signal/capability -> plausible inference -> fictional institutional escalation
+
+Do not cite a collaboration analytics product as proof that a company currently fires individual workers from that metric. The existence of a measurable signal and the authority granted to it are separate claims.
