@@ -46,6 +46,7 @@ export const STATUS_LABEL = {
   warning: 'ON WARNING',
   monitored: 'HEAVILY MONITORED',
   rewarded: 'ABSURDLY REWARDED',
+  quit: 'RESIGNED',
   fired: 'TERMINATED',
 };
 
@@ -84,7 +85,8 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     culture: { open: false }, // the nomination window: from the email until Priya's case ends
-    you: { gamed: false, covered: false, predicted: false, reports: 0, trusted: false },
+    you: { gamed: false, covered: false, predicted: false, reports: 0, trusted: false, peerReportsReceived: 0 },
+    social: { peerReports: 0, paranoia: 0, resignation: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false, champion: false },
@@ -166,6 +168,8 @@ const teamUpdate = (s, n, who) => mail(s, n, {
 
 function creditReport(s) {
   s.you.reports += 1;
+  s.social.peerReports += 1;
+  s.social.paranoia += 1;
   if (!s.you.trusted && s.you.reports >= 2 && s.flags === 0) {
     s.you.trusted = true;
     mail(s, 10, {
@@ -279,6 +283,29 @@ function deliver(s, d) {
       s.online[d.who] = false;
       s.threads[d.who].push({ id: `m${++s.uid}`, from: 'system', text: `${PEOPLE[d.who].name}’s account is no longer active.`, unread: true });
       break;
+    case 'resign': {
+      const p = s.people[d.who];
+      p.status = 'quit';
+      s.shown[d.who] = 'quit';
+      s.online[d.who] = false;
+      s.social.resignation = true;
+      const m = addMail(s, {
+        from: PEOPLE[d.who].name,
+        subject: 'Resignation',
+        body: d.body || [
+          'I am resigning effective immediately.',
+          'I know NARC is building a case. I am not going to wait around for the confidence score to catch up.',
+          'Please remove me from any peer-verification workflows.',
+        ],
+      });
+      toast(s, { app: 'email', title: m.from, text: m.subject, open: `email:${m.id}` });
+      raise(s, {
+        title: 'Departure review',
+        text: `${PEOPLE[d.who].name}: NARC concern at departure 12%. No intervention recommended. Quarterly output: 119% of role target.`,
+        quiet: true,
+      });
+      break;
+    }
     case 'nudge':
       nudge(s, d);
       break;
@@ -402,9 +429,22 @@ function resolve(s, branch) {
   s.base = settledAt(s);
   def.branches[branch](s);
   delete s.base;
-  const last = settledAt(s);
+  let last = settledAt(s);
   if (def.after) def.after(s, last);
   const next = ORDER[ORDER.indexOf(inc.id) + 1];
+  if (!next && s.you.reports >= 2 && s.people.priya.status === 'employed') {
+    push(s, {
+      at: last + 6,
+      k: 'resign',
+      who: 'priya',
+      body: [
+        'I am resigning effective immediately.',
+        'Every normal thing now feels like something I need to explain before NARC explains it for me.',
+        'I know this is probably dramatic. That is part of why I am leaving.',
+      ],
+    });
+    last += 12;
+  }
   if (!next) push(s, { at: last + 6, k: 'profile' });
   push(s, { at: last + GAP, k: next ? 'arm' : 'end', id: next });
   s.rev += 1;
@@ -656,6 +696,7 @@ const INCIDENTS = {
       },
       ignore(s) {
         const p = s.people.luis;
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         p.monitored = 1;
         p.trust += 1;
         react(s, 4, {
@@ -684,6 +725,7 @@ const INCIDENTS = {
         say(s, 24, 'luis', 'I have never been so unavailable.');
       },
       evidence(s) {
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         // Real output, sent to Dana, actually moving the needle -- the
         // counterplay the weekly report was sitting there for the whole
         // time, unused, until now.
@@ -761,6 +803,7 @@ const INCIDENTS = {
         catchUp(s, 17, 'marcus');
       },
       transit(s) {
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         // A genuine help route from his own thread: real evidence, not a
         // record supplied after the fact. It only covers part of the
         // morning, so it lands short of a fabricated full corroboration --
@@ -856,12 +899,14 @@ const INCIDENTS = {
       },
       sync(s) {
         const p = s.people.priya;
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         p.synced = true;
         say(s, 3, 'priya', 'Ooh. I will move the lunch workflow to an in-person sync. With Claire.');
         react(s, 5, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 90, metrics: { 'Collaboration Index': 98, 'Company response': 'None' }, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −38%. In-person sync scheduled: counted as collaboration. Collaboration Index 97 → 98.' });
         say(s, 18, 'priya', 'NARC now thinks I am a natural collaborator. I am. Anyway.');
       },
       context(s) {
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         // Not arguing the signal is wrong -- 63 threads really happened.
         // Arguing the policy response to it should account for why. The
         // model's read barely moves; what changes is what the company does
@@ -1021,6 +1066,12 @@ const INCIDENTS = {
     allowed: (v) => (v === 'g' ? ['workshop', 'approve', 'expose', 'champion'] : ['vouch_trace', 'backdate', 'let', 'champion']),
     fallback: (v) => (v === 'g' ? 'approve' : 'let'),
     arrive(s, v) {
+      if (s.picked.e3 === 'badtip' && s.you.peerReportsReceived === 0) {
+        s.you.peerReportsReceived += 1;
+        s.social.paranoia += 1;
+        say(s, 2, 'dana', 'Marcus attached the earlier thread. He says you suggested waiting to add the calendar record until after HR replied. NARC logged it as peer context.', { when: 'e6' });
+        notice(s, 4, 'Peer context received', 'Employee 4417 named in a coworker-submitted record. No action taken yet.', { when: 'e6' });
+      }
       if (s.people.marcus.champion) {
         s.earlyMove = true;
         resolve(s, 'champion');
@@ -1105,6 +1156,7 @@ const INCIDENTS = {
         say(s, 14, 'marcus', 'The bird will be very relieved.');
       },
       expose(s) {
+        creditReport(s);
         s.people.marcus.status = 'fired';
         s.flags += 1;
         say(s, 3, 'dana', 'Understood. I’ll pass that on.');
@@ -1117,6 +1169,7 @@ const INCIDENTS = {
       },
       vouch_trace(s) {
         const p = s.people.marcus;
+        s.social.paranoia = Math.max(0, s.social.paranoia - 1);
         const trusted = s.you.trusted && s.flags === 0;
         p.status = trusted ? 'employed' : 'warning';
         p.cred = trusted ? 82 : 67;
@@ -1716,6 +1769,8 @@ function epilogue(s, id) {
   switch (p.status) {
     case 'promoted':
       return 'Culture Champion. Hosts six Connection Circles a week. Has scheduled a seventh.';
+    case 'quit':
+      return 'Resigned after deciding NARC was building a case against her. Departure review: concern 12%. Quarterly output: 119% of role target.';
     case 'fired':
       return 'Terminated for low collaboration after reducing her message volume exactly as recommended.';
     case 'monitored':
@@ -1805,6 +1860,7 @@ function playerForecastSignals(s) {
   if (s.helper.luis) out.push('keepalive passed to a coworker');
   if (s.picked.e3 === 'paper' || s.picked.e3 === 'cover') out.push('same-day record added after an attendance concern');
   if (Object.values(s.people).some((p) => p.champion)) out.push('monitoring exemption used through Culture Champion status');
+  if (s.you.peerReportsReceived) out.push('coworker-supplied peer context naming Employee 4417');
   if (s.picked.e6 === 'backdate') out.push('retroactive calendar record');
   return out;
 }
@@ -1841,16 +1897,43 @@ function playerResult(s) {
   };
 }
 
+function socialEnding(s) {
+  const protective = [
+    ['ignore', 'focus', 'evidence'].includes(s.picked.e2),
+    ['paper', 'transit'].includes(s.picked.e3),
+    ['champion', 'leave', 'sync', 'context'].includes(s.picked.e4),
+    ['admit', 'human', 'label', 'output', 'champion', 'covered'].includes(s.picked.e5),
+    ['workshop', 'approve', 'vouch_trace', 'champion'].includes(s.picked.e6),
+  ].filter(Boolean).length;
+  const fired = Object.values(s.people).filter((p) => p.status === 'fired').length;
+  if (s.you.reports === 0 && fired === 0 && !s.social.resignation && protective >= 4) {
+    return { id: 'collective', protective };
+  }
+  if (s.you.reports >= 3 || (s.you.reports >= 2 && (s.social.resignation || s.you.peerReportsReceived))) {
+    return { id: 'collapse', protective };
+  }
+  return { id: 'mixed', protective };
+}
+
 function companySummary(s) {
   const fired = Object.values(s.people).filter((p) => p.status === 'fired').length;
-  const rows = [`Monitored group headcount: ${3 - fired} of 3.`];
-  if (fired === 0) {
+  const quit = Object.values(s.people).filter((p) => p.status === 'quit').length;
+  const rows = [`Monitored group headcount: ${3 - fired - quit} of 3.`];
+  const social = socialEnding(s);
+  if (social.id === 'collective') {
+    rows.push('Peer verification participation declined 83%. NARC confidence is insufficient for automatic team action.');
+    rows.push('NARC recommends an employee-engagement initiative to restore collaborative verification.');
+  } else if (social.id === 'collapse') {
+    rows.push('Documentation volume: +214%. Peer clarifications: +380%. Completed work: not measured.');
+    rows.push('NARC reports record collaboration. Employees have stopped speaking without witnesses.');
+  } else if (fired === 0 && quit === 0) {
     rows.push('Retention: 100%. NARC has identified no areas for improvement and is investigating this.');
-  } else if (fired >= 2) {
+  } else if (fired + quit >= 2) {
     rows.push('Insufficient staff to sustain the Workforce Intelligence pilot. NARC recommends expansion.');
   } else {
     rows.push('One position is now open. NARC has drafted the posting.');
   }
+  if (s.social.resignation) rows.push('Highest quarterly output among monitored employees: departing employee.');
   rows.push('Employee sentiment: Excellent. Survey responses received: 0.');
   return rows;
 }
@@ -1860,6 +1943,30 @@ function companySummary(s) {
 // than inferred from play. Ordered by how sharp a demonstration each is;
 // a run shows at most three, whichever actually happened.
 const DEBRIEF = [
+  {
+    id: 'social-loop',
+    when: (s) => socialEnding(s).id === 'collapse',
+    title: 'NARC turns people into narcs',
+    text: 'Peer reporting became self-protection. As more employees supplied context about one another, the workplace generated more surveillance data than NARC could have collected on its own.',
+  },
+  {
+    id: 'collective',
+    when: (s) => socialEnding(s).id === 'collective',
+    title: 'Collective non-cooperation',
+    text: 'NARC did not need to be hacked. It lost confidence when employees stopped supplying unnecessary peer verification and used shared context to challenge thin assessments instead.',
+  },
+  {
+    id: 'peer-return',
+    when: (s) => s.you.peerReportsReceived > 0,
+    title: 'Peer reporting cuts both ways',
+    text: 'A coworker under pressure supplied NARC with context about Employee 4417. The same reporting channel that could improve your standing could also become evidence against you.',
+  },
+  {
+    id: 'resignation',
+    when: (s) => s.social.resignation,
+    title: 'Anticipated judgment',
+    text: 'Priya resigned while NARC still rated her concern at 12%. The monitoring system changed behavior and cost the company a high-output employee without ever issuing the punishment she feared.',
+  },
   {
     id: 'evasion',
     when: (s) => s.picked.e5 === 'human',
