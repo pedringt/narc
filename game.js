@@ -373,7 +373,7 @@ function resolve(s, branch) {
     const delivered = s.threads[thread]?.some((m) => m.prompt === r.prompt);
     // Quiet: this is a different topic than whatever branch just resolved,
     // so it should not delay that branch's own reaction landing.
-    if (delivered) say(s, 2, thread, CLOSING_LINE[r.prompt] ?? 'Never mind — that got settled another way.', { quiet: true });
+    if (delivered) say(s, 2, thread, closingLine(r.prompt, branch), { quiet: true });
   });
   const alert = s.alerts.find((a) => a.incident === inc.id);
   if (alert) alert.closed = true;
@@ -1124,17 +1124,53 @@ function open(s, ref) {
 // actually prompted them, so choices never appear before the conversation does.
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Approved absence \u2014 transit delay', where: 'Added by Employee 4417' };
 const CLOSING_LINE = {
-  'dana-e2': 'Handled it another way, apparently. I’ll stand down.',
-  'dana-e3': 'Looks like that sorted itself out before I could weigh in.',
-  'dana-e5g': 'Never mind — the review already moved on without me.',
-  'dana-e5n': 'That seems to have resolved on its own.',
-  'dana-e6g': 'Someone got there first. I’ll drop it.',
-  'dana-e6b': 'That resolved itself. I’ll close this out.',
-  'luis-e2': 'Oh. Never mind, then.',
-  'marcus-e3': 'Guess we don’t need the calendar trick after all.',
-  'marcus-e6g': 'Cool, sounds handled.',
-  'priya-e4': 'Oh — okay, guess that’s settled already.',
+  'dana-e2': {
+    script: 'Luis already changed his activity pattern, so NARC closed the peer-verification step. I’ll stand down.',
+    focus: 'His calendar was updated before I answered. NARC closed the peer-verification step.',
+    evidence: 'The support-queue report answered it. NARC closed the peer-verification step.',
+    ignore: 'NARC closed it without peer input. I’ll stand down.',
+  },
+  'dana-e3': {
+    paper: 'A same-day calendar record went in before I answered. NARC closed the verification step.',
+    transit: 'The transit alert went in as evidence before I answered. NARC closed the verification step.',
+    badtip: 'Marcus added a record after the flag. NARC closed the verification step with a warning.',
+    stay: 'NARC closed the case without peer input. I’ll stand down.',
+  },
+  'dana-e5g': {
+    human: 'You changed the timing in Utilities, so the review moved on without me.',
+  },
+  'dana-e5n': {
+    output: 'The support-queue report went in before I answered. NARC closed the review.',
+  },
+  'dana-e6g': {
+    approve: 'Marcus’s approval went through before I answered. I’ll drop it.',
+  },
+  'dana-e6b': {
+    backdate: 'A calendar record was added after the flag. NARC closed the case from there.',
+  },
+  'marcus-e3': {
+    truth: 'Dana already sent NARC the location discrepancy, so my advice window is gone.',
+    paper: 'You already added the calendar record. Guess we don’t need the calendar trick after all.',
+    transit: 'The transit alert is already in the case now. That was the useful part anyway.',
+    stay: 'NARC closed it without anything else from us. Cool.',
+  },
+  'marcus-e6g': {
+    workshop: 'Dana already cleared the workshop route. Cool, sounds handled.',
+    expose: 'Dana already sent the document issue to NARC. Cool, sounds handled.',
+  },
+  'priya-e4': {
+    champion: 'The Culture Champion nomination cleared the flag before I had to change anything.',
+    sync: 'The calendar sync is on the books now. Okay, that settled it.',
+    context: 'Dana sent the escalation ticket into the case. That is a much better explanation than “talks too much.”',
+    leave: 'NARC started coaching before I changed anything. Cool system.',
+  },
 };
+
+function closingLine(prompt, branch) {
+  const lines = CLOSING_LINE[prompt];
+  if (!lines) return 'Never mind — that got settled another way.';
+  return lines[branch] ?? 'That case closed before I could answer.';
+}
 
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
