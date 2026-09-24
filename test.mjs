@@ -65,7 +65,7 @@ const DO = {
     confirm: reply('dana', 'reportluis'),
     ignore: logoff,
     script: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'attach', thread: 'luis', item: 'helper' }),
-    focus: reply('luis', 'focus'),
+    focus: (s) => act(s, { do: 'markFocus', event: 'c-luis1' }),
   },
   e3: {
     truth: reply('dana', 'reportmarcus'),
@@ -485,9 +485,12 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'luis'), [], 'Luis advice does not appear before he asks for it');
   assert.deepEqual(opts(s, 'dana'), [], 'Dana choices do not appear before her verification message');
   s = until(s, (x) => replies(x, 'luis').length && opts(x, 'dana').length);
-  assert.deepEqual(opts(s, 'luis'), [
-    'You could block that time as Focus time on your calendar.',
+  // The suggestion is conversational only now (#40c): the player has to
+  // actually mark the block in Calendar, not resolve it via this chip.
+  assert.deepEqual(replies(s, 'luis').map((r) => r.text), [
+    'You could show his 10 to 11:15 block as Focus time on the team calendar.',
   ]);
+  assert.equal(replies(s, 'luis')[0].free, true);
   assert.deepEqual(opts(s, 'dana'), [
     'He is away from his desk a lot. The flag is probably accurate.',
     'I don’t think I know enough to call that flag accurate.',
@@ -600,7 +603,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(has(noticeTexts(s), /340% of baseline/));
 
   let m = play({}, { stopAt: 'e3' });
-  assert.deepEqual(calendarAction(m), { day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
+  assert.deepEqual(calendarAction(m), { key: 'marcus', day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
   m = DO.e3.paper(m);
   assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Approved absence/.test(e.title)));
   m = until(m, (x) => has(noticeTexts(x), /Same-day calendar entry added/));
@@ -1394,6 +1397,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
         ...(calendarAction(x) ? ['calendar'] : []),
         ...(canAttachHelper(x) ? ['helper'] : []),
         ...(x.incident?.id === 'e1' ? ['focus'] : []),
+        ...(x.incident?.id === 'e2' ? ['focus2'] : []),
         ...(x.helper.installed ? ['randomize'] : []),
         ...(x.culture?.open && !x.done.includes('e4') ? ['nominate'] : []),
       ];
@@ -1515,23 +1519,21 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // -------- a stranded question gets closed out instead of hanging (#17)
 
 {
-  // e2: Luis's own "block it as Focus time" suggestion is visible; the
-  // player answers Dana instead, which resolves the case a different way.
+  // e2: Luis's Focus-time suggestion is conversation-only now (#40c) -- it
+  // never resolved anything, so answering Dana instead should just make it
+  // quietly stop being offered, the same as any other free chip, with no
+  // closing line needed (there was never a live question to strand).
   let s = play({}, { stopAt: 'e2' });
   s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
   s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'noreportluis'), { reads: false });
   const luisChipsBefore = replies(s, 'luis').map((r) => r.id);
   s = act(s, { do: 'reply', thread: 'dana', reply: 'noreportluis' });
-  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live before the race');
+  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live beforehand');
   assert.equal(s.picked.e2, 'ignore');
-  assert.equal(s.answered['luis-e2'], true, 'the stranded prompt is marked answered, not left dangling');
-  s = until(s, (x) => has(texts(x, 'luis'), /Never mind, then\./), { reads: false });
-  assert.equal(replies(s, 'luis').length, 0, 'no chip is left behind for a question that is now moot');
-  assert.equal(texts(s, 'luis').filter((x) => x === 'Oh. Never mind, then.').length, 1, 'exactly one closing line, not the generic fallback');
+  s = ticks(s, 30);
+  assert.equal(replies(s, 'luis').length, 0, 'the free suggestion is no longer offered once the case has moved on');
+  assert.ok(!has(texts(s, 'luis'), /Never mind/), 'no closing line for a suggestion that never resolved anything');
 
-  // The closing line does not interrupt with a toast of its own.
-  const closingToasts = s.toasts.filter((x) => /Never mind, then/.test(x.text));
-  assert.equal(closingToasts.length, 0);
 }
 
 {
@@ -1764,6 +1766,33 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(response(paper), /Corroborated/);
   assert.match(response(badtip), /Written Attendance Warning/);
   [truth, paper, badtip, stay, transit].forEach((s) => assert.notEqual(response(s), 'Corroborating records requested'));
+}
+
+// -------- Luis's Focus-time route is a real Calendar action now (#40c)
+
+{
+  // The suggestion in Messages is conversation-only; the outcome only
+  // happens once the player actually marks the block in Calendar.
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  const block = s.calendar.find((e) => e.id === 'c-luis1');
+  assert.ok(block, 'the block exists as soon as the case opens, not after a chip creates it');
+  assert.equal(block.who, 'luis');
+  assert.equal(block.focus, false);
+
+  s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
+  const suggestion = replies(s, 'luis')[0];
+  assert.equal(suggestion.free, true, 'Messages only suggests it');
+  s = act(s, { do: 'reply', thread: 'luis', reply: 'focus' });
+  assert.equal(s.incident?.id, 'e2', 'replying alone does not resolve anything');
+  assert.equal(s.calendar.find((e) => e.id === 'c-luis1').focus, false);
+
+  s = act(s, { do: 'markFocus', event: 'c-luis1' });
+  assert.equal(s.picked.e2, 'focus', 'marking it in Calendar is the actual intervention');
+  assert.equal(s.calendar.find((e) => e.id === 'c-luis1').focus, true);
+  assert.equal(s.people.luis.covered, true);
+
+  // Marking it outside e2 (or a second time) does nothing.
+  assert.equal(act(play({}), { do: 'markFocus', event: 'c-luis1' }).rev, play({}).rev);
 }
 
 console.log('NARC tests passed');

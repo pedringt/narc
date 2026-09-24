@@ -430,7 +430,12 @@ function renderMessages() {
 
 function eventRow(e, team) {
   const body = h('div', null, h('div', null, e.title), h('div', 'where', e.where));
-  if (!team && e.who === 'me') {
+  // Your own calendar always shows the toggle. On the team calendar, it
+  // appears only for the one block that's actually actionable right now --
+  // marking it is the intervention itself, not a reply chip doing it for you.
+  const mine = !team && e.who === 'me';
+  const actionable = team && e.who !== 'me' && !e.focus && e.id === 'c-luis1' && state.incident?.id === 'e2';
+  if (mine || actionable) {
     const shown = h('span', `showas${e.focus ? ' is-focus' : ''}`, e.focus ? 'Focus time' : 'Busy');
     const toggle = e.focus ? null : btn('Show as Focus time', 'showbtn', () => dispatch({ do: 'markFocus', event: e.id }));
     body.append(h('div', 'showrow', h('span', 'small', 'Show as: '), shown, toggle));
@@ -468,17 +473,21 @@ function renderCalendar() {
     if (!mine.length) pane.append(h('div', 'empty', 'Nothing scheduled.'));
     mine.forEach((e) => pane.append(eventRow(e, false)));
   } else {
-    ['marcus', 'team'].forEach((who) => {
+    // A person gets their own section once they have a calendar entry or an
+    // active slot to fill; nobody is shown a permanent empty tab.
+    const peopleWithCalendar = Object.keys(PEOPLE).filter((id) =>
+      state.calendar.some((e) => e.who === id) || (slot && slot.key === id));
+    [...peopleWithCalendar, 'team'].forEach((who) => {
       const evs = state.calendar.filter((e) => e.who === who && e.day === ui.day).sort(byStart);
-      if (who === 'marcus') {
-        pane.append(h('div', 'who-h', 'Marcus Reed'));
-        evs.forEach((e) => pane.append(eventRow(e, true)));
-        if (slot && slot.day === ui.day) pane.append(slotForm(slot));
-        else if (!evs.length) pane.append(h('div', 'empty', 'No events.'));
-      } else {
+      if (who === 'team') {
         pane.append(h('div', 'who-h', 'Everyone'));
         if (!evs.length) pane.append(h('div', 'empty', 'No events.'));
         evs.forEach((e) => pane.append(eventRow(e, true)));
+      } else {
+        pane.append(h('div', 'who-h', PEOPLE[who].name));
+        evs.forEach((e) => pane.append(eventRow(e, true)));
+        if (slot && slot.key === who && slot.day === ui.day) pane.append(slotForm(slot));
+        else if (!evs.length) pane.append(h('div', 'empty', 'No events.'));
       }
     });
   }

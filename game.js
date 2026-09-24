@@ -590,7 +590,9 @@ const INCIDENTS = {
         text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
       say(s, 4, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
-      say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2', prompt: 'luis-e2' });
+      say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
+      s.calendar.push({ id: 'c-luis1', who: 'luis', day: 'Tue', start: '10:00', end: '11:15', title: 'Desk block', where: 'Customer Operations', focus: false });
+      mark(s, 8, 'calendar', { when: 'e2', hint: 'Luis has an unmarked block on his calendar.' });
       s.files.unshift({
         id: 'f-queue',
         name: 'Support_queue_weekly.xlsx',
@@ -604,7 +606,7 @@ const INCIDENTS = {
       mark(s, 8, 'files', { when: 'e2', hint: 'A team report just landed.' });
       say(s, 16, 'luis', s.helper.installed
         ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
-        : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2' });
+        : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2', prompt: 'luis-e2' });
       if (!s.helper.installed) mark(s, 16, 'utilities', { when: 'e2', hint: 'Marcus\u2019s tool is still here, if you want it.' });
       say(s, 20, 'dana', 'NARC asked me to verify Luis’s flag. If you have a view, send it over.', { when: 'e2', prompt: 'dana-e2' });
     },
@@ -1140,7 +1142,7 @@ const REPLIES = {
   'dana:neutralworkshop': { text: 'I don’t have enough context to recommend anything.', when: 'e6', variant: 'g', prompt: 'dana-e6g', branch: 'approve' },
   'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'vouch_trace' },
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
-  'luis:focus': { text: 'You could block that time as Focus time on your calendar.', when: 'e2', prompt: 'luis-e2', branch: 'focus' },
+  'luis:focus': { text: 'You could show his 10 to 11:15 block as Focus time on the team calendar.', free: true, prompt: 'luis-e2', answer: 'Worth a shot.' },
   'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
   'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', when: 'e3', prompt: 'marcus-e3', branch: 'transit' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
@@ -1268,11 +1270,14 @@ export function act(state, a) {
       break;
     }
     case 'markFocus': {
-      // Showing a calendar event as Focus time. On Monday, NARC counts it.
-      const ev = s.calendar.find((e) => e.id === a.event && e.who === 'me');
+      // Showing a calendar event as Focus time. On Monday, NARC counts your
+      // own block; on Tuesday, marking Luis's is the actual intervention --
+      // not a reply chip that does it for you.
+      const ev = s.calendar.find((e) => e.id === a.event);
       if (ev && !ev.focus) {
         ev.focus = true;
         if (ev.id === 'c1' && s.incident?.id === 'e1') resolve(s, 'focus');
+        if (ev.id === 'c-luis1' && s.incident?.id === 'e2') resolve(s, 'focus');
         changed = true;
       }
       break;
@@ -1493,8 +1498,8 @@ export function caseView(s, alert) {
 
 export function calendarAction(s) {
   const inc = s.incident;
-  if (inc?.id === 'e3') return { day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' };
-  if (inc?.id === 'e6' && inc.variant === 'b') return { day: 'Fri', slot: '08:30–11:00', who: 'Marcus Reed' };
+  if (inc?.id === 'e3') return { key: 'marcus', day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' };
+  if (inc?.id === 'e6' && inc.variant === 'b') return { key: 'marcus', day: 'Fri', slot: '08:30–11:00', who: 'Marcus Reed' };
   return null;
 }
 
