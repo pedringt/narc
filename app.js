@@ -216,7 +216,13 @@ const narcNote = (where) => {
 };
 
 function dispatch(action) {
+  const wasOriented = state.oriented;
   state = act(state, action);
+  if (!wasOriented && state.oriented) {
+    ensureWindow('intranet');
+    ui.app = 'intranet';
+    state = act(state, { do: 'view', app: 'intranet' });
+  }
   render();
 }
 
