@@ -1065,7 +1065,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 {
   const opts = (s, who) => replies(s, who).map((r) => r.id);
   let s = ticks(play({ e1: 'explain' }, { stopAt: 'e2' }), 60);
-  assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
+  assert.deepEqual(opts(s, 'luis').sort(), ['focus', 'nohelper'].sort(), 'Luis gets one useful calendar tip plus an honest answer to his direct keepalive question');
   s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
   assert.deepEqual(opts(s, 'marcus'), ['latecalendar', 'transitAlert'], 'Marcus: the bad-advice cut stays cut; the genuine help route (#38) is intentional, not a third cut route');
   const perIncident = { e1: 4, e2: 5, e3: 6, e4: 5 };
@@ -1267,33 +1267,17 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.match(caseView(plain, plain.alerts.find((a) => a.incident === 'e1')).observed.join(' '), /Focus time scheduled: none/);
 }
 
-// ---------------------------------------------------- Dana can be answered
+// --------------------- Dana's reaction messages teach instead of adding filler
 
 {
   let s = play({ e1: 'explain' }, { stopAt: 'e2' });
-  s = until(s, (x) => has(texts(x, 'dana'), /Got your note/));
-  const ids = replies(s, 'dana').map((r) => r.id);
-  assert.deepEqual(ids.sort(), ['e1nA', 'e1nB']);
-  const before = s.picked;
-  const spec = replies(s, 'dana').find((r) => r.id === 'e1nB');
-  const rev = s.rev;
-  s = act(s, { do: 'reply', thread: 'dana', reply: 'e1nB' });
-  assert.notEqual(s.rev, rev);
-  assert.deepEqual(s.picked, before, 'a conversation-only reply never changes an outcome');
-  assert.equal(replies(s, 'dana').length, 0, 'answered once');
-  s = ticks(s, 4);
-  assert.ok(has(texts(s, 'dana'), /I read the first line/), 'Dana answers');
+  s = until(s, (x) => has(texts(x, 'dana'), /archives explanations without using them/i));
+  assert.equal(replies(s, 'dana').filter((r) => r.free).length, 0,
+    'a useful status message does not force the player through reaction-only reply chips');
 
-  // Chips expire when the moment has passed.
-  let stale = play({ e1: 'explain' }, { stopAt: 'e2' });
-  stale = until(stale, (x) => has(texts(x, 'dana'), /Got your note/));
-  stale = DO.e2.ignore(until(stale, atIncident('e2')));
-  assert.equal(replies(stale, 'dana').filter((r) => r.free).length, 0, 'an old reaction can no longer be answered');
-
-  // Every reaction line Dana sends has a way to answer it.
   const wait = until(play({}, { stopAt: 'e1' }), (x) => x.incident?.id === 'e1');
-  const done = until(logoff(wait), (x) => has(texts(x, 'dana'), /NARC says your activity is still low/));
-  assert.equal(replies(done, 'dana').filter((r) => r.free).length, 2);
+  const done = until(logoff(wait), (x) => has(texts(x, 'dana'), /calendar block is only marked Busy/i));
+  assert.equal(replies(done, 'dana').filter((r) => r.free).length, 0);
 }
 
 // ------------------------------------------------- Marcus’s paper line
@@ -1328,6 +1312,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
   const t0 = s.t;
