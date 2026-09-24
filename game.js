@@ -1629,6 +1629,7 @@ export function act(state, a) {
       const ev = s.calendar.find((e) => e.id === a.event);
       if (ev && ev.focus !== !!a.focus) {
         ev.focus = !!a.focus;
+        if (!ev.focus) delete s.reactions[`calendar:${ev.id}`];
         if (ev.focus && ev.id === 'c1' && s.incident?.id === 'e1') resolve(s, 'focus');
         if (ev.focus && ev.id === 'c-luis1' && s.incident?.id === 'e2') resolve(s, 'focus');
         changed = true;
