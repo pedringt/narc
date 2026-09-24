@@ -882,9 +882,15 @@ const INCIDENTS = {
   e5: {
     at: { day: 'Thu', min: hm(14, 14) },
     variant: (s) => (s.people.luis.gamed ? 'g' : s.people.luis.covered ? 'c' : 'n'),
-    allowed: (v) => (v === 'g' ? ['admit', 'human', 'blame', 'auto'] : v === 'c' ? ['covered'] : ['label', 'output', 'letit']),
+    allowed: (v) => (v === 'g' ? ['admit', 'human', 'blame', 'auto', 'champion'] : v === 'c' ? ['covered', 'champion'] : ['label', 'output', 'letit', 'champion']),
     fallback: (v) => (v === 'g' ? 'auto' : v === 'c' ? 'covered' : 'letit'),
     arrive(s, v) {
+      if (s.people.luis.champion) {
+        s.earlyMove = true;
+        resolve(s, 'champion');
+        delete s.earlyMove;
+        return;
+      }
       if (v === 'c') {
         resolve(s, 'covered');
         return;
@@ -915,6 +921,17 @@ const INCIDENTS = {
       mark(s, 8, 'files', { when: 'e5', hint: 'A report could support Luis\u2019s case.' });
     },
     branches: {
+      champion(s) {
+        s.people.luis.status = 'promoted';
+        react(s, 1, {
+          incident: 'e5', where: 'narc', label: 'Advisory: routed to human review', conf: 100, tone: 'good',
+          metrics: { 'Company response': 'Automatic action blocked by Culture Champion exemption' },
+          toast: !!s.earlyMove,
+          text: 'Culture Champion exemption applied. Luis Perez remains employed. NARC recommendation archived for human review.',
+        });
+        say(s, 12, 'luis', 'Apparently the badge outranks the bathroom timer. I am choosing not to examine that sentence.');
+        catchUp(s, 4, 'luis');
+      },
       covered(s) {
         s.people.luis.status = 'employed';
         react(s, 4, {
@@ -1001,9 +1018,15 @@ const INCIDENTS = {
   e6: {
     at: { day: 'Fri', min: hm(11, 20) },
     variant: (s) => (s.people.marcus.gamed ? 'g' : 'b'),
-    allowed: (v) => (v === 'g' ? ['workshop', 'approve', 'expose'] : ['vouch_trace', 'backdate', 'let']),
+    allowed: (v) => (v === 'g' ? ['workshop', 'approve', 'expose', 'champion'] : ['vouch_trace', 'backdate', 'let', 'champion']),
     fallback: (v) => (v === 'g' ? 'approve' : 'let'),
     arrive(s, v) {
+      if (s.people.marcus.champion) {
+        s.earlyMove = true;
+        resolve(s, 'champion');
+        delete s.earlyMove;
+        return;
+      }
       if (v === 'g') {
         s.files.unshift({
           id: 'f-docs',
@@ -1049,6 +1072,17 @@ const INCIDENTS = {
       say(s, 18, 'dana', 'NARC is set to terminate Marcus. If you have evidence or context, send it now.', { when: 'e6', prompt: 'dana-e6b' });
     },
     branches: {
+      champion(s) {
+        s.people.marcus.status = 'promoted';
+        react(s, 1, {
+          incident: 'e6', where: 'narc', label: 'Advisory: routed to human review', conf: 100, tone: 'good',
+          metrics: { 'Company response': 'Automatic action blocked by Culture Champion exemption' },
+          toast: !!s.earlyMove,
+          text: 'Culture Champion exemption applied. Marcus Reed remains employed. Attendance recommendation archived for human review.',
+        });
+        say(s, 12, 'marcus', 'Culture finally did something. Please do not tell Culture I said that.');
+        catchUp(s, 4, 'marcus');
+      },
       workshop(s) {
         s.people.marcus.status = 'rewarded';
         say(s, 3, 'dana', 'Good to know. I’ll let NARC know you agree.');
