@@ -224,11 +224,14 @@ Coworkers, Messages, Calendar, Files, Email, and Utilities should help the playe
 The repeatable gameplay loop is:
 
 1. NARC interrupts with a judgment, demand, or threat.
-2. The player can inspect the signals/inference NARC used.
-3. Coworkers or other work surfaces reveal context, a contradiction, or a loophole.
-4. The player complies, challenges, evades, or manipulates the measured trace.
-5. NARC reacts as though its own data is authoritative.
-6. Later NARC may adapt, creating a new arms race.
+2. The player notices a clue or contradiction in another work app.
+3. The player investigates across Messages, Files, Calendar, Utilities, or Browser.
+4. The player infers which signals NARC trusts and which context it is missing.
+5. The player complies, challenges, evades, or manipulates the measured trace.
+6. NARC reacts as though its own data is authoritative.
+7. Coworkers remember what happened, and later incidents reuse earlier behavior or records.
+
+The week should feel like one workplace gradually reorganizing itself around NARC, not six independent cases.
 
 Coworker messages should therefore do more than deliver jokes. They can simultaneously provide:
 - character
@@ -462,6 +465,13 @@ The player should often infer cause and effect instead of being told what the ch
 - readable and approachable, not hacker-themed
 - avoid a dense enterprise dashboard
 - do not build a full operating-system simulator; only a few fake apps need to function
+- desktop may keep up to three overlapping windows open when that helps compare evidence; close means hide, and app state persists
+- narrow layouts may fall back to one primary window
+- NARC uses a small pair of friendly corporate eyes as its visual identity
+- NARC's main information architecture is **My NARC / Company / History**
+- Calendar's reusable mental model is **time becomes evidence**
+- Files should contain evidence with a gameplay purpose, not decorative filler
+- Browser is a small authored surface for optional comedy and a few mechanic-foreshadowing stories
 
 ## Outcomes
 
@@ -537,8 +547,16 @@ A successful V1 should make a portfolio visitor:
 
 ## Current implementation note
 
-The current `prototype-v1` deployment already uses the human-vs-NARC premise with six deterministic encounters, Luis/Marcus/Priya, carry-over, a NARC update, endings, and achievements.
+The active testing work is on `testing-fixes-sept24`; it is not production.
 
-The current desktop rework has removed most scenario-card framing. The primary mismatch now is **clarity and pacing**: the player can see a believable workstation but often cannot tell what actions are available or why incoming messages matter.
+The deterministic six-incident week now has a more connected workstation pass in progress:
+- Halvorsen Files + Calendar onboarding
+- purposeful Files content
+- cross-day coworker callbacks
+- direct coworker replies that survive formal case resolution
+- limited overlapping windows
+- authored Browser
+- friendly NARC eyes
+- simplified My NARC / Company / History views
 
-The next implementation pass should preserve the working deterministic state logic where practical and reframe it around the persistent work-desktop model defined above and in `docs/handoffs/claude-rework/DESKTOP_INTERACTION_REWORK.md`.
+The next step is verification and continued live playtesting, not promotion to `main`.
