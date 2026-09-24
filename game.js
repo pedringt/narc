@@ -77,7 +77,15 @@ export function newGame() {
     indexVisible: false,
     flags: 0, // integrity flags, visible from NARC 2.0 onward
     oriented: false,
-    orient: { ack: false },
+    orient: {
+      ack: false,
+      loop: false,
+      file: false,
+      calendar: false,
+      utilities: false,
+      narc: false,
+      browser: false,
+    },
     inspectedFiles: {}, // files the player has deliberately opened/read
     seen: {}, // apps the player has opened
     marks: {}, // apps with something new or changed in them
@@ -162,6 +170,70 @@ const cal = (s, n, event) => push(s, { at: later(s, n), k: 'cal', event });
 const mark = (s, n, app, extra = {}) => push(s, { at: later(s, n), k: 'mark', app, ...extra });
 const catchUp = (s, n, who) => push(s, { at: later(s, n), k: 'shown', who, status: s.people[who].status });
 const goOffline = (s, n, who) => push(s, { at: later(s, n), k: 'offline', who });
+
+function tutorialAdvance(s) {
+  if (!s.orient.ack || s.oriented) return false;
+  let changed = false;
+  let delay = 1;
+  const next = (text, app, hint) => {
+    say(s, delay, 'dana', text);
+    delay += 2;
+    if (app && !s.seen[app]) s.marks[app] = hint;
+  };
+
+  if (!s.orient.loop && s.seen.intranet) {
+    s.orient.loop = true;
+    changed = true;
+    next(
+      'That’s The Loop. It’s the company home screen: schedule, shortcuts, updates, and the sort of things People Ops thinks improve morale. Next, open Files and read the Halvorsen MSA.',
+      'files',
+      'Dana asked you to check the Halvorsen contract.'
+    );
+  }
+  if (s.orient.loop && !s.orient.file && s.inspectedFiles['f-halvorsen']) {
+    s.orient.file = true;
+    changed = true;
+    next(
+      'That printed-review clause matters. You can be doing real work while the laptop records almost no activity. Now open Calendar and find the Halvorsen block.',
+      'calendar',
+      'Dana asked you to compare the contract with your schedule.'
+    );
+  }
+  if (s.orient.file && !s.orient.calendar && s.seen.calendar) {
+    s.orient.calendar = true;
+    changed = true;
+    next(
+      'There it is. Calendar is part of the evidence trail: time, location, and how work is labeled. “Busy” and “Focus time” do not mean the same thing to NARC. Next, open Utilities.',
+      'utilities',
+      'Dana asked you to look at what the workstation can record.'
+    );
+  }
+  if (s.orient.calendar && !s.orient.utilities && s.seen.utilities) {
+    s.orient.utilities = true;
+    changed = true;
+    next(
+      'Utilities is the machine side of the story: activity signals, device traces, and whatever questionable tools end up on the laptop. Now open NARC.',
+      'narc',
+      'Dana asked you to see how NARC turns traces into a judgment.'
+    );
+  }
+  if (s.orient.utilities && !s.orient.narc && s.seen.narc) {
+    s.orient.narc = true;
+    changed = true;
+    next(
+      'That is the AI’s view. NARC sees signals, assigns confidence, and recommends company action. It does not automatically understand the human context in the other apps. One last stop: open Browser.',
+      'browser',
+      'Dana asked you to finish the workstation tour in Browser.'
+    );
+  }
+  if (s.orient.narc && !s.orient.browser && s.seen.browser) {
+    s.orient.browser = true;
+    changed = true;
+    say(s, delay, 'dana', 'Browser is normal web access, but browsing can still become another workplace signal. Come back to Messages and tell me you’re ready. Then I’ll turn you loose.');
+  }
+  return changed;
+}
+
 // The immediate consequence of something the player did. NARC's belief changes
 // on the case they were looking at, the same one line appears where they acted,
 // and history keeps a quiet record. Only a reversal is worth a toast.
@@ -1340,7 +1412,7 @@ function closingLine(prompt, branch) {
 }
 
 const REPLIES = {
-  'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
+  'dana:orient': { text: 'Got it. Reality is in the apps; NARC sees the traces. I’m ready.', orient: true },
   'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good. Those contracts are never as boring as they look.' },
   'dana:e1checking': { text: 'I’m checking what NARC saw.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good idea. It compares everyone to one team average, so it may just be off.' },
   // Dana's reactions to what you did. Conversation only: they never change an outcome.
@@ -1373,7 +1445,10 @@ export function replies(s, thread) {
   return Object.entries(REPLIES)
     .filter(([key, r]) => {
       if (!key.startsWith(`${thread}:`)) return false;
-      if (r.orient) return !s.oriented && s.orient.ack && !!s.seen.calendar && !!s.inspectedFiles['f-halvorsen'];
+      if (r.orient) {
+        const tour = ['loop', 'file', 'calendar', 'utilities', 'narc', 'browser'];
+        return !s.oriented && s.orient.ack && tour.every((step) => !!s.orient[step]);
+      }
       if (r.free) {
         // Coworker questions remain answerable after the formal case closes.
         // Dana's conversational follow-ups still expire with the case so old
@@ -1445,8 +1520,11 @@ export function act(state, a) {
   let changed = false;
   switch (a.do) {
     case 'view': {
+      const firstView = !s.seen[a.app];
       s.seen[a.app] = true;
       if (s.marks[a.app]) { delete s.marks[a.app]; changed = true; }
+      if (firstView) changed = true;
+      if (tutorialAdvance(s)) changed = true;
       break;
     }
     case 'open':
@@ -1456,6 +1534,7 @@ export function act(state, a) {
       if (s.files.some((file) => file.id === a.file) && !s.inspectedFiles[a.file]) {
         s.inspectedFiles[a.file] = true;
         changed = true;
+        if (tutorialAdvance(s)) changed = true;
       }
       break;
     case 'gone': {
@@ -1471,7 +1550,8 @@ export function act(state, a) {
     case 'ack':
       if (!s.orient.ack) {
         s.orient.ack = true;
-        say(s, 5, 'dana', 'Hi, Dana here — your manager. Quick setup check: open the Halvorsen MSA in Files and confirm it requires a printed review. Then check that the read-through is on Calendar and reply here.');
+        s.marks.intranet = 'Dana asked you to start the workstation tour here.';
+        say(s, 3, 'dana', 'Hi, Dana here — your manager. Before NARC starts judging anything, I want you to know what this laptop actually records. We can do the whole tour in about a minute. Start with The Loop, our company home screen.');
         changed = true;
       }
       break;
@@ -1503,7 +1583,9 @@ export function act(state, a) {
       s.threads[a.thread].push({ id: `m${++s.uid}`, from: 'me', text: r.text });
       if (spec.orient) {
         s.oriented = true;
-        say(s, 4, 'dana', 'Perfect. You’re set. NARC is live.');
+        ['intranet', 'files', 'calendar', 'utilities', 'narc', 'browser'].forEach((app) => { delete s.marks[app]; });
+        s.marks.intranet = 'Setup complete. The Loop is your normal company home screen.';
+        say(s, 3, 'dana', 'Exactly. Compare NARC’s judgment with the other apps whenever something looks off. NARC is live.');
         push(s, { at: later(s, ORIENT_LEAD), k: 'arm', id: 'e1' });
       } else {
         if (spec.prompt) s.answered[spec.prompt] = true;
