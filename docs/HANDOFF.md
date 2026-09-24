@@ -264,3 +264,24 @@ Per incident, aim for one judgment, a small amount of context, 2–3 actions, on
 The Stanley Parable is a useful tonal/design reference for the feeling that the system notices what the player is doing and confidently reinterprets it. Do not copy the narrator structure. Use the principle: **the system watches the player's choices and keeps trying to explain them back to the player.**
 
 <!-- Vercel production retry marker: 2026-09-23 19:37 PT -->
+
+
+## Current social-system pass (2026-09-24)
+
+Authorized implementation work for issues #52-#56 is on `social-loop-and-desktop-pass`.
+
+New direction:
+- desktop navigation moves from a tall left rail to a compact bottom dock
+- normal apps use content-sized windows so Messages and Calendar do not sit inside large empty canvases
+- NARC remains visually separated from normal productivity apps
+- peer reporting is reciprocal: Employee 4417 can supply peer context, and a coworker under pressure can supply context about Employee 4417
+- repeated reporting contributes to a paranoid-office outcome
+- low-report, protective play can produce collective non-cooperation where NARC loses confidence because employees stop feeding it unnecessary peer verification
+- a high-report office can trigger a Priya resignation beat even while NARC's concern remains low, showing harm from anticipated judgment rather than direct automated punishment
+
+Case-study framing:
+> NARC turns the people into narcs.
+
+The broader question is how an AI system changes human behavior around it, not simply whether the model is right or wrong. The State comparison remains a supporting insight about evidence, interpretation, authorization, and accepted operational truth.
+
+Do not expand these ideas into a procedural social simulator. The implementation should remain authored, deterministic, and within the short portfolio-playthrough target.
