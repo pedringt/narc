@@ -132,7 +132,9 @@ Current implementation (desktop rework + playtest clarity pass, on `prototype-v1
 - QA aid: `?tick=N` in the URL sets **milliseconds per game second** (so `?tick=200` is 5x speed, and the default is 1000). It is not a multiplier: `?tick=2` runs about 500x and skips past everything
 - Vercel preview redeploys from `prototype-v1`; the public production site only changes when `prototype-v1` is merged to `main`
 
-Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, multiple windows, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
+Deferred: Nina and Maya, the remaining encounters, free-text Messages replies, sound, a formal NARC score for the player beyond the Visible Activity Index, final achievement set, real-world monitoring citations.
+
+Limited multi-window behavior is no longer deferred. The current testing branch intentionally supports up to three overlapping desktop windows, with dock raise/reopen and close-as-hide behavior.
 
 
 ## Settled principles (from the feedback rounds; all now implemented)
@@ -159,7 +161,7 @@ Detailed implementation notes:
 
 ## Next recommended implementation action
 
-**Verification, then a genuinely fresh-player release gate.**
+**Finish verification on `testing-fixes-sept24`, then continue the live playtest before any promotion.**
 
 The current prototype-v1 branch now includes the latest board work:
 - #17 route-specific closure copy for superseded questions, so the in-world cause is named instead of generic "never mind" language
@@ -285,3 +287,27 @@ Case-study framing:
 The broader question is how an AI system changes human behavior around it, not simply whether the model is right or wrong. The State comparison remains a supporting insight about evidence, interpretation, authorization, and accepted operational truth.
 
 Do not expand these ideas into a procedural social simulator. The implementation should remain authored, deterministic, and within the short portfolio-playthrough target.
+
+
+## Sept 24 connected-workstation pass
+
+Current implementation branch: `testing-fixes-sept24`.
+
+This pass responds to live playtest feedback that the week still felt too simple and that several apps existed beside one another instead of feeling connected.
+
+Current direction:
+- the week should feel like one connected workplace system: **notice → investigate across apps → infer what NARC values → act → see the social consequence**
+- earlier choices now echo into later coworker messages so Luis, Marcus, and Priya react to what happened before
+- direct coworker conversations remain answerable after the formal case is resolved; Dana/NARC review prompts may close, but people do not disappear because a branch ended
+- Monday onboarding now requires checking the Halvorsen MSA in Files and the scheduled read-through in Calendar
+- Halvorsen is real evidence for the player's Monday false positive instead of opening-screen scenery
+- decorative initial files were removed
+- Calendar's role is **time becomes evidence**: scheduling, timing, and retroactive edits can change what NARC believes
+- Messages should be funny **and** useful; flavor-only lines should be cut or made to teach, warn, implicate, unlock, or set up a callback
+- desktop supports up to three overlapping windows on desktop; dock clicks raise/reopen; close hides without resetting app state; narrow layouts keep a one-window fallback
+- a small authored Browser app adds optional dumb news plus workplace-AI stories that foreshadow NARC mechanics
+- the workstation visual direction is richer corporate color and personality, not beige office software
+- NARC's visual identity is a friendly pair of eyes: approachable company branding for a system that is always watching
+- NARC itself is simplified into **My NARC / Company / History**, with person names and current standing more prominent than assessment metadata
+
+Do not interpret this branch as production. `main` remains unchanged until Paige explicitly authorizes a merge.
