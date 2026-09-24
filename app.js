@@ -18,13 +18,13 @@ const ICON = {
 };
 
 const APPS = [
+  { id: 'intranet', label: 'The Loop' },
   { id: 'messages', label: 'Messages' },
   { id: 'email', label: 'Email' },
   { id: 'calendar', label: 'Calendar' },
   { id: 'files', label: 'Files' },
   { id: 'utilities', label: 'Utilities' },
   { id: 'narc', label: 'NARC' },
-  { id: 'intranet', label: 'The Loop' },
 ];
 
 // A short, mostly-static feed of company nonsense -- somewhere to sit while
@@ -272,7 +272,7 @@ function renderWindow() {
     intranet: renderIntranet,
   };
   const nodes = views[ui.app]();
-  els.win.className = `window${ui.app === 'narc' ? ' narc' : ''}${ui.detail ? ' show-detail' : ''}`;
+  els.win.className = `window app-${ui.app}${ui.app === 'narc' ? ' narc' : ''}${ui.detail ? ' show-detail' : ''}`;
   els.win.replaceChildren(...nodes);
 
   els.win.querySelectorAll('[data-scroll]').forEach((n) => {
@@ -323,7 +323,7 @@ function nominateForm() {
   const entries = Object.entries(state.nominations || {});
   const submitted = entries.find(([, status]) => status === 'submitted');
   if (submitted) {
-    box.append(h('div', 'acked', `Nomination submitted: ${PEOPLE[submitted[0]].name}`));
+    box.append(h('div', 'acked', `Culture Champion selected: ${PEOPLE[submitted[0]].name}. Their next NARC advisory will be routed to human review.`));
     return box;
   }
 
@@ -339,17 +339,12 @@ function nominateForm() {
     input.name = 'nominee';
     input.value = id;
     input.checked = ui.draft.nominee === id;
-    input.disabled = !!state.nominations[id];
     input.addEventListener('change', () => { ui.draft.nominee = id; render(); });
-    const status = state.nominations[id] === 'rejected' ? ' · below threshold' : '';
-    box.append(h('label', null, input, `${p.name} · ${p.role}${status}`));
+    box.append(h('label', null, input, `${p.name} · ${p.role}`));
   });
 
   const pickedStatus = state.nominations[ui.draft.nominee];
-  if (pickedStatus === 'rejected') {
-    box.append(h('div', 'acked', `${PEOPLE[ui.draft.nominee].name} is below the Collaboration Index threshold. Nomination not submitted.`));
-  }
-  const send = btn('Submit nomination', 'btn primary', () => dispatch({ do: 'nominate', who: ui.draft.nominee }));
+  const send = btn('Select Culture Champion', 'btn primary', () => dispatch({ do: 'nominate', who: ui.draft.nominee }));
   send.disabled = !ui.draft.nominee || !!pickedStatus;
   send.style.marginTop = '10px';
   box.append(send);
@@ -446,9 +441,44 @@ function eventRow(e, team) {
 }
 
 function renderIntranet() {
-  const list = h('div', 'intranet-list');
-  INTRANET_POSTS.forEach((p) => list.append(h('div', 'intranet-post', h('div', 'intranet-from', p.from), h('p', null, p.text))));
-  return windowShell('The Loop', h('div', 'body', list));
+  const main = h('div', 'intranet-list');
+  main.append(h('div', 'loop-welcome',
+    h('div', 'loop-kicker', 'MERIDIAN SUPPLY CO. · EMPLOYEE HOME'),
+    h('h2', null, 'The Loop'),
+    h('p', null, 'Good morning, Employee 4417. Everything important is probably somewhere on this page.')));
+  INTRANET_POSTS.forEach((p) => main.append(h('div', 'intranet-post', h('div', 'intranet-from', p.from), h('p', null, p.text))));
+
+  const side = h('aside', 'loop-side');
+  const today = h('div', 'loop-card', h('div', 'loop-card-h', 'Today'));
+  const todays = state.calendar.filter((e) => e.who === 'me' && e.day === state.clock.day).sort((x, y) => x.start.localeCompare(y.start));
+  if (!todays.length) today.append(h('p', 'loop-muted', 'No meetings on your calendar.'));
+  todays.slice(0, 3).forEach((e) => today.append(h('div', 'loop-event', h('b', null, e.start), h('span', null, e.title))));
+  today.append(btn('Open Calendar', 'loop-link', () => goApp('calendar')));
+
+  const u = unread(state);
+  const profile = h('div', 'loop-card',
+    h('div', 'loop-card-h', 'Employee 4417'),
+    h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', 'loop-muted', state.indexVisible ? `Visible Activity Index: ${state.score}` : 'Status: Active'))),
+    h('p', 'loop-muted', `${u.messages || 0} unread message${u.messages === 1 ? '' : 's'} · ${u.email || 0} unread email${u.email === 1 ? '' : 's'}`));
+
+  const quick = h('div', 'loop-card', h('div', 'loop-card-h', 'Quick links'));
+  [
+    ['Messages', () => goApp('messages')],
+    ['Benefits', () => goApp('files')],
+    ['IT Help', () => goApp('utilities')],
+    ['Handbook', () => goApp('files')],
+    ['Culture Champion', () => {
+      const m = state.inbox.find((x) => /Culture Champion nominations/.test(x.subject));
+      if (m) openRef(`email:${m.id}`); else goApp('email');
+    }],
+  ].forEach(([label, fn]) => quick.append(btn(label, 'loop-link', fn)));
+
+  const nonsense = h('div', 'loop-card nonsense',
+    h('div', 'loop-card-h', 'Required reminder'),
+    h('p', null, state.level >= 2 ? 'Authenticity is a measurable behavior.' : 'Please complete your annual “Meeting About Meetings” acknowledgment by Friday.'));
+
+  side.append(today, profile, quick, nonsense);
+  return windowShell('The Loop · Meridian Supply Co.', h('div', 'body loop-home', main, side));
 }
 
 function renderCalendar() {
@@ -606,30 +636,19 @@ function alertRow(a) {
 }
 
 function renderNarc() {
-  const top = h('div', 'narc-top', h('span', 'brand', 'NARC'));
+  const top = h('div', 'narc-top', h('span', 'brand', 'NARC'), h('span', 'ai-label', 'AI Workforce Assessment'));
   if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', num('index', state.score)));
   if (state.level >= 2) top.append(h('span', 'flag', 'Integrity flags ', h('b', null, state.flags)));
 
   const { active, team, history } = narcSections(state);
   const list = h('div', 'list');
-  list.append(h('div', 'sect-h need', 'Needs attention'));
-  if (!active.length) list.append(h('div', 'none', 'Nothing needs your attention.'));
-  active.forEach((a) => list.append(alertRow(a)));
-  if (team.length) {
-    list.append(h('div', 'sect-h', 'Team alerts'));
-    team.forEach((a) => list.append(alertRow(a)));
-  }
-  list.append(h('div', 'sect-h', 'Recent activity'));
-  if (!history.length) list.append(h('div', 'none', 'No activity yet.'));
-  history.forEach((a) => list.append(alertRow(a)));
-  if (state.level >= 2) {
-    const team = h('div', 'team', h('div', 'sect', 'Team status'));
-    Object.entries(PEOPLE).forEach(([id, p]) => {
-      const s = state.shown[id];
-      team.append(h('div', 't-row', h('span', null, p.name), h('span', `s ${s}`, s === 'employed' ? '' : { warning: 'WARNING', monitored: 'MONITORED', promoted: 'CHAMPION', rewarded: 'REWARDED', fired: 'OFFBOARDED' }[s])));
-    });
-    list.append(team);
-  }
+  const currentItems = [...active, ...team];
+  list.append(h('div', 'sect-h need', 'Current'));
+  if (!currentItems.length) list.append(h('div', 'none', 'No active assessments.'));
+  currentItems.forEach((item) => list.append(alertRow(item)));
+  list.append(h('div', 'sect-h', 'History'));
+  if (!history.length) list.append(h('div', 'none', 'No prior assessments.'));
+  history.forEach((item) => list.append(alertRow(item)));
 
   const detail = h('div', 'detail');
   const current = active[0] || team[0];
@@ -643,7 +662,7 @@ function renderNarc() {
   } else {
     detail.append(caseNode(a));
   }
-  return windowShell('NARC · Workforce Support', h('div', 'body', top, h('div', 'narc-main', list, detail)));
+  return windowShell('NARC · AI Workforce Assessment', h('div', 'body', top, h('div', 'narc-main', list, detail)));
 }
 
 function caseNode(a) {
