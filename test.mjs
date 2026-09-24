@@ -37,8 +37,12 @@ function oriented(s = newGame()) {
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'view', app: 'intranet' });
   s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
+  s = act(s, { do: 'view', app: 'utilities' });
+  s = act(s, { do: 'view', app: 'narc' });
+  s = act(s, { do: 'view', app: 'browser' });
   return act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
 }
 
@@ -172,38 +176,59 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let s = newGame();
   assert.equal(act(s, { do: 'reply', thread: 'dana', reply: 'orient' }).oriented, false, 'you cannot skip the first step');
 
-  // Step 1: acknowledge the email. Dana introduces herself as the manager.
+  // Step 1: acknowledge the People Ops email. Dana starts a real workstation tour.
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   assert.equal(s.oriented, false, 'reading is not the same as acknowledging');
   s = act(s, { do: 'ack' });
   assert.equal(s.threads.dana.length, 0, 'Dana takes a moment');
   s = until(s, (x) => x.threads.dana.length === 1);
   assert.match(s.threads.dana[0].text, /your manager/);
-  assert.match(s.threads.dana[0].text, /Halvorsen MSA/);
-  assert.match(s.threads.dana[0].text, /Calendar/);
+  assert.match(s.threads.dana[0].text, /The Loop/);
+  assert.match(s.threads.dana[0].text, /whole tour/i);
   assert.equal(THREADS.dana.role, 'Your manager', 'the thread header says so too');
-
-  // Step 2: Dana makes Files + Calendar a tiny evidence tutorial. Neither alone is enough.
   assert.deepEqual(replies(s, 'dana'), []);
-  s = act(s, { do: 'view', app: 'calendar' });
-  assert.deepEqual(replies(s, 'dana'), [], 'Calendar alone is not enough; Dana asked you to check the contract too');
+
+  // The Loop teaches the home surface and points to Files.
+  s = act(s, { do: 'view', app: 'intranet' });
+  assert.equal(s.orient.loop, true);
+  assert.equal(s.orient.file, false);
+  assert.equal(s.marks.files, 'Dana asked you to check the Halvorsen contract.');
+
+  // Files teaches offline work; Calendar teaches time/labels.
   s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
-  assert.equal(s.inspectedFiles['f-halvorsen'], true);
+  assert.equal(s.orient.file, true);
+  assert.equal(s.marks.calendar, 'Dana asked you to compare the contract with your schedule.');
+  s = act(s, { do: 'view', app: 'calendar' });
+  assert.equal(s.orient.calendar, true);
+  assert.equal(s.marks.utilities, 'Dana asked you to look at what the workstation can record.');
+
+  // Utilities teaches traces; NARC teaches the AI judgment; Browser teaches
+  // that ordinary browsing can also become a signal.
+  s = act(s, { do: 'view', app: 'utilities' });
+  assert.equal(s.orient.utilities, true);
+  s = act(s, { do: 'view', app: 'narc' });
+  assert.equal(s.orient.narc, true);
+  assert.deepEqual(replies(s, 'dana'), [], 'the tour is not complete until Browser is visited');
+  s = act(s, { do: 'view', app: 'browser' });
+  assert.equal(s.orient.browser, true);
   assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['orient']);
   assert.equal(s.oriented, false);
+
+  // The first case cannot happen while the player is still learning the workstation.
   s = ticks(s, 500);
   assert.equal(s.incident, null, 'still no NARC case: the player has not finished orientation');
 
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
   assert.equal(s.oriented, true);
   assert.equal(replies(s, 'dana').length, 0);
+  assert.equal(s.marks.intranet, 'Setup complete. The Loop is your normal company home screen.');
   s = ticks(s, 5);
   assert.equal(s.incident, null, 'the first case is not sprung on the player the moment they finish');
   s = until(s, atIncident('e1'));
   assert.equal(s.indexVisible, true);
   assert.equal(clockText(s), 'Mon 12:14');
   assert.ok(has(texts(s, 'dana'), /NARC is live/), 'Dana tells you NARC is now live');
-  assert.ok(!has(texts(s, 'dana'), /enjoy your contract/i));
+  assert.ok(has(texts(s, 'dana'), /compare NARC/i), 'Dana ends the tutorial with the core comparison rule');
 }
 
 // --------------------- Halvorsen itself can resolve the Monday false positive
@@ -1250,9 +1275,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'view', app: 'intranet' });
   s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
   s = act(s, { do: 'markFocus', event: 'c1' });
+  s = act(s, { do: 'view', app: 'utilities' });
+  s = act(s, { do: 'view', app: 'narc' });
+  s = act(s, { do: 'view', app: 'browser' });
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
   s = until(s, (x) => x.done.includes('e1') || x.incident?.id === 'e1');
   assert.equal(s.picked.e1, 'focus', 'Focus time marked during orientation resolves the first case on arrival');
@@ -1314,8 +1343,12 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'view', app: 'intranet' });
   s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
+  s = act(s, { do: 'view', app: 'utilities' });
+  s = act(s, { do: 'view', app: 'narc' });
+  s = act(s, { do: 'view', app: 'browser' });
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
   const t0 = s.t;
   s = until(s, atIncident('e1'));
