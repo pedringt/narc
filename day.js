@@ -70,10 +70,25 @@ export function newGame() {
         status: 'pending',
         approach: null,
       },
+      // Not shown until a morning shortcut earns it: the afternoon paying
+      // back a rushed decision from earlier, rather than a fourth errand
+      // that would exist no matter what the player did.
+      rework: {
+        label: '', detail: '', kind: null,
+        deadline: 15 * 60, status: 'hidden', approach: null,
+      },
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
       marcusFavor: { status: 'pending', at: 12 * 60 + 10 },
+      danaCheckin: { status: 'pending', at: 13 * 60 + 30 },
+      // Gated on a flag, not just a clock threshold: only fires if the
+      // morning's project decision earns it (see checkThresholds).
+      marcusFallout: { status: 'pending', at: 14 * 60 + 30 },
+      // Opened programmatically the moment NARC adapts, not on a timer --
+      // this is what makes the adaptation an actual decision rather than a
+      // line of text the player just reads.
+      narcResponse: { status: 'pending', at: null },
     },
     calendar: [],
     narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
@@ -124,6 +139,33 @@ function checkThresholds(s) {
     note(s, 'Marcus made the cut himself, guessing at what you would have picked.', 'consequence');
   }
 
+  // A rushed morning call comes back due, early afternoon -- the specific
+  // "decision -> short-term advantage -> delayed consequence" shape the
+  // afternoon was missing. Only one fires (vendor takes priority) so this
+  // stays one obligation, not a pile of them; a careful morning earns a
+  // quieter afternoon instead of manufactured busywork.
+  if (tasks.rework.status === 'hidden' && s.t >= 13 * 60) {
+    if (s.flags.vendorRisky) {
+      tasks.rework.status = 'pending';
+      tasks.rework.kind = 'vendor';
+      tasks.rework.label = 'Halcyon: the rate hike you skimmed past is now a real problem';
+      tasks.rework.detail = 'Procurement noticed the 30% increase after the fact and wants to know why it went through.';
+      note(s, 'Halcyon: procurement flagged the rate increase you approved this morning.', 'consequence');
+    } else if (s.flags.clientUnresolved) {
+      tasks.rework.status = 'pending';
+      tasks.rework.kind = 'client';
+      tasks.rework.label = "Priya's client is back -- the canned reply didn't hold";
+      tasks.rework.detail = "They want an actual answer this time, and Priya is done covering for it.";
+      note(s, "The client you sent a form reply to this morning escalated again.", 'consequence');
+    }
+  }
+  if (tasks.rework.status === 'pending' && s.t >= tasks.rework.deadline) {
+    tasks.rework.status = 'missed';
+    s.trust.priya -= 1;
+    s.index = Math.max(0, s.index - 5);
+    note(s, "It went over your manager's head to resolve. NARC noticed the escalation.", 'consequence');
+  }
+
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
     say(s, 'luis', "Hey -- if NARC flags you for going quiet, block the time as Focus Time on Calendar first. Worked for me.");
@@ -131,6 +173,14 @@ function checkThresholds(s) {
   if (requests.marcusFavor.status === 'pending' && s.t >= requests.marcusFavor.at) {
     requests.marcusFavor.status = 'open';
     say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
+  }
+  if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
+    requests.danaCheckin.status = 'open';
+    say(s, 'dana', 'Quick check-in: where are we with everything on your plate?');
+  }
+  if (requests.marcusFallout.status === 'pending' && s.t >= requests.marcusFallout.at && s.flags.cutWithoutMarcus) {
+    requests.marcusFallout.status = 'open';
+    say(s, 'marcus', "The cut you made without me broke something downstream. I need to know you'll loop me in next time.");
   }
 
   // The exploit spreads whether or not the player is watching: once it is
@@ -147,7 +197,8 @@ function checkThresholds(s) {
   if (!s.narc.adaptationAnnounced && s.narc.focusUses >= 3) {
     s.narc.adaptationAnnounced = true;
     s.narc.adaptation = true;
-    note(s, 'NARC 2.0: recent, frequent Focus Time markings are now weighted as possible gaming rather than protection.', 'narc');
+    requests.narcResponse.status = 'open';
+    note(s, 'NARC 2.0: recent, frequent Focus Time markings are now weighted as possible gaming rather than protection. It wants a response.', 'narc');
   }
 
   if (s.t >= END && s.phase !== 'end') s.phase = 'end';
@@ -165,8 +216,14 @@ export function act(state, a) {
       task.status = 'done';
       s.actual += opt.actual;
       spend(s, opt.minutes, { visible: opt.visible });
-      note(s, opt.result, 'task');
+      note(s, typeof opt.result === 'function' ? opt.result(task) : opt.result, 'task');
       if (opt.flag) s.flags[opt.flag] = true;
+      if (a.id === 'rework') {
+        // Resolving it clears the flag that caused it, so the ending reads
+        // as "handled", not as a second, permanent black mark.
+        s.flags.vendorRisky = false;
+        s.flags.clientUnresolved = false;
+      }
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       break;
     }
@@ -178,6 +235,7 @@ export function act(state, a) {
       req.status = 'handled';
       spend(s, opt.minutes, { visible: opt.visible });
       note(s, opt.result, 'social');
+      if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
       break;
@@ -211,7 +269,11 @@ export function act(state, a) {
       // but unremarkable work that NARC neither rewards nor flags. Without
       // this, a player who clears their plate early has no move that isn't
       // "spam Focus Time" -- a loop-breaking dead end found in playtesting.
-      spend(s, 15);
+      // A 30-minute step, not 15: even with #66's afternoon additions, an
+      // 8-hour day with a handful of authored decisions has real unfilled
+      // stretches, and halving the click count for the same stretch is
+      // honest tuning, not a substitute for content this pass didn't add.
+      spend(s, 30);
       note(s, 'Ordinary work. Nothing NARC singles out either way.', 'system');
       break;
     }
@@ -255,6 +317,20 @@ const TASK_OPTIONS = {
       result: 'You looped Marcus in before cutting anything. Slower, but he backs the call.',
     },
   },
+  rework: {
+    quiet: {
+      minutes: 20, visible: false, actual: 2,
+      result: (t) => (t.kind === 'vendor'
+        ? 'You renegotiated the Halcyon rate yourself before it reached anyone else. Handled, quietly, on your own time.'
+        : "You called the client directly and actually fixed it this time. Priya didn't have to know."),
+    },
+    escalate: {
+      minutes: 8, visible: true, actual: 1, flag: 'reworkEscalated',
+      result: (t) => (t.kind === 'vendor'
+        ? 'You told Dana about the rate hike. Fast, but now she knows the first call was a skim.'
+        : "You handed it to Dana. Fast, but Priya's the one who had to explain it to the client."),
+    },
+  },
 };
 
 const REQUEST_OPTIONS = {
@@ -270,6 +346,36 @@ const REQUEST_OPTIONS = {
     decline: {
       minutes: 1, visible: false, trust: { marcus: -1 },
       result: "You told Marcus you didn't have time. True, but he remembers it.",
+    },
+  },
+  danaCheckin: {
+    update: {
+      minutes: 15, visible: true,
+      result: 'You gave Dana the full picture, including what you rushed. It costs a quarter hour you were already short on.',
+    },
+    brief: {
+      minutes: 5, visible: false, flag: 'danaRushed',
+      result: "You gave her the two-line version and got back to it. Faster, but she doesn't have the full picture.",
+    },
+  },
+  marcusFallout: {
+    apologize: {
+      minutes: 15, visible: false, trust: { marcus: 3 },
+      result: 'You walked him through it and owned the miss. He was annoyed, then fine.',
+    },
+    standby: {
+      minutes: 2, visible: true, trust: { marcus: -1 },
+      result: "You told him the call was right and moved on. Fast. He's not thrilled.",
+    },
+  },
+  narcResponse: {
+    explain: {
+      minutes: 10, visible: true,
+      result: "You added a note explaining the pattern. NARC logs it, but doesn't fully back off.",
+    },
+    ignore: {
+      minutes: 0, visible: false,
+      result: 'You let the flag stand without a response.',
     },
   },
 };
@@ -295,6 +401,7 @@ export function ending(s) {
     lines.push(`${hurt.join(' and ')} noticed you weren't there when it mattered.`);
   }
   if (s.narc.adaptation) lines.push('The Focus Time trick stopped working around 1:30. Everyone was still using it.');
+  if (s.flags.danaRushed && missed > 0) lines.push("Dana didn't have the full picture when it mattered.");
 
   return { index: s.index, actual: s.actual, lines };
 }

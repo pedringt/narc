@@ -50,17 +50,35 @@ const OPTION_COPY = {
     { key: 'cut', label: 'Cut scope yourself (10 min)' },
     { key: 'consult', label: 'Loop in Marcus first (20 min)' },
   ],
+  rework: [
+    { key: 'quiet', label: 'Deal with it yourself (20 min)' },
+    { key: 'escalate', label: 'Tell Dana now (8 min)' },
+  ],
+};
+
+const REQUEST_TITLES = {
+  luisTip: 'Luis pinged you',
+  marcusFavor: 'Marcus needs a second opinion',
+  danaCheckin: 'Dana wants a status check',
+  marcusFallout: 'Marcus is upset',
+  narcResponse: 'NARC wants a response',
 };
 
 function requestCard(id, r) {
   if (r.status !== 'open') return null;
-  const copy = { luisTip: ['thank', 'ignore'], marcusFavor: ['help', 'decline'] }[id];
+  const copy = {
+    luisTip: ['thank', 'ignore'], marcusFavor: ['help', 'decline'], danaCheckin: ['update', 'brief'],
+    marcusFallout: ['apologize', 'standby'], narcResponse: ['explain', 'ignore'],
+  }[id];
   const labels = {
-    thank: 'Say thanks', ignore: 'Skip it',
+    thank: 'Say thanks', ignore: 'Say nothing',
     help: 'Give him 15 minutes', decline: "Say you don't have time",
+    update: 'Give her the full picture (15 min)', brief: 'Give her the short version (5 min)',
+    apologize: 'Walk him through it (15 min)', standby: 'Stand by the call (2 min)',
+    explain: 'Explain the pattern (10 min)',
   };
   const card = h('div', 'card request');
-  card.append(h('h3', null, id === 'luisTip' ? 'Luis pinged you' : 'Marcus needs a second opinion'));
+  card.append(h('h3', null, REQUEST_TITLES[id]));
   const row = h('div', 'row');
   copy.forEach((k) => row.append(btn(labels[k], 'btn', () => dispatch({ do: 'respond', id, choice: k }))));
   card.append(row);
@@ -90,7 +108,7 @@ function render() {
 
   const left = h('div', 'col');
   left.append(h('h2', null, 'Today'));
-  Object.entries(state.tasks).forEach(([id, t]) => left.append(taskCard(id, t)));
+  Object.entries(state.tasks).forEach(([id, t]) => { if (t.status !== 'hidden') left.append(taskCard(id, t)); });
 
   const mid = h('div', 'col');
   mid.append(h('h2', null, 'People'));
@@ -104,7 +122,7 @@ function render() {
     const wait = h('div', 'card');
     wait.append(h('h3', null, 'Nothing urgent right now'));
     wait.append(h('p', 'muted', 'Keep working until something else comes up.'));
-    wait.append(btn('Keep working (15 min)', 'btn ghost dark', () => dispatch({ do: 'plainWork' })));
+    wait.append(btn('Keep working (30 min)', 'btn ghost dark', () => dispatch({ do: 'plainWork' })));
     left.append(wait);
   }
 

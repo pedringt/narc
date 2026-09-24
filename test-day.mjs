@@ -89,6 +89,76 @@ import { newGame, act, ending, START, END } from './day.js';
   assert.equal(s.phase, 'end');
 }
 
+// --------------------------------- a rushed morning call comes back due (#66)
+{
+  // Paige's own worked example: rush the vendor call for a visible-activity
+  // boost, and the afternoon should make you pay for it -- not as a second
+  // random errand, but as a consequence of that specific choice.
+  let s = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  assert.equal(s.tasks.rework.status, 'hidden', 'not due yet at 9am');
+  s = act(s, { do: 'idle', minutes: 4 * 60 }); // -> past 1pm
+  assert.equal(s.tasks.rework.status, 'pending', 'the rushed vendor call comes back');
+  assert.equal(s.tasks.rework.kind, 'vendor');
+
+  // The client path triggers the same obligation when vendor was clean.
+  let s2 = act(newGame(), { do: 'task', id: 'client', approach: 'canned' });
+  s2 = act(s2, { do: 'idle', minutes: 4 * 60 });
+  assert.equal(s2.tasks.rework.status, 'pending');
+  assert.equal(s2.tasks.rework.kind, 'client');
+
+  // A careful morning should not manufacture the same obligation.
+  let clean = act(newGame(), { do: 'task', id: 'vendor', approach: 'thorough' });
+  clean = act(clean, { do: 'task', id: 'client', approach: 'investigate' });
+  clean = act(clean, { do: 'idle', minutes: 4 * 60 });
+  assert.equal(clean.tasks.rework.status, 'hidden', 'nothing to rework if both were done properly');
+
+  // Resolving it clears the flag rather than leaving a permanent mark.
+  const before = s.index;
+  s = act(s, { do: 'task', id: 'rework', approach: 'quiet' });
+  assert.equal(s.flags.vendorRisky, false);
+  assert.equal(s.tasks.rework.status, 'done');
+  assert.ok(s.actual > 0, 'fixing it for real is worth something');
+
+  // Missing it entirely costs more than the original shortcut did.
+  let missed = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  missed = act(missed, { do: 'idle', minutes: 6 * 60 + 30 }); // straight through its 3pm deadline
+  assert.equal(missed.tasks.rework.status, 'missed');
+  assert.ok(missed.index < before, 'letting it go over your manager\'s head costs the index too');
+}
+
+// --------------------------------------------- Dana's check-in competes too
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: 5 * 60 }); // past 1:30pm
+  assert.equal(s.requests.danaCheckin.status, 'open');
+  const before = s.t;
+  s = act(s, { do: 'respond', id: 'danaCheckin', choice: 'brief' });
+  assert.equal(s.t, before + 5);
+  assert.equal(s.flags.danaRushed, true);
+}
+
+// ------------------------------------- Marcus's cut comes back, if it was his
+{
+  let cutAlone = act(newGame(), { do: 'task', id: 'project', approach: 'cut' });
+  cutAlone = act(cutAlone, { do: 'idle', minutes: 6 * 60 }); // past 2:30pm
+  assert.equal(cutAlone.requests.marcusFallout.status, 'open', 'cutting without him earns the confrontation');
+
+  let consulted = act(newGame(), { do: 'task', id: 'project', approach: 'consult' });
+  consulted = act(consulted, { do: 'idle', minutes: 6 * 60 });
+  assert.equal(consulted.requests.marcusFallout.status, 'pending', 'consulting him first means there is nothing to come back');
+}
+
+// ------------------------------------- NARC's adaptation is a decision, not a line
+{
+  let s = act(newGame(), { do: 'focus' });
+  s = act(s, { do: 'idle', minutes: 270 }); // crosses the 1:30pm spread threshold -> adaptation
+  assert.equal(s.narc.adaptation, true);
+  assert.equal(s.requests.narcResponse.status, 'open', 'the player gets an actual response, not just a notice');
+  const before = s.index;
+  s = act(s, { do: 'respond', id: 'narcResponse', choice: 'explain' });
+  assert.ok(s.index > before, 'explaining it helps, at least partially');
+}
+
 // ----------------------------------------- a neutral way to pass time exists
 {
   // Found in playtesting: once the day's tasks/requests are all closed, the
@@ -100,7 +170,7 @@ import { newGame, act, ending, START, END } from './day.js';
   s = act(s, { do: 'task', id: 'project', approach: 'cut' });
   const before = { t: s.t, index: s.index, focusUses: s.narc.focusUses };
   s = act(s, { do: 'plainWork' });
-  assert.equal(s.t, before.t + 15, 'plain work still spends time');
+  assert.equal(s.t, before.t + 30, 'plain work still spends time');
   assert.equal(s.index, before.index, 'but does not move the index either way');
   assert.equal(s.narc.focusUses, before.focusUses, 'and does not feed the Focus Time counter');
 }
