@@ -84,7 +84,7 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     culture: { open: false }, // the nomination window: from the email until Priya's case ends
-    you: { gamed: false, covered: false, predicted: false },
+    you: { gamed: false, covered: false, predicted: false, reports: 0, trusted: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
@@ -163,6 +163,23 @@ const teamUpdate = (s, n, who) => mail(s, n, {
     'NARC has classified this transition as a Successful Outcome.',
   ],
 });
+
+function creditReport(s) {
+  s.you.reports += 1;
+  if (!s.you.trusted && s.you.reports >= 2 && s.flags === 0) {
+    s.you.trusted = true;
+    mail(s, 10, {
+      from: 'People Operations',
+      subject: 'Peer Review Reliability',
+      body: [
+        'NARC has classified your peer input as high-reliability.',
+        'Future evidence you submit during workforce reviews may receive additional corroboration weight.',
+        'Thank you for supporting healthy accountability.',
+      ],
+    });
+    score(s, 8, 4, 'Trusted Reviewer', 'Visible Activity Index: {from} → {to}. Peer Review Reliability: high.', { quiet: true });
+  }
+}
 
 function toast(s, t) {
   s.toasts.push({ id: `t${++s.uid}`, gone: false, at: s.t, ...t });
@@ -629,6 +646,7 @@ const INCIDENTS = {
     branches: {
       confirm(s) {
         const p = s.people.luis;
+        creditReport(s);
         p.monitored = 2;
         p.trust -= 2;
         say(s, 3, 'dana', 'Thanks. I’ll pass that along to NARC.');
@@ -703,6 +721,7 @@ const INCIDENTS = {
     branches: {
       truth(s) {
         const p = s.people.marcus;
+        creditReport(s);
         p.cred = 12;
         p.status = 'warning';
         p.trust -= 2;
@@ -925,6 +944,7 @@ const INCIDENTS = {
       },
       blame(s) {
         const p = s.people.luis;
+        creditReport(s);
         p.status = 'fired';
         p.trust -= 5;
         say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
@@ -1063,11 +1083,21 @@ const INCIDENTS = {
       },
       vouch_trace(s) {
         const p = s.people.marcus;
-        p.status = 'warning';
-        p.cred = 67;
-        say(s, 3, 'dana', 'Thank you. I’ll get this to NARC before it acts.');
-        react(s, 5, { incident: 'e6', where: 'files:f-slip', conf: 67, metrics: { 'Company response': 'Termination withdrawn. Final warning' }, tone: 'good', text: 'Trace attached. Attendance credibility 12% → 67%. Termination withdrawn. Final written warning issued.' });
-        say(s, 16, 'marcus', 'It was a goose. I don’t want to talk about the goose.');
+        const trusted = s.you.trusted && s.flags === 0;
+        p.status = trusted ? 'employed' : 'warning';
+        p.cred = trusted ? 82 : 67;
+        say(s, 3, 'dana', trusted
+          ? 'Your peer input is marked high-reliability now. I’ll send the trace under that review status.'
+          : 'Thank you. I’ll get this to NARC before it acts.');
+        react(s, 5, {
+          incident: 'e6', where: 'files:f-slip', conf: p.cred, metrics: { 'Company response': trusted ? 'Termination withdrawn. Absence approved' : 'Termination withdrawn. Final warning' }, tone: 'good',
+          text: trusted
+            ? 'Trace attached by Trusted Reviewer. Peer evidence weight increased. Attendance credibility 12% → 82%. Termination withdrawn. Absence approved.'
+            : 'Trace attached. Attendance credibility 12% → 67%. Termination withdrawn. Final written warning issued.',
+        });
+        say(s, 16, 'marcus', trusted
+          ? 'You reported me twice and somehow that is what made them believe you this time. I hate this system.'
+          : 'It was a goose. I don’t want to talk about the goose.');
         notice(s, 28, 'Outlier noted', 'Marcus Reed: first corroborated excuse on record. Classified as an outlier.');
         catchUp(s, 5, 'marcus');
       },
@@ -1772,7 +1802,7 @@ function playerResult(s) {
   if (s.score >= 65) {
     return {
       label: 'MODEL EMPLOYEE',
-      text: `Visible Activity Index: ${s.score}. NARC describes you as “aligned.”${informed ? ' Your reports about colleagues have been classified as collaboration.' : ''}`,
+      text: `Visible Activity Index: ${s.score}. NARC describes you as “aligned.”${informed ? ' Your reports about colleagues have been classified as collaboration.' : ''}${s.you.trusted && s.flags === 0 ? ' Trusted Reviewer access active. Quarterly performance bonus: 4%.' : ''}`,
     };
   }
   return {
