@@ -624,24 +624,24 @@ const INCIDENTS = {
       wait(s) {
         react(s, 1, { incident: 'e1', where: 'narc', label: 'Engagement concern: moderate to high', conf: 71, tone: 'bad', text: `Nothing on record to explain it. Visible Activity Index ${s.score} → ${s.score - 6}.` });
         score(s, 1, -6, 'Visible activity', 'Index {from} → {to}. Recommended action: increase visible activity.', { quiet: true });
-        say(s, 12, 'dana', 'NARC says your activity is still low. If you’re buried in something off-screen, just keep me posted.', { prompt: 'dana-e1w' });
+        say(s, 12, 'dana', 'NARC still has your activity low. Your calendar block is only marked Busy, so it is not treating the time as protected work.');
       },
       explain(s) {
         react(s, 1, { incident: 'e1', where: 'narc', tone: 'flat', text: 'Assessment unchanged. Notes are archived. They are not scored.' });
         score(s, 1, -3, 'Note archived', 'Visible Activity Index: {from} → {to}. Notes are archived. They are not scored.', { quiet: true });
-        say(s, 12, 'dana', 'Got your note! Haven’t had time to read it, but I love that you wrote it.', { prompt: 'dana-e1n' });
+        say(s, 12, 'dana', 'Your note is in the file, but NARC did not change the score. Looks like it archives explanations without using them in this assessment.');
       },
       jiggle(s) {
         s.you.gamed = true;
         react(s, 1, { incident: 'e1', where: 'utilities', label: 'Engagement trend: positive', conf: 91, tone: 'good', toast: !!s.earlyMove, text: `Engagement trend: positive. Visible Activity Index ${s.score} → ${s.score + 14}.` });
         score(s, 1, 14, 'Engagement trend: positive', 'Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 16, 'dana', 'Love the energy!', { prompt: 'dana-e1j' });
+        say(s, 16, 'dana', 'Your activity score just jumped. Whatever NARC saw, it rewarded visible input without asking what produced it.');
       },
       focus(s) {
         s.you.covered = true;
         react(s, 1, { incident: 'e1', where: 'calendar:c1', label: 'Engagement concern: low', conf: 22, tone: 'good', toast: !!s.earlyMove, text: `Focus time recognized. 3 h 15 min reclassified. Visible Activity Index ${s.score} → ${s.score + 11}.` });
         score(s, 1, 11, 'Focus time recognized', 'Calendar: 3 h 15 min reclassified as Focus Time. Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 14, 'dana', 'Focus time! Love that for you.', { prompt: 'dana-e1f' });
+        say(s, 14, 'dana', 'That Calendar label changed the assessment. NARC reclassified the same low-input time once it was marked Focus Time.');
       },
     },
   },
@@ -733,7 +733,7 @@ const INCIDENTS = {
         say(s, 3, 'luis', 'ok what does this do');
         react(s, 5, { incident: 'e2', where: 'thread:luis', label: 'Engagement: exceptional', conf: 97, tone: 'good', text: 'Luis Perez: Activity Index 340% of baseline. Exceptionally engaged. Time-on-task concern dismissed.' });
         say(s, 20, 'luis', 'I have never been more productive, and I am not at my desk.');
-        say(s, 32, 'dana', 'Have you seen Luis’s numbers?? Nominating him for the Innovation Council.', { prompt: 'dana-e2s' });
+        say(s, 32, 'dana', 'Luis’s Activity Index is now 340%. NARC auto-qualified him for the Innovation Council. I am apparently supposed to congratulate him.');
       },
       focus(s) {
         const p = s.people.luis;
@@ -1036,7 +1036,7 @@ const INCIDENTS = {
         s.people.luis.status = 'rewarded';
         react(s, 1, { incident: 'e5', where: 'utilities', label: 'Automated presence: not detected', conf: 31, tone: 'good', text: 'Luis Perez: input interval randomized (± 40 sec). Synthetic pattern not detected. Innovation Council nomination approved.' });
         say(s, 14, 'luis', 'I chair the Council now. We meet at two. I stand up at nine past.');
-        say(s, 24, 'dana', 'The Innovation Council has 11 meetings a week and no windows. Congrats!', { prompt: 'dana-e5h' });
+        say(s, 24, 'dana', 'Luis’s Innovation Council role added 11 meetings a week. NARC still counts the promotion as a productivity success.');
         catchUp(s, 5, 'luis');
       },
       blame(s) {
@@ -1344,20 +1344,8 @@ const REPLIES = {
   'dana:e1contract': { text: 'Yeah. I’m on the Halvorsen contract.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good. Those contracts are never as boring as they look.' },
   'dana:e1checking': { text: 'I’m checking what NARC saw.', when: 'e1', prompt: 'dana-e1', ackOnly: true, answer: 'Good idea. It compares everyone to one team average, so it may just be off.' },
   // Dana's reactions to what you did. Conversation only: they never change an outcome.
-  'dana:e1wA': { text: 'I’m buried in the Halvorsen contract.', free: true, prompt: 'dana-e1w', answer: 'Good. That one matters.' },
-  'dana:e1wB': { text: 'Is NARC always this eager?', free: true, prompt: 'dana-e1w', answer: 'It’s a pilot. Everyone’s numbers are a little dramatic.' },
-  'dana:e1nA': { text: 'It was mostly about the contract.', free: true, prompt: 'dana-e1n', answer: 'Then it’s long. Send me the short version next time.' },
-  'dana:e1nB': { text: 'Do you actually read the notes?', free: true, prompt: 'dana-e1n', answer: 'I read the first line. NARC says it archives the rest.' },
-  'dana:e1jA': { text: 'Thanks. It’s been a productive morning.', free: true, prompt: 'dana-e1j', answer: 'It shows. Literally, in the numbers.' },
-  'dana:e1jB': { text: 'It’s just a keepalive.', free: true, prompt: 'dana-e1j', answer: 'A what? Anyway, the numbers are up.' },
-  'dana:e1fA': { text: 'Thanks.', free: true, prompt: 'dana-e1f', answer: 'Protect that time.' },
-  'dana:e1fB': { text: 'It seemed like the right label.', free: true, prompt: 'dana-e1f', answer: 'It is. NARC seems to agree.' },
-  'dana:e2sA': { text: 'Wild.', free: true, prompt: 'dana-e2s', answer: 'Right? The Council will be thrilled.' },
-  'dana:e2sB': { text: 'Not my doing.', free: true, prompt: 'dana-e2s', answer: 'Sure. Sure.' },
   'dana:e4cA': { text: 'Thanks, I saw the email.', free: true, prompt: 'dana-e4c', answer: 'Good. Anyone can nominate anyone. I’m not saying who.' },
   'dana:e4cB': { text: 'Who should I nominate?', free: true, prompt: 'dana-e4c', answer: 'Whoever has the best Collaboration Index. The email has the rules.' },
-  'dana:e5hA': { text: 'Good for him.', free: true, prompt: 'dana-e5h', answer: 'He’s very excited about the room.' },
-  'dana:e5hB': { text: 'Is there a window anywhere?', free: true, prompt: 'dana-e5h', answer: 'There is not.' },
   'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
   'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
   'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
