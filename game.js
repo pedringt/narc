@@ -58,7 +58,7 @@ const CULTURE_MAIL = {
   subject: 'Culture Champion nominations',
   body: [
     'Culture Champions are colleagues who make our workplace feel like a workplace.',
-    'Nominees must have a Collaboration Index of 90 or higher. Culture Champions are exempt from Communication Load monitoring.',
+    'Each employee may nominate one colleague. The selected Champion receives a temporary monitoring exemption: the next NARC advisory about that colleague is routed to human review instead of automatic action.',
     'Nominations are open now and close on Thursday. Any colleague may nominate any colleague.',
   ],
   form: 'nominate',
@@ -87,8 +87,8 @@ export function newGame() {
     you: { gamed: false, covered: false, predicted: false, reports: 0, trusted: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
-      luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
-      marcus: { status: 'employed', trust: 0, gamed: false, cred: 38 },
+      luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false, champion: false },
+      marcus: { status: 'employed', trust: 0, gamed: false, cred: 38, champion: false },
       priya: { status: 'employed', trust: 0, suppressed: false, synced: false, champion: false },
     },
     shown: { luis: 'employed', marcus: 'employed', priya: 'employed' }, // what NARC’s team panel has caught up to
@@ -121,7 +121,7 @@ export function newGame() {
     subject: 'Introducing NARC Workforce Support',
     body: [
       'Hi team,',
-      'We’re introducing NARC — Networked Assessment & Risk Coordination. It uses workstation activity, communication, scheduling, and company-tool signals to identify workflow issues and support needs.',
+      'We’re introducing NARC — Networked Assessment & Risk Coordination, an AI-powered workforce monitoring and assessment system. It uses workstation activity, communication, scheduling, and company-tool signals to identify workflow issues and support needs.',
       'You may receive NARC alerts or activity reviews during the week. NARC ACTIVE will appear in the top-right corner while monitoring is enabled. Alerts are visible to all team members.',
       'NARC is intended to support, not replace, human judgment.',
       'Please acknowledge this message to continue.',
@@ -435,7 +435,7 @@ function announce(s) {
     from: 'People Operations',
     subject: 'NARC 2.0: new capabilities',
     body: [
-      'Following a successful Workforce Support pilot, NARC has been granted two new capabilities:',
+      'Following a successful Workforce Support pilot, the NARC AI model has been updated with two new capabilities:',
       'Behavioral Deviation Detection: understanding what is normal for every employee.',
       'Synthetic Activity Identification: supporting authentic work.',
       'These are effective immediately. Employees are encouraged to be themselves.',
@@ -456,7 +456,7 @@ function workarounds(s) {
     !!s.helper.luis,                               // the tool, passed on
     s.picked.e3 === 'paper' || s.picked.e3 === 'cover', // a record, supplied late
     s.picked.e6 === 'backdate',                    // a record, backdated
-    s.picked.e4 === 'champion',                    // an exemption, used
+    Object.values(s.people).some((p) => p.champion), // a Culture Champion exemption, used
   ].filter(Boolean).length;
 }
 
@@ -1449,15 +1449,11 @@ export function act(state, a) {
       break;
     }
     case 'nominate':
-      if (s.culture.open && !s.done.includes('e4') && PEOPLE[a.who] && !s.nominations[a.who]) {
-        if (a.who === 'priya') {
-          s.nominations[a.who] = 'submitted';
-          // Nominate her early and her flag never fires: the loophole, used ahead of time.
-          if (s.incident?.id === 'e4') resolve(s, 'champion');
-          else s.people.priya.champion = true;
-        } else {
-          s.nominations[a.who] = 'rejected';
-        }
+      if (s.culture.open && !s.done.includes('e4') && PEOPLE[a.who] && !Object.values(s.nominations).includes('submitted')) {
+        s.nominations[a.who] = 'submitted';
+        s.people[a.who].champion = true;
+        s.people[a.who].status = 'promoted';
+        if (a.who === 'priya' && s.incident?.id === 'e4') resolve(s, 'champion');
         changed = true;
       }
       break;
@@ -1737,9 +1733,9 @@ const ACHIEVEMENTS = [
   {
     id: 'champion',
     name: 'Culture Champion',
-    desc: 'Get Priya an official badge for talking.',
-    hint: 'A title outranks a flag.',
-    test: (s) => s.people.priya.champion,
+    desc: 'Use a Culture Champion exemption to protect a coworker from automatic action.',
+    hint: 'A title can outrank a flag.',
+    test: (s) => Object.values(s.people).some((p) => p.champion),
   },
   {
     id: 'friendly',
@@ -1774,7 +1770,7 @@ function playerForecastSignals(s) {
   if (s.you.covered) out.push('idle time reclassified through Calendar');
   if (s.helper.luis) out.push('keepalive passed to a coworker');
   if (s.picked.e3 === 'paper' || s.picked.e3 === 'cover') out.push('same-day record added after an attendance concern');
-  if (s.picked.e4 === 'champion') out.push('monitoring exemption used through Culture Champion status');
+  if (Object.values(s.people).some((p) => p.champion)) out.push('monitoring exemption used through Culture Champion status');
   if (s.picked.e6 === 'backdate') out.push('retroactive calendar record');
   return out;
 }
