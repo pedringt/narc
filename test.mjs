@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  newGame, act, tick, caseView, replies, canAttachHelper, calendarAction, fileActions,
+  newGame, act, tick, caseView, replies, canAttachHelper, calendarAction, fileActions, signalTrust,
   unread, attention, ownCase, narcSections, logoffInfo, clockText, ending, achievements, THREADS,
 } from './game.js';
 
@@ -1867,6 +1867,40 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(card.model.confidence, 80);
   assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Workload reviewed/);
   assert.equal(s.people.priya.status, 'employed', 'a genuinely different, non-punitive outcome');
+}
+
+// -------- Utilities gains a second real function: Signal Trust diagnostics (#41c)
+
+{
+  // Not static flavor text: the readout reflects the player's own choices.
+  let s = newGame();
+  let rows = signalTrust(s);
+  const me = () => rows.find((r) => r.label === 'Your activity signal');
+  assert.equal(me().level, 'trusted', 'no keepalive running yet: activity reads as human');
+
+  s.helper.installed = true;
+  s = act(s, { do: 'helper', op: 'toggle' });
+  rows = signalTrust(s);
+  assert.equal(me().level, 'flagged', 'keepalive running: activity now reads as synthetic');
+
+  s = act(s, { do: 'helper', op: 'toggle' });
+  rows = signalTrust(s);
+  assert.equal(me().level, 'trusted', 'toggled back off: trusted again');
+
+  assert.ok(!rows.some((r) => /Luis/.test(r.label)), 'Luis has no row until his copy of the tool exists');
+  s.helper.luis = { on: true, randomized: false };
+  rows = signalTrust(s);
+  const luis = () => rows.find((r) => /Luis/.test(r.label));
+  assert.equal(luis().level, 'flagged', 'fixed interval: Luis reads as synthetic too');
+  s.helper.luis.randomized = true;
+  rows = signalTrust(s);
+  assert.equal(luis().level, 'trusted', 'randomized interval: Luis reads as human');
+
+  const record = () => rows.find((r) => r.label === 'Your integrity record');
+  assert.equal(record().level, 'trusted', 'no flags yet');
+  s.flags = 1;
+  rows = signalTrust(s);
+  assert.equal(record().level, 'flagged', 'a flag on file lowers trust in self-reported evidence');
 }
 
 console.log('NARC tests passed');

@@ -3,7 +3,7 @@
 
 import {
   newGame, tick, act, unread, attention, ownCase, narcSections, logoffInfo, clockText, caseView,
-  replies, canAttachHelper, calendarAction, fileActions, ending, THREADS, PEOPLE,
+  replies, canAttachHelper, calendarAction, fileActions, signalTrust, ending, THREADS, PEOPLE,
 } from './game.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -576,6 +576,15 @@ function renderUtilities() {
     ['Mon 08:05', 'Route 22 · Service resumed'],
   ].forEach(([when, what]) => feed.append(h('div', 'line', h('span', null, when), h('span', null, what))));
   cards.append(feed);
+
+  const trust = h('div', 'card');
+  trust.append(h('h3', null, 'Signal Trust'), h('p', null, 'What NARC currently trusts, based on your workstation.'));
+  signalTrust(state).forEach((row) => {
+    trust.append(h('div', 'line', h('span', null, row.label), h('span', `status-${row.level === 'trusted' ? 'on' : 'off'}`, row.level)));
+    trust.append(h('p', 'note', row.detail));
+  });
+  cards.append(trust);
+
   return windowShell('Utilities', h('div', 'body', hintBanner('utilities'), cards));
 }
 

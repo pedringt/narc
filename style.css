@@ -200,7 +200,9 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .switch[aria-checked="true"] { background: #3aa76d; }
 .switch[aria-checked="true"]::after { transform: translateX(20px); }
 .status-on { color: #2c8558; font-weight: 600; }
+.status-off { color: #b23b3b; font-weight: 600; }
 .feed .line span:first-child { color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.card .line + .note { margin-top: -6px; margin-bottom: 8px; }
 
 /* ----------------------------------------------------------------- NARC */
 .window.narc { background: var(--n-bg); color: var(--n-text); font-family: var(--mono); }

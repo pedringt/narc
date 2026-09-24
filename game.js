@@ -1202,6 +1202,32 @@ export function canAttachHelper(s) {
   return s.incident?.id === 'e2' && s.online.luis && s.helper.installed;
 }
 
+// What NARC currently trusts, computed from real state rather than static
+// flavor text. Utilities' "second function" (#41c): read the machine side of
+// the system, not just toggle it.
+export function signalTrust(s) {
+  const rows = [];
+  rows.push(
+    s.helper.on
+      ? { label: 'Your activity signal', level: 'flagged', detail: 'Fixed-interval input detected. Treated as synthetic.' }
+      : { label: 'Your activity signal', level: 'trusted', detail: 'Irregular input. Treated as human.' }
+  );
+  if (s.helper.luis) {
+    rows.push(
+      s.helper.luis.randomized
+        ? { label: 'Luis Perez · activity signal', level: 'trusted', detail: 'Interval randomized (± 40 sec). No synthetic pattern.' }
+        : { label: 'Luis Perez · activity signal', level: 'flagged', detail: 'Fixed 59-second interval. Synthetic pattern likely.' }
+    );
+  }
+  rows.push(
+    s.flags > 0
+      ? { label: 'Your integrity record', level: 'flagged', detail: `${s.flags} integrity flag${s.flags === 1 ? '' : 's'} on file. Self-reported evidence weighted lower.` }
+      : { label: 'Your integrity record', level: 'trusted', detail: 'No integrity flags. Self-reported evidence weighted at face value.' }
+  );
+  rows.push({ label: 'Badge & location trace', level: 'trusted', detail: 'Always recorded. Treated as authoritative over self-reports.' });
+  return rows;
+}
+
 // Files you can pass to Dana as evidence, when it would matter.
 export function fileActions(s) {
   const inc = s.incident;
