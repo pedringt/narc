@@ -424,9 +424,10 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => x.score !== before);
   assert.equal(s.score, before + 14);
   assert.ok(has(noticeTexts(s), /Engagement trend: positive/));
-  assert.ok(!texts(s, 'dana').includes('Love the energy!'), 'the boss has not reacted yet');
-  s = until(s, (x) => texts(x, 'dana').includes('Love the energy!'));
-  assert.ok(s.toasts.some((t) => t.app === 'messages' && /Love the energy/.test(t.text)), '“Love the energy!” arrives through Messages');
+  assert.ok(!has(texts(s, 'dana'), /rewarded visible input/i), 'the boss has not reacted yet');
+  s = until(s, (x) => has(texts(x, 'dana'), /rewarded visible input/i));
+  assert.ok(s.toasts.some((t) => t.app === 'messages' && /rewarded visible input/i.test(t.text)),
+    'the useful explanation of the proxy exploit arrives through Messages');
 
   assert.equal(until(DO.e1.wait(play({}, { stopAt: 'e1' })), (x) => x.score < 61).score, 55);
   assert.equal(until(DO.e1.explain(play({}, { stopAt: 'e1' })), (x) => x.score < 61).score, 58);
@@ -448,7 +449,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(act(s, { do: 'markFocus', event: 'c1' }).rev, s.rev, 'no second time');
   s = until(s, (x) => has(noticeTexts(x), /Focus time recognized/));
   assert.equal(s.score, before + 11, 'smaller than the jiggler’s +14, but honest');
-  s = until(s, (x) => has(texts(x, 'dana'), /Focus time! Love that for you/));
+  s = until(s, (x) => has(texts(x, 'dana'), /Calendar label changed the assessment/));
 
   // The difference from the jiggler: NARC 2.0 does not see through it.
   s = play({ ...HONEST, e1: 'focus' }, { stopAt: 'e4' });
@@ -1249,6 +1250,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
   s = act(s, { do: 'markFocus', event: 'c1' });
   s = act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
@@ -1256,9 +1258,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.picked.e1, 'focus', 'Focus time marked during orientation resolves the first case on arrival');
   assert.equal(s.you.covered, true);
   assert.ok(!s.alerts.some((a) => a.incident === 'e1' && !a.live), 'NARC never gets an open low-activity flag to show');
-  s = until(s, (x) => has(texts(x, 'dana'), /Focus time! Love that for you/));
+  s = until(s, (x) => has(texts(x, 'dana'), /Calendar label changed the assessment/));
   const chips = replies(s, 'dana');
-  assert.equal(chips.length, 2, 'Dana’s reaction can be answered');
+  assert.equal(chips.length, 0, 'Dana’s useful status update does not add reaction-only reply chips');
 
   // The observed calendar line reflects real state.
   const late = DO.e1.focus(play({}, { stopAt: 'e1' }));
