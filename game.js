@@ -411,6 +411,10 @@ function resolve(s, branch) {
     if (!r.prompt || r.when !== inc.id) return;
     if (r.variant && r.variant !== inc.variant) return;
     if (s.answered[r.prompt]) return; // already closed, including by an earlier entry sharing this prompt
+    // If Dana resolves Marcus's Wednesday case first, Marcus can still answer
+    // the human question he already asked. The case outcome is fixed, but the
+    // conversation should not turn into a dead-end.
+    if (r.prompt === 'marcus-e3' && branch === 'truth') return;
     s.answered[r.prompt] = true;
     if (r.ackOnly) return; // conversational only; nothing was actually left hanging
     const thread = key.split(':')[0];
@@ -1282,7 +1286,6 @@ const CLOSING_LINE = {
     backdate: 'A calendar record was added after the flag. NARC closed the case from there.',
   },
   'marcus-e3': {
-    truth: 'Dana already sent NARC the location discrepancy, so my advice window is gone.',
     paper: 'You already added the calendar record. Guess we don’t need the calendar trick after all.',
     transit: 'The transit alert is already in the case now. That was the useful part anyway.',
     stay: 'NARC closed it without anything else from us. Cool.',
@@ -1339,8 +1342,12 @@ const REPLIES = {
   'dana:tracehelp': { text: 'NARC’s own location trace puts him at the sanctuary. That should count.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'vouch_trace' },
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
   'luis:focus': { text: 'You could show his 10 to 11:15 block as Focus time on the team calendar.', free: true, prompt: 'luis-e2', answer: 'Worth a shot.' },
+  'luis:nohelper': { text: 'I don’t have it anymore.', free: true, prompt: 'luis-e2', requiresNoHelper: true, answer: 'Probably for the best. I’ll continue being organically inactive.' },
   'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
   'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', when: 'e3', prompt: 'marcus-e3', branch: 'transit' },
+  'marcus:afterTransit': { text: 'Check the city transit record in Utilities.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'Good call. It won’t undo what Dana sent, but at least the bus part is on record.' },
+  'marcus:afterCalendar': { text: 'Put the bus delay on your calendar anyway.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'At this point that probably looks worse, but noted.' },
+  'marcus:afterNoHelp': { text: 'I can’t help with this.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'Fair. I am going to stop saying “raccoon” in writing.' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
   'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', free: true, prompt: 'priya-e4', answer: 'That would actually help. Put something on the calendar?' },
   'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', prompt: 'priya-e4', branch: 'quiet' },
@@ -1355,7 +1362,12 @@ export function replies(s, thread) {
         // Answerable while it is the latest thing they said, until the next case is settled.
         const heard = s.threads[thread].filter((m) => m.from === 'them');
         const last = heard[heard.length - 1];
+        if (r.requiresNoHelper && s.helper.installed) return false;
         return !!last && last.prompt === r.prompt && last.doneAt === s.done.length && !s.answered[r.prompt];
+      }
+      if (r.after) {
+        const promptArrived = s.threads[thread].some((m) => m.prompt === r.prompt);
+        return s.picked[r.after.id] === r.after.branch && promptArrived && !s.answered[r.prompt];
       }
       if (s.incident?.id !== r.when || (r.variant && s.incident.variant !== r.variant)) return false;
       if (!r.prompt) return true;
