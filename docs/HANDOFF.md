@@ -159,9 +159,26 @@ Detailed implementation notes:
 
 ## Next recommended implementation action
 
-**Wait for Paige's playtest of the current build (#40/#41 shipped, on `main`) before starting #42 or #43.** This is an explicit instruction, not a soft preference — she wants to play through the "use the workstation to solve things" loop before player-stakes and workplace-texture work is judged. If she asks for work in the meantime, prefer #44 (notification-load visual hierarchy) or the #13 pacing questions (the between-incident gap; whether to reserve a rail for notifications) over new content.
+**Verification, then a genuinely fresh-player release gate.**
 
-Do **not** add Nina or Maya, more scenarios, more meters, hidden rules or explainer text. The target is still: easy to understand in seconds, interesting because the consequences are weird.
+The current prototype-v1 branch now includes the latest board work:
+- #17 route-specific closure copy for superseded questions, so the in-world cause is named instead of generic "never mind" language
+- #33 optional employee-authored NARC_notes.txt, framed as imperfect workplace folklore rather than an answer key
+- #30 removal of Dana's remaining direct Calendar shortcut for Marcus; testimony stays in Messages, record manipulation stays in Calendar
+- #34 Employee 4417's final review names the concrete signals/actions behind integrity or predictive review
+- #42 first-pass Trusted Reviewer mechanic: repeated company-friendly peer reporting can earn high-reliability status, and that status can change the weight/outcome of later evidence
+
+Several older board items (#27, #28, #31, #40, #41, #43, #44 and #35) have been reconciled/closed because the current build already satisfies their intended first-run scope.
+
+The immediate next step is **not more feature expansion**:
+1. run node test.mjs on the latest prototype-v1 when an environment with repo access is available
+2. fix only real regressions from that suite
+3. do an uncoached fresh-player run for #29
+4. use that playtest to decide whether #42 needs adjustment and whether any new first-run issue is justified
+
+Vercel preview verification for the latest branch work is currently constrained by the Hobby build-rate limit. Do not interpret that quota failure as a code/build failure.
+
+Keep #45 (replay authority/settings), #48 (benignly invasive personalization), Nina/Maya expansion, and broader scenario growth out of the first-run release unless #29 identifies a concrete need.
 
 ### How to work on this repo
 
