@@ -681,3 +681,15 @@ Do not overstate what the game demonstrates.
 - Confidence is **system belief, not probability of truth**. The 71 -> 74 style confidence increase is more accurately framed as confidence creep from the evidence rules, such as treating lack of contradiction as support.
 
 Portfolio/case-study copy should preserve the distinction between **data/signals, inferences, confidence, company policy, and outcomes** rather than using generic AI-bias language.
+
+
+## Product decision: compliance can create real authority (2026-09-23)
+
+A later first-run pass strengthened Employee 4417's personal stakes without adding a morality score. The game already contained two useful tensions:
+
+- reporting a coworker can improve the player's visible standing while worsening the coworker's outcome
+- admitting involvement in a workaround can protect a coworker while creating an integrity flag for Employee 4417
+
+The missing piece was a concrete upside for sustained company-friendly behavior. prototype-v1 now allows repeated peer reporting to earn **Trusted Reviewer** status. The status is surfaced through People Operations before the ending and can increase the weight of a later piece of real evidence submitted for Marcus. This makes earlier standing affect a later decision rather than existing only as an ending adjective.
+
+The satire is intentional: cooperating with a questionable system can grant enough institutional credibility to help someone later. There is no universal good/bad score, and the same behavior can be personally advantageous while harming coworkers.
