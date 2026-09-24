@@ -37,6 +37,7 @@ function oriented(s = newGame()) {
   s = act(s, { do: 'open', ref: `email:${s.inbox[0].id}` });
   s = act(s, { do: 'ack' });
   s = until(s, (x) => x.threads.dana.length >= 1);
+  s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
   s = act(s, { do: 'view', app: 'calendar' });
   return act(s, { do: 'reply', thread: 'dana', reply: 'orient' });
 }
@@ -154,6 +155,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(unread(s), { messages: 0, email: 1, narc: 0 });
   assert.equal(attention(s), 0);
   assert.equal(s.calendar.some((e) => /Halvorsen/.test(e.title) && /printed/.test(e.where)), true, 'the printed-contract read-through is already on the calendar');
+  assert.deepEqual(s.files.map((f) => f.name), ['Halvorsen_MSA_v3.pdf'], 'opening Files starts with only the evidence that matters');
+  assert.match(s.files[0].body.join(' '), /printed.*offline|offline.*printed/i, 'the contract explains why the work can happen off-screen');
+  assert.ok(!s.files.some((f) => /Q3_planning|Expense_report/.test(f.name)), 'opening Files has no decorative filler');
 
   // Nothing consequential can happen before orientation, however long the player takes.
   const idle = ticks(s, 3000);
@@ -175,12 +179,16 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.threads.dana.length, 0, 'Dana takes a moment');
   s = until(s, (x) => x.threads.dana.length === 1);
   assert.match(s.threads.dana[0].text, /your manager/);
+  assert.match(s.threads.dana[0].text, /Halvorsen MSA/);
   assert.match(s.threads.dana[0].text, /Calendar/);
   assert.equal(THREADS.dana.role, 'Your manager', 'the thread header says so too');
 
-  // Step 2: look at the calendar, then reply. The reply is not offered until you have.
+  // Step 2: Dana makes Files + Calendar a tiny evidence tutorial. Neither alone is enough.
   assert.deepEqual(replies(s, 'dana'), []);
   s = act(s, { do: 'view', app: 'calendar' });
+  assert.deepEqual(replies(s, 'dana'), [], 'Calendar alone is not enough; Dana asked you to check the contract too');
+  s = act(s, { do: 'inspectFile', file: 'f-halvorsen' });
+  assert.equal(s.inspectedFiles['f-halvorsen'], true);
   assert.deepEqual(replies(s, 'dana').map((r) => r.id), ['orient']);
   assert.equal(s.oriented, false);
   s = ticks(s, 500);
@@ -198,6 +206,16 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(!has(texts(s, 'dana'), /enjoy your contract/i));
 }
 
+// --------------------- Halvorsen itself can resolve the Monday false positive
+
+{
+  let s = play({}, { stopAt: 'e1' });
+  assert.equal(fileActions(s)['f-halvorsen']?.label, 'Send contract evidence to Dana');
+  s = act(s, { do: 'sendFile', file: 'f-halvorsen' });
+  assert.equal(s.picked.e1, 'explain');
+  assert.ok(s.threads.dana.some((m) => m.from === 'me' && m.attach === 'Halvorsen_MSA_v3.pdf'));
+}
+
 // ---------------------------- NARC sees signals; the human context is elsewhere
 
 {
@@ -210,8 +228,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(!/contract|Halvorsen|paper|pricing|\$40,000/i.test(JSON.stringify(c)), 'NARC’s page does not know what you were really doing');
   const file = s.files.find((f) => /Halvorsen/.test(f.name) && /\$40,000/.test(f.body.join(' ')));
   assert.ok(file, 'Files has the completed work');
-  const edited = /edited today (\d\d):(\d\d)/.exec(file.meta);
-  assert.ok(Number(edited[1]) * 60 + Number(edited[2]) < 12 * 60 + 14, 'the file was edited before NARC’s 12:14 alert, not after');
+  const edited = /annotated today (\d\d):(\d\d)/.exec(file.meta);
+  assert.ok(edited, 'the Monday file shows when the useful annotation existed');
+  assert.ok(Number(edited[1]) * 60 + Number(edited[2]) < 12 * 60 + 14, 'the file was annotated before NARC’s 12:14 alert, not after');
   const p = play(HONEST, { stopAt: 'e4' });
   assert.ok(p.files.some((f) => /ESC-204/.test(f.name) && /3 h 10 min/.test(f.body.join(' '))), 'NARC can be right: Priya really did miss an escalation');
 }
@@ -1740,11 +1759,47 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'reportmarcus'), { reads: false });
   s = act(s, { do: 'reply', thread: 'dana', reply: 'reportmarcus' });
   const ids = replies(s, 'marcus').map((r) => r.id);
-  assert.deepEqual(ids.sort(), ['afterCalendar', 'afterNoHelp', 'afterTransit'].sort(),
+  assert.deepEqual(ids.sort(), ['latecalendar', 'transitAlert'].sort(),
     'Marcus can still be answered after Dana has already sent NARC the discrepancy');
-  s = act(s, { do: 'reply', thread: 'marcus', reply: 'afterTransit' });
-  assert.ok(has(texts(s, 'marcus'), /won.t undo what Dana sent/i));
+  const picked = s.picked.e3;
+  s = act(s, { do: 'reply', thread: 'marcus', reply: 'transitAlert' });
+  assert.equal(s.picked.e3, picked, 'a social reply after case resolution does not rewrite the formal outcome');
+  assert.ok(has(texts(s, 'marcus'), /case is already closed|what NARC actually trusts/i));
   assert.equal(replies(s, 'marcus').length, 0, 'one post-resolution reply closes the prompt cleanly');
+}
+
+// ------------ direct coworker conversations survive other resolution routes
+
+{
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  s = until(s, (x) => x.threads.luis.some((m) => m.prompt === 'luis-e2')
+    && replies(x, 'dana').some((r) => r.id === 'reportluis'), { reads: false });
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'reportluis' });
+  assert.ok(replies(s, 'luis').some((r) => r.id === 'nohelper' || r.id === 'focus'),
+    'Luis can still get a human answer after Dana resolves the formal case');
+  const e2 = s.picked.e2;
+  const luisReply = replies(s, 'luis')[0];
+  s = act(s, { do: 'reply', thread: 'luis', reply: luisReply.id });
+  assert.equal(s.picked.e2, e2, 'Luis follow-up cannot reopen the case');
+
+  let p = play({ e1: 'explain', e2: 'ignore', e3: 'stay' }, { stopAt: 'e4' });
+  p = until(p, (x) => x.threads.priya.some((m) => m.prompt === 'priya-e4'), { reads: false });
+  p = act(p, { do: 'sendFile', file: 'f-esc' });
+  assert.ok(replies(p, 'priya').some((r) => ['sync', 'quiet'].includes(r.id)),
+    'Priya remains answerable after Files resolves her case');
+  const e4 = p.picked.e4;
+  p = act(p, { do: 'reply', thread: 'priya', reply: replies(p, 'priya')[0].id });
+  assert.equal(p.picked.e4, e4, 'Priya follow-up stays social only after resolution');
+
+  let m = play({ e1: 'explain', e2: 'ignore', e3: 'paper', e4: 'leave', e5: 'label' }, { stopAt: 'e6' });
+  m = until(m, (x) => x.threads.marcus.some((msg) => msg.prompt === 'marcus-e6g')
+    && replies(x, 'dana').some((r) => r.id === 'workshop'), { reads: false });
+  m = act(m, { do: 'reply', thread: 'dana', reply: 'workshop' });
+  assert.ok(replies(m, 'marcus').some((r) => r.id === 'approve'),
+    'Marcus remains answerable after Dana closes the Friday case');
+  const e6 = m.picked.e6;
+  m = act(m, { do: 'reply', thread: 'marcus', reply: 'approve' });
+  assert.equal(m.picked.e6, e6, 'Friday social reply cannot rewrite a closed case');
 }
 
 // ------------------ Marcus's own thread offers a genuine help route (#38)
