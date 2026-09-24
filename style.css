@@ -200,7 +200,9 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .switch[aria-checked="true"] { background: #3aa76d; }
 .switch[aria-checked="true"]::after { transform: translateX(20px); }
 .status-on { color: #2c8558; font-weight: 600; }
+.status-off { color: #b23b3b; font-weight: 600; }
 .feed .line span:first-child { color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.card .line + .note { margin-top: -6px; margin-bottom: 8px; }
 
 /* ----------------------------------------------------------------- NARC */
 .window.narc { background: var(--n-bg); color: var(--n-text); font-family: var(--mono); }
@@ -464,3 +466,15 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .debrief-item { border: 1px solid var(--n-line); border-left: 3px solid var(--n-accent); padding: 10px 12px; background: #101210; }
 .debrief-item .name { font-weight: 700; margin-bottom: 3px; }
 .debrief-item p { margin: 0; color: var(--n-muted); font-size: 13px; line-height: 1.5; }
+
+/* A short reason a dock dot appeared, shown once when the app is opened. */
+.hint-banner {
+  margin: 0 0 8px; padding: 8px 12px; background: var(--app-accent-bg); color: var(--app-accent);
+  font-size: 13px; border-radius: 6px; border-left: 3px solid var(--app-accent);
+}
+
+/* The Loop: a small, static company feed to sit in between incidents. */
+.intranet-list { padding: 18px 22px; overflow-y: auto; display: grid; gap: 10px; max-width: 62ch; }
+.intranet-post { border: 1px solid var(--app-line); border-radius: 8px; padding: 10px 14px; background: var(--app-panel); }
+.intranet-from { font-size: 12px; font-weight: 700; color: var(--app-muted); letter-spacing: .02em; margin-bottom: 4px; }
+.intranet-post p { margin: 0; font-size: 14px; line-height: 1.5; }

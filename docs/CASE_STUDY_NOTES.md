@@ -631,3 +631,28 @@ Use explicit language:
 - **satirical extrapolation**
 
 Research citations should be added when the public case study is written.
+
+## Direct playtest feedback pass (2026-09-23)
+
+Paige played `prototype-v1` live and caught several things worth recording as method,
+not just fixes:
+
+- **A "by design" answer isn't always the right answer.** Marcus's thread offering only
+  the bad-advice chip was previously explained (correctly) as intentional -- the honest
+  and fabricated routes live in Dana's thread and the Calendar. But "the other options
+  exist elsewhere" doesn't help a player who only has the thread in front of them. The
+  fix (#38) added a genuine third outcome reachable from his own thread, grounded in
+  evidence the game already treats as real (the transit alert), landing between the two
+  existing extremes rather than duplicating either -- which sharpened the confidence-vs-
+  truth point instead of diluting it.
+- **A UI affordance that does nothing is worse than no affordance.** The keepalive
+  attachment looked exactly like a real file (same icon, same styling) but had no click
+  handler at all (#found during this pass, fixed same day).
+- **A generic "something new" dot doesn't tell the player what's new.** Every mark()
+  call site now carries a short, non-spoiling reason (#39) -- and two direct state
+  assignments outside the shared helper had been silently missing hints this whole time,
+  found only by grepping the whole file a second way after the first pass looked clean.
+- **Reconciling the issue tracker (#32) before doing more feature work paid for itself
+  immediately**: half the open AI-legibility issues (#24-26) were already satisfied by
+  what had shipped in earlier passes, and closing them first made it obvious which two
+  small, genuinely-missing pieces (#27, #28) were actually worth ten minutes each.

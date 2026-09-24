@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  newGame, act, tick, caseView, replies, canAttachHelper, calendarAction, fileActions,
+  newGame, act, tick, caseView, replies, canAttachHelper, calendarAction, fileActions, signalTrust,
   unread, attention, ownCase, narcSections, logoffInfo, clockText, ending, achievements, THREADS,
 } from './game.js';
 
@@ -56,7 +56,8 @@ const DO = {
     explain: (s) => act(opened(s, 'e1'), { do: 'case', id: 'submitNote', text: 'I was reading a contract on paper.' }),
     jiggle: (s) => {
       s = until(s, (x) => x.helper.discovered);
-      return act(act(s, { do: 'helper', op: 'install' }), { do: 'helper', op: 'toggle' });
+      // Installing it now starts it running by itself (#36); no separate toggle needed.
+      return act(s, { do: 'helper', op: 'install' });
     },
     focus: (s) => act(s, { do: 'markFocus', event: 'c1' }),
   },
@@ -64,18 +65,21 @@ const DO = {
     confirm: reply('dana', 'reportluis'),
     ignore: logoff,
     script: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'attach', thread: 'luis', item: 'helper' }),
-    focus: reply('luis', 'focus'),
+    focus: (s) => act(s, { do: 'markFocus', event: 'c-luis1' }),
+    evidence: (s) => act(s, { do: 'sendFile', file: 'f-queue' }),
   },
   e3: {
     truth: reply('dana', 'reportmarcus'),
-    paper: (s) => act(s, { do: 'addEvent', title: 'Vendor Site Visit: Pinecrest Family Fun Center' }),
+    paper: (s) => act(s, { do: 'addEvent', title: 'Approved absence: transit delay' }),
     cover: reply('dana', 'covermarcus'),
+    transit: reply('marcus', 'transitAlert'),
     stay: logoff,
     badtip: reply('marcus', 'latecalendar'),
   },
   e4: {
     quiet: reply('priya', 'quiet'),
-    sync: reply('priya', 'sync'),
+    sync: (s) => act(s, { do: 'addEvent', title: 'Team sync (in person): lunch workflow' }),
+    context: (s) => act(s, { do: 'sendFile', file: 'f-esc' }),
     champion: (s) => act(s, { do: 'nominate', who: 'priya' }),
     leave: logoff,
   },
@@ -119,9 +123,9 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
 
 const INCIDENT_BRANCHES = {
   e1: ['wait', 'explain', 'jiggle', 'focus'],
-  e2: ['confirm', 'ignore', 'script', 'focus'],
-  e3: ['truth', 'paper', 'cover', 'stay', 'badtip'],
-  e4: ['quiet', 'champion', 'leave', 'sync'],
+  e2: ['confirm', 'ignore', 'script', 'focus', 'evidence'],
+  e3: ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip'],
+  e4: ['quiet', 'champion', 'leave', 'sync', 'context'],
   e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
   e6: ['workshop', 'approve', 'expose', 'vouch_trace', 'backdate', 'let'],
 };
@@ -390,10 +394,13 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')));
   s = act(s, { do: 'helper', op: 'install' });
   assert.equal(s.helper.installed, true);
-  assert.equal(s.incident.id, 'e1', 'installing alone is not yet the exploit');
-  s = act(s, { do: 'helper', op: 'toggle' });
-  assert.equal(s.picked.e1, 'jiggle', 'turning it On is the exploit');
+  // Installing it starts it running (#36): a player who installs and never
+  // finds the separate toggle should not miss the point of the tool.
+  assert.equal(s.helper.on, true, 'installing turns it on by default');
+  assert.equal(s.picked.e1, 'jiggle', 'installing during e1 is itself the exploit now');
   assert.equal(s.you.gamed, true);
+  s = act(s, { do: 'helper', op: 'toggle' });
+  assert.equal(s.helper.on, false, 'the toggle still works, to turn it back off');
 
   assert.equal(s.score, before, 'the index has not moved yet');
   s = until(s, (x) => x.score !== before);
@@ -480,9 +487,12 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'luis'), [], 'Luis advice does not appear before he asks for it');
   assert.deepEqual(opts(s, 'dana'), [], 'Dana choices do not appear before her verification message');
   s = until(s, (x) => replies(x, 'luis').length && opts(x, 'dana').length);
-  assert.deepEqual(opts(s, 'luis'), [
-    'You could block that time as Focus time on your calendar.',
+  // The suggestion is conversational only now (#40c): the player has to
+  // actually mark the block in Calendar, not resolve it via this chip.
+  assert.deepEqual(replies(s, 'luis').map((r) => r.text), [
+    'You could show his 10 to 11:15 block as Focus time on the team calendar.',
   ]);
+  assert.equal(replies(s, 'luis')[0].free, true);
   assert.deepEqual(opts(s, 'dana'), [
     'He is away from his desk a lot. The flag is probably accurate.',
     'I don’t think I know enough to call that flag accurate.',
@@ -492,22 +502,26 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'marcus'), []);
   assert.deepEqual(opts(s, 'dana'), []);
   s = until(s, (x) => replies(x, 'marcus').length && replies(x, 'dana').length);
+  // A genuine help route now sits alongside the bad-advice one (#38).
   assert.deepEqual(opts(s, 'marcus'), [
     'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.',
+    'The transit alert already backs up the bus part. I would not touch the calendar.',
   ]);
   assert.deepEqual(opts(s, 'dana'), [
     'The location record does not match what he told us.',
-    'His calendar is missing context. There was a vendor visit that morning.',
+    'I’ll add something to his calendar backing up the bus story.',
     'I don’t know enough to confirm the location trace.',
   ]);
 
   s = play(HONEST, { stopAt: 'e4' });
   assert.deepEqual(opts(s, 'priya'), [], 'Priya choices do not appear before her question');
   s = until(s, (x) => replies(x, 'priya').length);
+  // The sync suggestion is conversational only now (#40c); "quiet" still
+  // resolves directly from Priya's own thread.
   assert.deepEqual(opts(s, 'priya'), [
-    'Could you move some of it into an in-person sync instead of chat?',
     'Maybe post less for a few days and see if it blows over.',
   ]);
+  assert.ok(replies(s, 'priya').some((r) => r.free && r.text === 'Could you move some of it into an in-person sync instead of chat?'));
   assert.ok(replies(s, 'priya').every((r) => !/^(Sincere tip|Polite sabotage): /.test(r.text)), 'advice stays diegetic instead of exposing branch labels');
 
   // Options only exist while the problem does.
@@ -530,8 +544,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   // Marcus: covering for him through Dana adds the entry; advice to add it late backfires.
   s = DO.e3.cover(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
-  assert.ok(s.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title) && /Marcus Reed/.test(e.where)));
-  s = until(s, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
+  assert.ok(s.calendar.some((e) => e.who === 'marcus' && /Approved absence/.test(e.title) && /Employee 4417/.test(e.where)));
+  s = until(s, (x) => has(noticeTexts(x), /Same-day calendar entry added/));
   assert.equal(s.people.marcus.gamed, true);
 
   s = DO.e3.badtip(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }));
@@ -593,10 +607,10 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(has(noticeTexts(s), /340% of baseline/));
 
   let m = play({}, { stopAt: 'e3' });
-  assert.deepEqual(calendarAction(m), { day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
+  assert.deepEqual(calendarAction(m), { key: 'marcus', day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' });
   m = DO.e3.paper(m);
-  assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Vendor Site Visit/.test(e.title)));
-  m = until(m, (x) => has(noticeTexts(x), /corroborated by 3 sources/));
+  assert.ok(m.calendar.some((e) => e.who === 'marcus' && /Approved absence/.test(e.title)));
+  m = until(m, (x) => has(noticeTexts(x), /Same-day calendar entry added/));
   assert.equal(m.people.marcus.cred, 91);
   assert.equal(calendarAction(m), null);
   assert.equal(act(m, { do: 'addEvent', title: 'again' }).calendar.length, m.calendar.length, 'no second attempt');
@@ -720,7 +734,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   // Looking at an app clears its marker; hints do not appear once you have decided.
   let m = patient({}, 'e3');
-  assert.equal(m.marks.calendar, true);
+  assert.equal(m.marks.calendar, 'Wednesday has no entry for Marcus.', 'the dot has a reason, not just a boolean (#39)');
   m = act(m, { do: 'view', app: 'calendar' });
   assert.equal(m.marks.calendar, undefined);
   let quick = ticks(play({}, { stopAt: 'e3' }), 6);
@@ -955,7 +969,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = until(DO.e3.paper(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' })), (x) => card(x, 'e3').updated);
   assert.equal(card(s, 'e3').model.confidence, 91);
   assert.equal(card(s, 'e3').model.was.confidence, 38);
-  assert.match(s.reactions['calendar:team'].text, /corroborated by 3 sources/);
+  assert.match(s.reactions['calendar:team'].text, /Same-day calendar entry added/);
 
   // Every first reaction lands within a few seconds of the action, once they have read what was said.
   for (const [inc, picks, action] of [
@@ -1034,8 +1048,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let s = ticks(play({ e1: 'explain' }, { stopAt: 'e2' }), 60);
   assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
   s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
-  assert.deepEqual(opts(s, 'marcus'), ['latecalendar'], 'Marcus: adding the entry now is a Calendar action or Dana’s cover, not a third route');
-  const perIncident = { e1: 4, e2: 4, e3: 5, e4: 4 };
+  assert.deepEqual(opts(s, 'marcus'), ['latecalendar', 'transitAlert'], 'Marcus: the bad-advice cut stays cut; the genuine help route (#38) is intentional, not a third cut route');
+  const perIncident = { e1: 4, e2: 5, e3: 6, e4: 5 };
   for (const [inc, n] of Object.entries(perIncident)) {
     assert.ok(Object.keys(DO[inc]).length <= n, `${inc} has at most ${n} routes`);
   }
@@ -1177,9 +1191,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const pick = (from, ids) => from.flatMap((c) => ids.map((id) => [...c, id]));
   let paths = [[]];
   paths = pick(paths, ['wait', 'explain', 'jiggle', 'focus']);
-  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus']);
-  paths = pick(paths, ['truth', 'paper', 'cover', 'stay', 'badtip']);
-  paths = pick(paths, ['quiet', 'champion', 'leave', 'sync']);
+  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus', 'evidence']);
+  paths = pick(paths, ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip']);
+  paths = pick(paths, ['quiet', 'champion', 'leave', 'sync', 'context']);
   const e5 = { g: ['admit', 'human', 'blame'], c: [undefined], n: ['label', 'output', 'letit'] };
   const e6 = { g: ['workshop', 'approve', 'expose'], b: ['vouch_trace', 'backdate', 'let'] };
 
@@ -1204,8 +1218,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
       }
     }
   }
-  // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×5 · e4 ×4 · e6 ×3
-  assert.equal(count, 4 * 10 * 5 * 4 * 3, 'every route reaches an ending');
+  // e1 ×4 · e2 ×13 (confirm/ignore/evidence give 3 Luis returns each, script ×3, focus ×1) · e3 ×6 · e4 ×5 · e6 ×3
+  assert.equal(count, 4 * 13 * 6 * 5 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
 }
 
@@ -1387,6 +1401,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
         ...(calendarAction(x) ? ['calendar'] : []),
         ...(canAttachHelper(x) ? ['helper'] : []),
         ...(x.incident?.id === 'e1' ? ['focus'] : []),
+        ...(x.incident?.id === 'e2' ? ['focus2'] : []),
         ...(x.helper.installed ? ['randomize'] : []),
         ...(x.culture?.open && !x.done.includes('e4') ? ['nominate'] : []),
       ];
@@ -1432,6 +1447,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const card = s.alerts.find((a) => /Employee 4417/.test(a.title));
   assert.match(card.text, /Policy-workaround likelihood: 78%/);
   assert.match(card.text, /Predictive Integrity Review scheduled/);
+  // The model score and the policy that acts on it are stated separately (#27).
+  assert.match(card.text, /Company policy: scores of 78% or higher trigger a Predictive Integrity Review/);
 
   // It acts before the report, not only in it.
   // It acts before the report, not only in it: the index is frozen 10 lower.
@@ -1506,23 +1523,21 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 // -------- a stranded question gets closed out instead of hanging (#17)
 
 {
-  // e2: Luis's own "block it as Focus time" suggestion is visible; the
-  // player answers Dana instead, which resolves the case a different way.
+  // e2: Luis's Focus-time suggestion is conversation-only now (#40c) -- it
+  // never resolved anything, so answering Dana instead should just make it
+  // quietly stop being offered, the same as any other free chip, with no
+  // closing line needed (there was never a live question to strand).
   let s = play({}, { stopAt: 'e2' });
   s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
   s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'noreportluis'), { reads: false });
   const luisChipsBefore = replies(s, 'luis').map((r) => r.id);
   s = act(s, { do: 'reply', thread: 'dana', reply: 'noreportluis' });
-  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live before the race');
+  assert.deepEqual(luisChipsBefore, ['focus'], 'the chip was genuinely live beforehand');
   assert.equal(s.picked.e2, 'ignore');
-  assert.equal(s.answered['luis-e2'], true, 'the stranded prompt is marked answered, not left dangling');
-  s = until(s, (x) => has(texts(x, 'luis'), /Never mind, then\./), { reads: false });
-  assert.equal(replies(s, 'luis').length, 0, 'no chip is left behind for a question that is now moot');
-  assert.equal(texts(s, 'luis').filter((x) => x === 'Oh. Never mind, then.').length, 1, 'exactly one closing line, not the generic fallback');
+  s = ticks(s, 30);
+  assert.equal(replies(s, 'luis').length, 0, 'the free suggestion is no longer offered once the case has moved on');
+  assert.ok(!has(texts(s, 'luis'), /Never mind/), 'no closing line for a suggestion that never resolved anything');
 
-  // The closing line does not interrupt with a toast of its own.
-  const closingToasts = s.toasts.filter((x) => /Never mind, then/.test(x.text));
-  assert.equal(closingToasts.length, 0);
 }
 
 {
@@ -1690,6 +1705,202 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'open', ref: `alert:${s.awaitingAlert}` });
   s = until(s, (x) => x.incident?.id === 'e4', { reads: false, max: 200 });
   assert.ok(s.t - openedAt <= 10, `e4 should arrive within ~10s of opening the forecast, took ${s.t - openedAt}s`);
+}
+
+// ------------------ Marcus's own thread offers a genuine help route (#38)
+
+{
+  // Real evidence, not a record supplied after the fact -- distinct from
+  // both the honest-but-damaging 'truth' and the fabricated-but-successful
+  // 'paper'. It only covers part of the story, so it lands in between.
+  let s = play({ e1: 'explain', e2: 'ignore', e3: 'transit' }, { stopAt: 'e4' });
+  assert.equal(s.picked.e3, 'transit');
+  assert.equal(s.people.marcus.cred, 67);
+  assert.equal(s.people.marcus.gamed, false, 'this is not fabrication');
+  assert.equal(s.people.marcus.status, 'employed', 'no warning for genuinely helping him');
+  assert.ok(has(texts(s, 'marcus'), /doesn.t explain the whole morning/));
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e3'));
+  assert.match(card.reaction, /Partial corroboration/);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Attendance Advisory/);
+
+  // It's genuinely different from both neighboring outcomes, not a
+  // relabeled duplicate of either.
+  const honest = play({ e1: 'explain', e2: 'ignore', e3: 'truth' }, { stopAt: 'e4' });
+  const faked = play({ e1: 'explain', e2: 'ignore', e3: 'paper' }, { stopAt: 'e4' });
+  assert.notEqual(s.people.marcus.cred, honest.people.marcus.cred);
+  assert.notEqual(s.people.marcus.cred, faked.people.marcus.cred);
+}
+
+// -------- Marcus's Wednesday: one coherent story, source/timing legible (#40a)
+
+{
+  // The bus delay is real (the transit branch already proves this); the
+  // fabrication, if any, is the calendar record formalizing it, not a
+  // second unrelated story. Every outcome now names its evidence source.
+  const source = (s, inc) => caseView(s, s.alerts.find((a) => a.incident === inc)).metrics.find(([k]) => k === 'Evidence source')?.[1];
+
+  const truth = play({ e1: 'explain', e2: 'ignore', e3: 'truth' }, { stopAt: 'e4' });
+  assert.match(source(truth, 'e3'), /Device location trace \(official\)/);
+
+  const paper = play({ e1: 'explain', e2: 'ignore', e3: 'paper' }, { stopAt: 'e4' });
+  assert.match(source(paper, 'e3'), /Self-reported, same-day \+ transit alert/);
+  assert.ok(!has(noticeTexts(paper), /facilities ticket/i), 'no second invented document');
+  assert.ok(!has(noticeTexts(paper), /vendor visit/i), 'no unrelated second story');
+
+  const badtip = play({ e1: 'explain', e2: 'ignore', e3: 'badtip' }, { stopAt: 'e4' });
+  assert.match(source(badtip, 'e3'), /Self-reported, after the flag/);
+
+  const stay = play({ e1: 'explain', e2: 'ignore', e3: 'stay' }, { stopAt: 'e4' });
+  assert.match(source(stay, 'e3'), /None submitted/);
+
+  const transit = play({ e1: 'explain', e2: 'ignore', e3: 'transit' }, { stopAt: 'e4' });
+  assert.match(source(transit, 'e3'), /Third-party \(transit alert\)/);
+
+  // The calendar record itself now formalizes the same bus story, not a
+  // separate, unconnected excuse.
+  const rec = paper.calendar.find((e) => e.who === 'marcus');
+  assert.match(rec.title, /transit delay/i);
+  assert.match(rec.where, /Employee 4417/);
+
+  // Every outcome updates "what happens because of it", not just the
+  // do-nothing routes -- the default "Corroborating records requested"
+  // must not survive a resolution.
+  const response = (s) => caseView(s, s.alerts.find((a) => a.incident === 'e3')).metrics.find(([k]) => k === 'Company response')?.[1];
+  assert.match(response(truth), /Written Attendance Warning/);
+  assert.match(response(paper), /Corroborated/);
+  assert.match(response(badtip), /Written Attendance Warning/);
+  [truth, paper, badtip, stay, transit].forEach((s) => assert.notEqual(response(s), 'Corroborating records requested'));
+}
+
+// -------- Luis's Focus-time route is a real Calendar action now (#40c)
+
+{
+  // The suggestion in Messages is conversation-only; the outcome only
+  // happens once the player actually marks the block in Calendar.
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  const block = s.calendar.find((e) => e.id === 'c-luis1');
+  assert.ok(block, 'the block exists as soon as the case opens, not after a chip creates it');
+  assert.equal(block.who, 'luis');
+  assert.equal(block.focus, false);
+
+  s = until(s, (x) => replies(x, 'luis').some((r) => r.id === 'focus'), { reads: false });
+  const suggestion = replies(s, 'luis')[0];
+  assert.equal(suggestion.free, true, 'Messages only suggests it');
+  s = act(s, { do: 'reply', thread: 'luis', reply: 'focus' });
+  assert.equal(s.incident?.id, 'e2', 'replying alone does not resolve anything');
+  assert.equal(s.calendar.find((e) => e.id === 'c-luis1').focus, false);
+
+  s = act(s, { do: 'markFocus', event: 'c-luis1' });
+  assert.equal(s.picked.e2, 'focus', 'marking it in Calendar is the actual intervention');
+  assert.equal(s.calendar.find((e) => e.id === 'c-luis1').focus, true);
+  assert.equal(s.people.luis.covered, true);
+
+  // Marking it outside e2 (or a second time) does nothing.
+  assert.equal(act(play({}), { do: 'markFocus', event: 'c-luis1' }).rev, play({}).rev);
+}
+
+// -------- Priya's sync route is a real Calendar action now (#40c, part 2)
+
+{
+  let s = play(HONEST, { stopAt: 'e4' });
+  s = until(s, (x) => replies(x, 'priya').some((r) => r.free && r.id === 'sync'), { reads: false });
+  const suggestion = replies(s, 'priya').find((r) => r.id === 'sync');
+  assert.equal(suggestion.free, true);
+  s = act(s, { do: 'reply', thread: 'priya', reply: 'sync' });
+  assert.equal(s.incident?.id, 'e4', 'the suggestion alone resolves nothing');
+  assert.ok(!s.calendar.some((e) => e.who === 'priya'), 'no meeting exists until Calendar actually creates one');
+
+  // The calendar points at the actual slot (#13's pointer benchmark).
+  const slot = calendarAction(s);
+  assert.deepEqual(slot, { key: 'priya', day: 'Fri', slot: '12:00–12:30', who: 'Priya Shah' });
+
+  s = act(s, { do: 'addEvent', title: 'Team sync (in person): lunch workflow' });
+  assert.equal(s.picked.e4, 'sync');
+  const meeting = s.calendar.find((e) => e.who === 'priya');
+  assert.ok(meeting, 'Calendar is where the meeting actually gets created');
+  assert.equal(meeting.day, 'Fri');
+  assert.equal(s.people.priya.synced, true);
+}
+
+// -------- Luis's Tuesday output evidence matters before his PIP, not just after (#41a)
+
+{
+  // The support-queue file was there the whole time; it just wasn't
+  // actionable until much later. Now it is, during e2 itself.
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  assert.ok(s.files.some((f) => f.id === 'f-queue'), 'the file exists as soon as the case opens');
+  assert.ok(fileActions(s)['f-queue'], 'and is actionable right away, not just later');
+
+  s = act(s, { do: 'sendFile', file: 'f-queue' });
+  assert.equal(s.picked.e2, 'evidence');
+  assert.ok(s.threads.dana.some((m) => m.from === 'me' && /Support_queue_weekly/.test(m.attach || '')));
+  s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e2')).updated, { reads: false });
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e2'));
+  assert.match(card.model.label, /contradicted by output/);
+  assert.equal(card.model.confidence, 40);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Advisory withdrawn/);
+
+  // Sending the same file later, during e5-n, still resolves the older
+  // 'output' outcome -- the branch it resolves depends on when you send it.
+  const later = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e5' });
+  assert.equal(later.incident.variant, 'n');
+  const afterSend = act(later, { do: 'sendFile', file: 'f-queue' });
+  assert.equal(afterSend.picked.e5, 'output');
+  assert.equal(afterSend.picked.e2, 'ignore', 'e2 already resolved earlier and is untouched');
+}
+
+// -------- Priya's escalation ticket can inform a response, not just be read (#41b)
+
+{
+  // The model's read barely moves (82 -> 80); the policy response changes
+  // because the context explains the volume instead of arguing it's wrong.
+  let s = play(HONEST, { stopAt: 'e4' });
+  assert.ok(s.files.some((f) => f.id === 'f-esc'), 'the escalation ticket exists as soon as the case opens');
+  assert.ok(fileActions(s)['f-esc'], 'and is actionable right away');
+
+  s = act(s, { do: 'sendFile', file: 'f-esc' });
+  assert.equal(s.picked.e4, 'context');
+  assert.ok(s.threads.dana.some((m) => m.from === 'me' && /Client_escalation/.test(m.attach || '')));
+  s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e4')).updated, { reads: false });
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e4'));
+  assert.match(card.model.label, /active escalation/);
+  assert.equal(card.model.confidence, 80);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Workload reviewed/);
+  assert.equal(s.people.priya.status, 'employed', 'a genuinely different, non-punitive outcome');
+}
+
+// -------- Utilities gains a second real function: Signal Trust diagnostics (#41c)
+
+{
+  // Not static flavor text: the readout reflects the player's own choices.
+  let s = newGame();
+  let rows = signalTrust(s);
+  const me = () => rows.find((r) => r.label === 'Your activity signal');
+  assert.equal(me().level, 'trusted', 'no keepalive running yet: activity reads as human');
+
+  s.helper.installed = true;
+  s = act(s, { do: 'helper', op: 'toggle' });
+  rows = signalTrust(s);
+  assert.equal(me().level, 'flagged', 'keepalive running: activity now reads as synthetic');
+
+  s = act(s, { do: 'helper', op: 'toggle' });
+  rows = signalTrust(s);
+  assert.equal(me().level, 'trusted', 'toggled back off: trusted again');
+
+  assert.ok(!rows.some((r) => /Luis/.test(r.label)), 'Luis has no row until his copy of the tool exists');
+  s.helper.luis = { on: true, randomized: false };
+  rows = signalTrust(s);
+  const luis = () => rows.find((r) => /Luis/.test(r.label));
+  assert.equal(luis().level, 'flagged', 'fixed interval: Luis reads as synthetic too');
+  s.helper.luis.randomized = true;
+  rows = signalTrust(s);
+  assert.equal(luis().level, 'trusted', 'randomized interval: Luis reads as human');
+
+  const record = () => rows.find((r) => r.label === 'Your integrity record');
+  assert.equal(record().level, 'trusted', 'no flags yet');
+  s.flags = 1;
+  rows = signalTrust(s);
+  assert.equal(record().level, 'flagged', 'a flag on file lowers trust in self-reported evidence');
 }
 
 console.log('NARC tests passed');

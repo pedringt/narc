@@ -309,3 +309,28 @@ deliberate mutations confirmed that.
 
 Useful progression to preserve in behavior, not chapter labels:
 **watch → infer → adapt → predict → act**.
+
+## Issue tracker reconciled (2026-09-23, per #32)
+
+Closed as already satisfied by the current build (each verified against `game.js`/`app.js`,
+not just re-read): #1, #4, #5, #6, #13, #20, #24, #25, #26. Do not re-open these to
+"finish" something already shipped -- if new friction shows up in the same area, file a
+new issue describing the specific gap, matching how #17/#19 came out of #13's own follow-up.
+
+Narrowed to real remaining scope (not closed): #2 (Nina/Maya deliberately parked, 3/5
+coworkers shipped), #3 (only the citation carry-over into a not-yet-written public case
+study), #27 (one card needs its threshold stated as policy language), #28 (one debrief
+line names "Goodhart's Law" against its own guardrail), #33 (only the optional
+employee-notes artifact is unbuilt; the in-character-observation half is already there
+in several places).
+
+Genuinely open, unstarted design/audit work, left as written: #7 (ongoing maintenance),
+#18 (Paige's call: hold on an interruptible-window feature until the current flow proves
+it's needed), #29 (a real uncoached fresh-player run hasn't happened yet), #30 (Dana
+prompt naturalness audit), #31 (standing card-density guardrail for #27's work), #34
+(causal-clarity audit for flavor vs. consequential replies), #35 (terminology guardrail
+for future copy -- no current violation).
+
+Live playtest feedback (Paige, in-context, 2026-09-23), tracked as #36-#39: keepalive
+default-on after install, no idle/landing activity, Marcus needs a genuine help route
+in his own thread, the Calendar/Files "something new" dot doesn't say what changed.
