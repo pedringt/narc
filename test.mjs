@@ -1580,6 +1580,18 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(replies(s, 'dana').filter((r) => !r.free).length, 0);
 }
 
+// ------------------------- Employee 4417 can earn trusted-reviewer authority (#42)
+
+{
+  const s = play({ ...HONEST, e2: 'confirm', e3: 'truth', e6: 'vouch_trace' });
+  assert.equal(s.you.trusted, true, 'two company-friendly peer reports grant Trusted Reviewer status');
+  assert.ok(s.you.reports >= 2);
+  assert.equal(s.people.marcus.status, 'employed', 'trusted peer evidence can fully withdraw the later termination');
+  assert.equal(s.people.marcus.cred, 82);
+  assert.ok(has(s.inbox.map((m) => m.subject), /Peer Review Reliability/), 'the reward is surfaced before the ending');
+  assert.match(ending(s).player.text, /Trusted Reviewer access active|Quarterly performance bonus/);
+}
+
 // -------------------------- the NARC 2.0 catch is a distinct moment (#20)
 
 {
