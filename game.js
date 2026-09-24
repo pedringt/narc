@@ -810,7 +810,6 @@ const INCIDENTS = {
         p.synced = true;
         say(s, 3, 'priya', 'Ooh. I will move the lunch workflow to an in-person sync. With Claire.');
         react(s, 5, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 90, metrics: { 'Collaboration Index': 98, 'Company response': 'None' }, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −38%. In-person sync scheduled: counted as collaboration. Collaboration Index 97 → 98.' });
-        cal(s, 5, { who: 'team', day: 'Fri', start: '12:00', end: '12:30', title: 'Team sync (in person): lunch workflow', where: 'Priya Shah, Claire' });
         say(s, 18, 'priya', 'NARC now thinks I am a natural collaborator. I am. Anyway.');
       },
     },
@@ -1146,7 +1145,7 @@ const REPLIES = {
   'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
   'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', when: 'e3', prompt: 'marcus-e3', branch: 'transit' },
   'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
-  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', when: 'e4', prompt: 'priya-e4', branch: 'sync' },
+  'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', free: true, prompt: 'priya-e4', answer: 'That would actually help. Put something on the calendar?' },
   'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', prompt: 'priya-e4', branch: 'quiet' },
 };
 
@@ -1334,6 +1333,10 @@ export function act(state, a) {
         s.calendar.push({ id: `c${++s.uid}`, who: 'marcus', day: 'Fri', start: '08:30', end: '11:00', title, where: 'Added by Employee 4417', focus: false });
         resolve(s, 'backdate');
         changed = true;
+      } else if (inc?.id === 'e4') {
+        s.calendar.push({ id: `c${++s.uid}`, who: 'priya', day: 'Fri', start: '12:00', end: '12:30', title, where: 'Priya Shah, Claire', focus: false });
+        resolve(s, 'sync');
+        changed = true;
       }
       break;
     }
@@ -1500,6 +1503,7 @@ export function calendarAction(s) {
   const inc = s.incident;
   if (inc?.id === 'e3') return { key: 'marcus', day: 'Wed', slot: '09:00–10:45', who: 'Marcus Reed' };
   if (inc?.id === 'e6' && inc.variant === 'b') return { key: 'marcus', day: 'Fri', slot: '08:30–11:00', who: 'Marcus Reed' };
+  if (inc?.id === 'e4') return { key: 'priya', day: 'Fri', slot: '12:00–12:30', who: 'Priya Shah' };
   return null;
 }
 

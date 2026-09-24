@@ -77,7 +77,7 @@ const DO = {
   },
   e4: {
     quiet: reply('priya', 'quiet'),
-    sync: reply('priya', 'sync'),
+    sync: (s) => act(s, { do: 'addEvent', title: 'Team sync (in person): lunch workflow' }),
     champion: (s) => act(s, { do: 'nominate', who: 'priya' }),
     leave: logoff,
   },
@@ -514,10 +514,12 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = play(HONEST, { stopAt: 'e4' });
   assert.deepEqual(opts(s, 'priya'), [], 'Priya choices do not appear before her question');
   s = until(s, (x) => replies(x, 'priya').length);
+  // The sync suggestion is conversational only now (#40c); "quiet" still
+  // resolves directly from Priya's own thread.
   assert.deepEqual(opts(s, 'priya'), [
-    'Could you move some of it into an in-person sync instead of chat?',
     'Maybe post less for a few days and see if it blows over.',
   ]);
+  assert.ok(replies(s, 'priya').some((r) => r.free && r.text === 'Could you move some of it into an in-person sync instead of chat?'));
   assert.ok(replies(s, 'priya').every((r) => !/^(Sincere tip|Polite sabotage): /.test(r.text)), 'advice stays diegetic instead of exposing branch labels');
 
   // Options only exist while the problem does.
@@ -1793,6 +1795,29 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
 
   // Marking it outside e2 (or a second time) does nothing.
   assert.equal(act(play({}), { do: 'markFocus', event: 'c-luis1' }).rev, play({}).rev);
+}
+
+// -------- Priya's sync route is a real Calendar action now (#40c, part 2)
+
+{
+  let s = play(HONEST, { stopAt: 'e4' });
+  s = until(s, (x) => replies(x, 'priya').some((r) => r.free && r.id === 'sync'), { reads: false });
+  const suggestion = replies(s, 'priya').find((r) => r.id === 'sync');
+  assert.equal(suggestion.free, true);
+  s = act(s, { do: 'reply', thread: 'priya', reply: 'sync' });
+  assert.equal(s.incident?.id, 'e4', 'the suggestion alone resolves nothing');
+  assert.ok(!s.calendar.some((e) => e.who === 'priya'), 'no meeting exists until Calendar actually creates one');
+
+  // The calendar points at the actual slot (#13's pointer benchmark).
+  const slot = calendarAction(s);
+  assert.deepEqual(slot, { key: 'priya', day: 'Fri', slot: '12:00–12:30', who: 'Priya Shah' });
+
+  s = act(s, { do: 'addEvent', title: 'Team sync (in person): lunch workflow' });
+  assert.equal(s.picked.e4, 'sync');
+  const meeting = s.calendar.find((e) => e.who === 'priya');
+  assert.ok(meeting, 'Calendar is where the meeting actually gets created');
+  assert.equal(meeting.day, 'Fri');
+  assert.equal(s.people.priya.synced, true);
 }
 
 console.log('NARC tests passed');
