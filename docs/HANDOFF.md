@@ -357,3 +357,41 @@ Live playtest feedback after the previous main promotion produced a focused usab
 - The intent is **fewer dead patches, not more content**. The player should spend more of the run discovering, deciding, or seeing consequences.
 
 Verification limitation: this environment still cannot clone the repo because GitHub DNS resolution fails, and the current Vercel preview is blocked by the shared build-rate limit. Automated/browser verification remains pending. Do not promote this branch to `main` without Paige explicitly authorizing `main`.
+
+
+## Handoff checkpoint after Sept 24 QA pass C
+
+Current working branch: `qa-feedback-sept24c`  
+Branch head: `7b7150b536fe48408f057618aba5b9b59b0ee293`  
+Current `main`: `3cf89374995089d1e588ca71db89677ad508a048`
+
+The working branch is 8 commits ahead of `main` and 0 behind. `main` has **not** been changed by this pass.
+
+### What the next session should do first
+
+1. Treat `qa-feedback-sept24c` as the current source of truth for the latest playtest fixes.
+2. Do not add more product scope before verifying this pass unless Paige supplies new feedback.
+3. Run `node test.mjs` in an environment that can execute the repo.
+4. Smoke-test the actual browser build, especially:
+   - Busy ↔ Focus Time in both directions
+   - Focus Time before Monday's inactivity check
+   - Marcus sending keepalive on both flagged and unflagged Monday routes
+   - keepalive absent before delivery, then installable/toggleable after delivery
+   - Browser article-list scroll persistence
+   - Browser toolbar layout and narrow-screen behavior
+   - no decorative three-dot window controls
+   - mid/late-game pacing and whether any dead stretches remain
+5. If verification exposes regressions, fix only those regressions on this branch.
+6. Do **not** merge or push to `main` until Paige explicitly says to push/merge to main.
+
+### Current verification state
+
+- GitHub branch/compare state verified: 8 ahead, 0 behind.
+- Automated test suite was not executable from the prior environment.
+- Vercel status for the branch is currently a build-rate-limit failure, not an application/build-code failure:
+  `https://vercel.com/cairn10?upgradeToPro=build-rate-limit`
+- A real browser smoke test of pass C is still required.
+
+### Product judgment to preserve
+
+The newest playtest did **not** suggest the game needs more raw content. The main issue was momentum. Preserve the current direction: reduce dead time, make causality legible, and give Employee 4417 enough self-directed interaction without turning NARC into a larger management sim.
