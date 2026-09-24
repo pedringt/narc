@@ -636,33 +636,57 @@ function alertRow(a) {
 }
 
 function renderNarc() {
-  const top = h('div', 'narc-top', h('span', 'brand', 'NARC'), h('span', 'ai-label', 'AI Workforce Assessment'));
-  if (state.indexVisible) top.append(h('span', null, 'Visible Activity Index ', num('index', state.score)));
-  if (state.level >= 2) top.append(h('span', 'flag', 'Integrity flags ', h('b', null, state.flags)));
+  const top = h('div', 'narc-top',
+    h('span', 'brand', 'NARC'),
+    h('span', 'ai-label', 'AI Workforce Assessment'));
 
   const { active, team, history } = narcSections(state);
-  const list = h('div', 'list');
   const currentItems = [...active, ...team];
-  list.append(h('div', 'sect-h need', 'Current'));
-  if (!currentItems.length) list.append(h('div', 'none', 'No active assessments.'));
-  currentItems.forEach((item) => list.append(alertRow(item)));
-  list.append(h('div', 'sect-h', 'History'));
-  if (!history.length) list.append(h('div', 'none', 'No prior assessments.'));
-  history.forEach((item) => list.append(alertRow(item)));
+  const showingHistory = ui.narcHistoryPinned;
+  const list = h('div', 'list');
+  const switcher = h('div', 'narc-switcher',
+    btn('Current', 'narc-tab', () => {
+      ui.narcHistoryPinned = false;
+      const current = active[0] || team[0];
+      if (current) ui.sel.narc = current.id;
+      render();
+    }, { 'aria-pressed': String(!showingHistory) }),
+    btn(`History (${history.length})`, 'narc-tab', () => {
+      ui.narcHistoryPinned = true;
+      if (history[0]) ui.sel.narc = history[0].id;
+      render();
+    }, { 'aria-pressed': String(showingHistory) })
+  );
+  list.append(switcher);
+
+  const shown = showingHistory ? history : currentItems;
+  if (!shown.length) {
+    list.append(h('div', 'none', showingHistory ? 'No prior assessments.' : 'No active assessments.'));
+  } else {
+    shown.forEach((item) => list.append(alertRow(item)));
+  }
 
   const detail = h('div', 'detail');
   const current = active[0] || team[0];
-  let a = state.alerts.find((x) => x.id === ui.sel.narc);
-  if (current && !ui.narcHistoryPinned && (!a || a.closed || !a.incident)) {
-    a = current;
+  let selected = state.alerts.find((x) => x.id === ui.sel.narc);
+  if (!showingHistory && current && (!selected || selected.closed || !selected.incident)) {
+    selected = current;
     ui.sel.narc = current.id;
   }
-  if (!a) {
-    detail.append(h('div', 'about', 'NARC Workforce Support is active on this workstation. Approved activity signals are analyzed to help you succeed. No action is required.'));
-  } else {
-    detail.append(caseNode(a));
+  if (showingHistory && (!selected || (selected.incident && !selected.closed))) {
+    selected = history[0] || null;
+    if (selected) ui.sel.narc = selected.id;
   }
-  return windowShell('NARC · AI Workforce Assessment', h('div', 'body', top, h('div', 'narc-main', list, detail)));
+
+  if (!selected) {
+    detail.append(h('div', 'about',
+      showingHistory
+        ? 'No prior assessments.'
+        : 'NARC is active. No current assessment requires attention.'));
+  } else {
+    detail.append(caseNode(selected));
+  }
+  return windowShell('NARC', h('div', 'body', top, h('div', 'narc-main', list, detail)));
 }
 
 function caseNode(a) {
@@ -699,15 +723,9 @@ function caseNode(a) {
   box.append(h('div', 'sect observed', 'Why'));
   box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
 
-  const context = c.metrics.filter(([k]) => !/Recommended action|Automatic action|Company response/i.test(k));
   const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
   if (action) {
-    box.append(h('div', 'company-action', h('span', null, 'What happens because of it'), h('b', null, action[1])));
-  }
-  if (context.length) {
-    box.append(h('div', 'context-facts', context.map(([k, v, was]) => h('div', null,
-      h('span', null, k),
-      h('span', 'val', was !== undefined ? h('s', 'was', String(was)) : null, num(`metric:${a.id}:${k}`, v))))));
+    box.append(h('div', 'company-action', h('span', null, 'Company response'), h('b', null, action[1])));
   }
 
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
