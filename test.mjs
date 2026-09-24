@@ -1719,6 +1719,34 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(s.t - openedAt <= 10, `e4 should arrive within ~10s of opening the forecast, took ${s.t - openedAt}s`);
 }
 
+// -------- Messages always gives a clear response to direct coworker asks
+
+{
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  s = until(s, (x) => x.threads.luis.some((m) => m.prompt === 'luis-e2'), { reads: false });
+  const ids = replies(s, 'luis').map((r) => r.id);
+  assert.ok(ids.includes('nohelper'), 'without keepalive installed, Luis gets a direct "I don’t have it" response');
+  assert.equal(canAttachHelper(s), false);
+
+  let withHelper = play({ e1: 'jiggle' }, { stopAt: 'e2' });
+  withHelper = until(withHelper, (x) => x.threads.luis.some((m) => m.prompt === 'luis-e2'), { reads: false });
+  assert.equal(canAttachHelper(withHelper), true, 'with keepalive installed, the attachment action is available');
+  assert.ok(!replies(withHelper, 'luis').some((r) => r.id === 'nohelper'),
+    'the "I don’t have it" response is hidden when the player does have it');
+}
+
+{
+  let s = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' });
+  s = until(s, (x) => replies(x, 'dana').some((r) => r.id === 'reportmarcus'), { reads: false });
+  s = act(s, { do: 'reply', thread: 'dana', reply: 'reportmarcus' });
+  const ids = replies(s, 'marcus').map((r) => r.id);
+  assert.deepEqual(ids.sort(), ['afterCalendar', 'afterNoHelp', 'afterTransit'].sort(),
+    'Marcus can still be answered after Dana has already sent NARC the discrepancy');
+  s = act(s, { do: 'reply', thread: 'marcus', reply: 'afterTransit' });
+  assert.ok(has(texts(s, 'marcus'), /won.t undo what Dana sent/i));
+  assert.equal(replies(s, 'marcus').length, 0, 'one post-resolution reply closes the prompt cleanly');
+}
+
 // ------------------ Marcus's own thread offers a genuine help route (#38)
 
 {
