@@ -337,3 +337,23 @@ Verification caveat: this environment can inspect/write the GitHub repository bu
 - Run the full automated suite and desktop/narrow browser smoke test in an environment that can execute the repo.
 - Do #29 with at least one genuinely uncoached fresh player.
 - Keep #45 (later replay/authority/settings) and #48 (later benign personalization) deferred unless a future playtest identifies a concrete first-run need.
+
+
+## Sept 24 QA feedback pass C
+
+Active implementation branch: `qa-feedback-sept24c`.
+
+Live playtest feedback after the previous main promotion produced a focused usability/pacing pass:
+
+- Dana now explicitly explains the Calendar rule: **Busy** only records occupied time, while **Focus Time** tells NARC that low-input time is intentional work and should be weighed differently.
+- Calendar labels are reversible. The player can switch **Busy ↔ Focus Time** instead of Focus Time being a one-way action.
+- `keepalive.pkg` is absent from Utilities until Marcus actually sends the attachment.
+- Marcus sends `keepalive.pkg` after onboarding on every route, independent of whether Employee 4417 receives the Monday inactivity flag.
+- Receiving the attachment is what marks the helper as discovered; it is then installable in Utilities and can be run on Employee 4417's own workstation.
+- Luis's peer-report reactions have been rewritten so the player can understand what happened without decoding the joke.
+- Browser keeps its article-list scroll position and now has a lightweight browser toolbar with home/back, refresh, and a fake Meridian address bar.
+- Decorative three-dot window controls were removed. The single functional X remains the only window-close affordance.
+- Pacing is tighter after onboarding: routine message delays are compressed and the gap between completed consequences and the next problem is shorter.
+- The intent is **fewer dead patches, not more content**. The player should spend more of the run discovering, deciding, or seeing consequences.
+
+Verification limitation: this environment still cannot clone the repo because GitHub DNS resolution fails, and the current Vercel preview is blocked by the shared build-rate limit. Automated/browser verification remains pending. Do not promote this branch to `main` without Paige explicitly authorizing `main`.
