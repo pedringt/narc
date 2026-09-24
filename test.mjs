@@ -79,6 +79,7 @@ const DO = {
   e4: {
     quiet: reply('priya', 'quiet'),
     sync: (s) => act(s, { do: 'addEvent', title: 'Team sync (in person): lunch workflow' }),
+    context: (s) => act(s, { do: 'sendFile', file: 'f-esc' }),
     champion: (s) => act(s, { do: 'nominate', who: 'priya' }),
     leave: logoff,
   },
@@ -124,7 +125,7 @@ const INCIDENT_BRANCHES = {
   e1: ['wait', 'explain', 'jiggle', 'focus'],
   e2: ['confirm', 'ignore', 'script', 'focus', 'evidence'],
   e3: ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip'],
-  e4: ['quiet', 'champion', 'leave', 'sync'],
+  e4: ['quiet', 'champion', 'leave', 'sync', 'context'],
   e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
   e6: ['workshop', 'approve', 'expose', 'vouch_trace', 'backdate', 'let'],
 };
@@ -1048,7 +1049,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
   s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
   assert.deepEqual(opts(s, 'marcus'), ['latecalendar', 'transitAlert'], 'Marcus: the bad-advice cut stays cut; the genuine help route (#38) is intentional, not a third cut route');
-  const perIncident = { e1: 4, e2: 5, e3: 6, e4: 4 };
+  const perIncident = { e1: 4, e2: 5, e3: 6, e4: 5 };
   for (const [inc, n] of Object.entries(perIncident)) {
     assert.ok(Object.keys(DO[inc]).length <= n, `${inc} has at most ${n} routes`);
   }
@@ -1192,7 +1193,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   paths = pick(paths, ['wait', 'explain', 'jiggle', 'focus']);
   paths = pick(paths, ['confirm', 'ignore', 'script', 'focus', 'evidence']);
   paths = pick(paths, ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip']);
-  paths = pick(paths, ['quiet', 'champion', 'leave', 'sync']);
+  paths = pick(paths, ['quiet', 'champion', 'leave', 'sync', 'context']);
   const e5 = { g: ['admit', 'human', 'blame'], c: [undefined], n: ['label', 'output', 'letit'] };
   const e6 = { g: ['workshop', 'approve', 'expose'], b: ['vouch_trace', 'backdate', 'let'] };
 
@@ -1217,8 +1218,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
       }
     }
   }
-  // e1 ×4 · e2 ×13 (confirm/ignore/evidence give 3 Luis returns each, script ×3, focus ×1) · e3 ×6 · e4 ×4 · e6 ×3
-  assert.equal(count, 4 * 13 * 6 * 4 * 3, 'every route reaches an ending');
+  // e1 ×4 · e2 ×13 (confirm/ignore/evidence give 3 Luis returns each, script ×3, focus ×1) · e3 ×6 · e4 ×5 · e6 ×3
+  assert.equal(count, 4 * 13 * 6 * 5 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
 }
 
@@ -1846,6 +1847,26 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const afterSend = act(later, { do: 'sendFile', file: 'f-queue' });
   assert.equal(afterSend.picked.e5, 'output');
   assert.equal(afterSend.picked.e2, 'ignore', 'e2 already resolved earlier and is untouched');
+}
+
+// -------- Priya's escalation ticket can inform a response, not just be read (#41b)
+
+{
+  // The model's read barely moves (82 -> 80); the policy response changes
+  // because the context explains the volume instead of arguing it's wrong.
+  let s = play(HONEST, { stopAt: 'e4' });
+  assert.ok(s.files.some((f) => f.id === 'f-esc'), 'the escalation ticket exists as soon as the case opens');
+  assert.ok(fileActions(s)['f-esc'], 'and is actionable right away');
+
+  s = act(s, { do: 'sendFile', file: 'f-esc' });
+  assert.equal(s.picked.e4, 'context');
+  assert.ok(s.threads.dana.some((m) => m.from === 'me' && /Client_escalation/.test(m.attach || '')));
+  s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e4')).updated, { reads: false });
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e4'));
+  assert.match(card.model.label, /active escalation/);
+  assert.equal(card.model.confidence, 80);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Workload reviewed/);
+  assert.equal(s.people.priya.status, 'employed', 'a genuinely different, non-punitive outcome');
 }
 
 console.log('NARC tests passed');

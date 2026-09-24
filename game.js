@@ -747,7 +747,7 @@ const INCIDENTS = {
 
   e4: {
     at: { day: 'Thu', min: hm(9, 30) },
-    allowed: () => ['quiet', 'champion', 'leave', 'sync'],
+    allowed: () => ['quiet', 'champion', 'leave', 'sync', 'context'],
     fallback: () => 'leave',
     arrive(s) {
       if (s.people.priya.champion) {
@@ -825,6 +825,21 @@ const INCIDENTS = {
         say(s, 3, 'priya', 'Ooh. I will move the lunch workflow to an in-person sync. With Claire.');
         react(s, 5, { incident: 'e4', where: 'thread:priya', label: 'Communication Load: normal', conf: 90, metrics: { 'Collaboration Index': 98, 'Company response': 'None' }, tone: 'good', text: 'Communication Load: elevated → normal. Message volume −38%. In-person sync scheduled: counted as collaboration. Collaboration Index 97 → 98.' });
         say(s, 18, 'priya', 'NARC now thinks I am a natural collaborator. I am. Anyway.');
+      },
+      context(s) {
+        // Not arguing the signal is wrong -- 63 threads really happened.
+        // Arguing the policy response to it should account for why. The
+        // model's read barely moves; what changes is what the company does
+        // about it, which is the distinction #27 is about.
+        const p = s.people.priya;
+        p.trust += 1;
+        say(s, 3, 'dana', 'That explains a lot, actually.');
+        react(s, 5, {
+          incident: 'e4', where: 'thread:dana', label: 'Communication Load: elevated (active escalation)', conf: 80, tone: 'good',
+          metrics: { 'Company response': 'Workload reviewed; volume expected during ESC-204', 'Evidence source': 'Client escalation ticket' },
+          text: 'Escalation ticket submitted: 14 active threads during a live client issue. Same message volume, different reason for it. Confidence 82% → 80%.',
+        });
+        say(s, 16, 'priya', 'It\u2019s not that I talk too much. It\u2019s that Kestrel Foods will not stop emailing.');
       },
     },
   },
@@ -1192,6 +1207,7 @@ export function fileActions(s) {
   const inc = s.incident;
   const out = {};
   if (inc?.id === 'e2') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
+  if (inc?.id === 'e4') out['f-esc'] = { label: 'Send to Dana', file: 'f-esc' };
   if (inc?.id === 'e5' && inc.variant === 'n') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
   if (inc?.id === 'e6' && inc.variant === 'b') out['f-slip'] = { label: 'Send to Dana', file: 'f-slip' };
   return out;
@@ -1278,7 +1294,8 @@ export function act(state, a) {
       if (fa) {
         const f = s.files.find((x) => x.id === a.file);
         s.threads.dana.push({ id: `m${++s.uid}`, from: 'me', text: 'Sending this along.', attach: f.name });
-        const branch = a.file === 'f-queue' ? (s.incident?.id === 'e2' ? 'evidence' : 'output') : 'vouch_trace';
+        const branch = a.file === 'f-queue' ? (s.incident?.id === 'e2' ? 'evidence' : 'output')
+          : a.file === 'f-esc' ? 'context' : 'vouch_trace';
         resolve(s, branch);
         changed = true;
       }
