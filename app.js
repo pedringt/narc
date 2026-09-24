@@ -688,10 +688,21 @@ function renderIntranet() {
     h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', 'loop-muted', state.indexVisible ? `Visible Activity Index: ${state.score}` : 'Status: Active'))),
     h('p', 'loop-muted', `${u.messages || 0} unread message${u.messages === 1 ? '' : 's'} · ${u.email || 0} unread email${u.email === 1 ? '' : 's'}`));
 
+  const pulse = h('div', 'loop-card loop-pulse', h('div', 'loop-card-h', 'Workplace pulse'));
+  const pulseLines = [];
+  if (state.you.trusted) pulseLines.push('Employee 4417 · Trusted Reviewer');
+  else if (state.flags > 0) pulseLines.push(`Employee 4417 · ${state.flags} integrity flag${state.flags === 1 ? '' : 's'}`);
+  if (state.social.peerReports > 0) pulseLines.push(`Peer context submitted · ${state.social.peerReports}`);
+  Object.entries(state.people).forEach(([id, p]) => {
+    if (p.status !== 'employed') pulseLines.push(`${PEOPLE[id].name} · ${STATUS_LABEL[p.status] || p.status}`);
+  });
+  if (!pulseLines.length) pulseLines.push('No company-wide changes yet.');
+  pulseLines.slice(0, 4).forEach((line) => pulse.append(h('div', 'loop-pulse-line', line)));
+
   const quick = h('div', 'loop-card', h('div', 'loop-card-h', 'Quick links'));
   [
     ['Messages', () => goApp('messages')],
-    ['Benefits', () => goApp('files')],
+    ['Browser', () => goApp('browser')],
     ['IT Help', () => goApp('utilities')],
     ['Handbook', () => goApp('files')],
     ['Culture Champion', () => {
@@ -704,7 +715,7 @@ function renderIntranet() {
     h('div', 'loop-card-h', 'Required reminder'),
     h('p', null, state.level >= 2 ? 'Authenticity is a measurable behavior.' : 'Please complete your annual “Meeting About Meetings” acknowledgment by Friday.'));
 
-  side.append(today, profile, quick, nonsense);
+  side.append(today, profile, pulse, quick, nonsense);
   return windowShell('The Loop · Meridian Supply Co.', h('div', 'body loop-home', main, side));
 }
 
