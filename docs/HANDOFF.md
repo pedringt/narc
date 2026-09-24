@@ -1,20 +1,37 @@
 # NARC Handoff
 
-## Current status (2026-09-22)
+## Current status (2026-09-23)
 
-**Playable end to end and live in production at https://narc-opal.vercel.app** (`main` at `1853476`). `prototype-v1` is the working branch and is level with `main` apart from docs.
+**Playable end to end and live in production at https://narc-opal.vercel.app** (`main` at `40b1ee2`, [PR #47](https://github.com/pedringt/narc/pull/47)). `prototype-v1` is the working branch and is level with `main`.
 
-The premise, the desktop rework and the clarity pass are all **done** — do not redo them. The last pass (issue #13) covered pacing, an assessment update on every branch, the Employee 4417 prediction, and the three-part case card.
+The premise, the desktop rework, the clarity pass, and a live-playtest bug-fix round (dead air, unclickable attachment, keepalive default, hint legibility — issues #36–39) are all **done** — do not redo them.
+
+The most recent pass shipped **#40 and #41** (dialogue-audit findings + giving Calendar/Files/Utilities distinct, actionable roles):
+
+- Marcus's Wednesday now tells one coherent story (self-reported, same-day cover, not two competing explanations), and every branch shows an "Evidence source" metric so the player can see how NARC weighs self-reported vs. third-party vs. official-device evidence
+- Luis's Focus Time and Priya's in-person-sync are real Calendar actions the player performs, not dialogue chips that silently resolve the case
+- Luis's Tuesday output evidence and Priya's escalation ticket are both actionable during their incidents (sendable to Dana), not just read
+- Utilities has a second real function: a live "Signal Trust" diagnostics card reading off actual state (your activity signal, Luis's, your integrity record, badge/location trace) instead of static flavor
+
+**#40's broader, systematic dialogue audit** (every sequence across the full week, not just the three pre-diagnosed findings) was explicitly **not** attempted — see the comment on #40 for the scope call. It's still open if wanted.
+
+**#45 (promotion/replay/settings-tradeoff system) was explicitly parked** — do not build it without Paige asking first.
 
 Where the build stands:
 
 - a brisk run is about **5.3 minutes**, reading every hint about **7.1**; exploring adds to that
 - after a case opens, the game points at something to do within **10 seconds** (asserted by tests)
 - every branch, including "let NARC handle it", ends in a visible assessment change
-- `node test.mjs` is green and covers all **2,400** routes
+- `node test.mjs` is green and covers all **4,680** routes (up from 2,400 as #38/#41 added new branches — see the route-count comment in `test.mjs` for the exact factors)
+
+**Explicit instruction governing what comes next:** after #40 and #41, stop and do not start **#42** (player personal stakes/rewards) or **#43** (workplace texture) until Paige has played through this build and says to proceed. This is the single most important thing for the next session to respect.
 
 **What is genuinely open** is in GitHub, not here:
 
+- **#42, #43** — parked pending Paige's playtest of this build (see above)
+- **#44** — simplify desktop visual hierarchy under notification load
+- **#45** — promotion/replay/settings-tradeoff satire layer, explicitly parked, do not build unprompted
+- **#27, #28, #29, #30, #31, #33, #34, #35** — earlier AI-mechanics/clarity/QA issues, still open
 - **#13** stays open until Paige plays the new pacing. Two things to ask her about: whether the gap *between* incidents now feels like dead air (the pacing fix moved waiting there, `GAP` 14 → 24 s), and whether the notification rail should be reserved in the desktop layout (between 761 and 900px it still covers part of the case).
 - **#6** playtest plan, **#7** handoff upkeep, **#1–#5** older framing and spec work.
 
@@ -142,7 +159,7 @@ Detailed implementation notes:
 
 ## Next recommended implementation action
 
-**Wait for Paige's playtest of the current build before building anything new.** The open question is whether the pacing now feels right, not what to add. If she asks for work in the meantime, prefer the two decisions parked on #13 (the between-incident gap; whether to reserve a rail for notifications in the desktop layout) over new content.
+**Wait for Paige's playtest of the current build (#40/#41 shipped, on `main`) before starting #42 or #43.** This is an explicit instruction, not a soft preference — she wants to play through the "use the workstation to solve things" loop before player-stakes and workplace-texture work is judged. If she asks for work in the meantime, prefer #44 (notification-load visual hierarchy) or the #13 pacing questions (the between-incident gap; whether to reserve a rail for notifications) over new content.
 
 Do **not** add Nina or Maya, more scenarios, more meters, hidden rules or explainer text. The target is still: easy to understand in seconds, interesting because the consequences are weird.
 
