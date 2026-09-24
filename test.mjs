@@ -1949,7 +1949,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     e2: 'confirm',
     e3: 'truth',
     e4: 'context',
-    e5: 'blame',
+    e5: 'label',
     e6: 'vouch_trace',
   });
   const out = ending(s);
