@@ -311,3 +311,29 @@ Current direction:
 - NARC itself is simplified into **My NARC / Company / History**, with person names and current standing more prominent than assessment metadata
 
 Do not interpret this branch as production. `main` remains unchanged until Paige explicitly authorizes a merge.
+
+
+## Final Sept 24 feedback pass
+
+Active implementation branch: `feedback-pass-sept24b`.
+
+This pass exists because live testing showed several earlier decisions had landed only partially. Treat the following as the current source of truth:
+
+- Dana is now the diegetic workstation tutorial. After the People Ops email, she walks Employee 4417 through **The Loop → Files/Halvorsen → Calendar → Utilities → NARC → Browser → Messages** before the first incident can begin.
+- The tutorial teaches what each app is for, not just where it is. The core onboarding lesson is: **reality is spread across the work apps; NARC sees selected traces and turns them into a judgment.**
+- Completing onboarding lands the player on The Loop, which is the normal company home surface.
+- The Loop includes a dynamic **Workplace pulse** so later peer reporting, Trusted Reviewer status, integrity flags, and coworker status changes visibly echo outside NARC.
+- Desktop windows are clamped to the usable workspace after every render so title bars cannot drift above the screen. The Loop and Utilities also have explicit desktop heights.
+- The wallpaper is now a deliberately authored Meridian design, not only a dark green or gradient wash: geometric rings, ribbons, dot texture, and company branding sit behind the windows.
+- Normal apps have stronger visual identities: Messages is blue/chat-like with avatars; Email is coral/inbox-like; Calendar is purple; Files is amber with file-type badges; Utilities is slate/diagnostic; Browser is plum; The Loop remains Meridian green.
+- NARC is intentionally simpler than the surrounding software. It now has only **Current / History**. Current is a four-person list (Employee 4417, Luis, Marcus, Priya). Selecting a person shows the judgment, confidence, at most two strongest reasons, and company response. The friendly eyes remain the visual identity.
+- Notification summaries are inspectable. “N earlier notifications” expands the older notifications so each can be read/opened; Clear all is no longer the only option.
+- The authored Browser, purposeful Files, Calendar evidence mechanics, cross-day callbacks, reciprocal peer context, social endings, Priya resignation beat, Trusted Reviewer path, and post-resolution coworker replies remain part of the current design.
+
+Verification caveat: this environment can inspect/write the GitHub repository but cannot execute the repository locally, so `node test.mjs` and a real browser smoke test still need to run before promotion. Do not merge this branch to `main` without Paige explicitly naming `main`.
+
+### Remaining release work
+
+- Run the full automated suite and desktop/narrow browser smoke test in an environment that can execute the repo.
+- Do #29 with at least one genuinely uncoached fresh player.
+- Keep #45 (later replay/authority/settings) and #48 (later benign personalization) deferred unless a future playtest identifies a concrete first-run need.
