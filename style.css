@@ -328,6 +328,66 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .ach-item .desc { color: var(--n-muted); font-size: 13px; }
 .report .actions { margin-top: 20px; }
 
+/* ------------------------------------------- desktop shell refinement */
+@media (min-width: 761px) {
+  .stage { flex-direction: column-reverse; }
+
+  .dock {
+    width: auto;
+    min-height: 68px;
+    padding: 7px 12px 9px;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 6px;
+    background: rgba(8, 14, 19, .5);
+    border-top: 1px solid rgba(255, 255, 255, .08);
+  }
+
+  .dock button {
+    width: 64px;
+    min-height: 52px;
+    padding: 5px 4px 4px;
+  }
+
+  .dock button.narc {
+    margin-top: 0;
+    margin-left: 12px;
+  }
+
+  .dock button.narc::before {
+    content: "";
+    position: absolute;
+    left: -10px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: rgba(255, 255, 255, .18);
+  }
+
+  .dock .mark { top: 2px; right: 9px; }
+
+  .workarea {
+    align-items: center;
+    justify-content: center;
+    padding: 22px 24px 16px;
+  }
+
+  .window {
+    flex: none;
+    width: min(100%, 1080px);
+    height: min(100%, 760px);
+  }
+
+  .window.app-intranet { width: min(100%, 1120px); }
+  .window.app-email { width: min(100%, 1040px); height: min(100%, 720px); }
+  .window.app-messages { width: min(100%, 920px); height: min(100%, 680px); }
+  .window.app-calendar { width: min(100%, 820px); height: min(100%, 650px); }
+  .window.app-files { width: min(100%, 960px); height: min(100%, 700px); }
+  .window.app-utilities { width: min(100%, 900px); height: min(100%, 680px); }
+  .window.app-narc { width: min(100%, 1040px); height: min(100%, 730px); }
+}
+
 /* --------------------------------------------------------------- narrow */
 @media (max-width: 760px) {
   .stage { flex-direction: column-reverse; }
