@@ -141,9 +141,10 @@ function freshUi() {
     day: 'Mon',
     dayTouched: false,
     team: false,
-    narcView: 'me',
-    narcPerson: 'luis',
+    narcView: 'current',
+    narcPerson: 'me',
     positions: {},
+    toastHistoryOpen: false,
     draft: { note: '', title: '', attribute: '', nominee: '' },
     lastHint: {}, // the reason a dock dot appeared, kept for one visit after it's cleared (#39)
   };
@@ -252,7 +253,14 @@ function openRef(ref) {
   let app = ui.app;
   if (kind === 'email') { app = 'email'; ui.sel.email = id; ui.detail.email = true; }
   if (kind === 'thread') { app = 'messages'; ui.sel.messages = id; ui.detail.messages = true; }
-  if (kind === 'alert') { app = 'narc'; ui.sel.narc = id; ui.detail.narc = true; }
+  if (kind === 'alert') {
+    app = 'narc';
+    ui.sel.narc = id;
+    ui.detail.narc = true;
+    const alert = state.alerts.find((a) => a.id === id);
+    ui.narcPerson = alertWho(alert) || 'me';
+    ui.narcView = alert?.closed || !alert?.incident ? 'history' : 'current';
+  }
   ensureWindow(app);
   ui.app = app;
   state = act(state, { do: 'view', app });
@@ -271,7 +279,11 @@ function goApp(id) {
   if (id === 'narc') {
     const { active, team } = narcSections(state);
     const current = active[0] || team[0];
-    if (current && !ui.sel.narc) ui.sel.narc = current.id;
+    if (current) {
+      ui.sel.narc = current.id;
+      ui.narcPerson = alertWho(current) || 'me';
+      ui.narcView = 'current';
+    }
   }
   if (!ui.dayTouched) ui.day = state.clock.day;
   dispatch({ do: 'view', app: id });
@@ -289,6 +301,13 @@ root.innerHTML = `
       <button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full"></span><span class="short"></span></span></button>
     </div>
   </header>
+  <div class="wallpaper-art" aria-hidden="true">
+    <span class="wall-ring ring-a"></span>
+    <span class="wall-ring ring-b"></span>
+    <span class="wall-ribbon ribbon-a"></span>
+    <span class="wall-ribbon ribbon-b"></span>
+    <span class="wall-brand">MERIDIAN / FIELD SYSTEMS</span>
+  </div>
   <div class="stage">
     <nav class="dock" id="dock" aria-label="Apps"></nav>
     <main class="workarea"><div class="window-stack" id="windows"></div></main>
@@ -330,6 +349,9 @@ function trayLabel() {
 function visibleApps() {
   const ids = new Set(['email', 'intranet']);
   if (ui.app) ids.add(ui.app);
+  // Dana's setup tour deliberately exposes the whole workstation. The point
+  // of onboarding is to teach what each surface is for, not hide it.
+  if (state.orient.ack && !state.oriented) APPS.forEach((app) => ids.add(app.id));
   if (state.oriented || state.seen.browser) ids.add('browser');
   if (state.threads.dana.length || state.seen.messages) {
     ids.add('messages');
@@ -361,7 +383,7 @@ function renderChrome() {
   const visible = visibleApps();
   els.dock.replaceChildren(...APPS.filter((a) => visible.has(a.id)).map((a) => {
     const count = u[a.id] || 0;
-    const b = h('button', a.id === 'narc' ? 'narc' : '', h('span'), a.label);
+    const b = h('button', `dock-app dock-app-${a.id}${a.id === 'narc' ? ' narc' : ''}`, h('span', 'dock-icon'), a.label);
     b.firstChild.innerHTML = ICON[a.id];
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === a.id));
@@ -382,9 +404,26 @@ function windowShell(title, ...body) {
   const app = renderingApp;
   const bar = h('div', 'titlebar', h('span', 'lights', h('i'), h('i'), h('i')));
   const back = btn('‹ Back', 'back', () => { ui.detail[app] = false; render(); });
+  const icon = h('span', `title-icon title-icon-${app}`);
+  icon.innerHTML = ICON[app] || '';
   const close = btn('×', 'win-close', () => closeWindow(app), { 'aria-label': `Hide ${title}` });
-  bar.append(back, h('span', 'window-title', title), close);
+  bar.append(back, icon, h('span', 'window-title', title), close);
   return [bar, ...body];
+}
+
+function clampWindowPosition(win, id) {
+  if (window.matchMedia('(max-width: 760px)').matches) return;
+  const area = els.windows.getBoundingClientRect();
+  const rect = win.getBoundingClientRect();
+  const margin = 10;
+  const maxX = Math.max(0, (area.width - rect.width) / 2 - margin);
+  const maxY = Math.max(0, (area.height - rect.height) / 2 - margin);
+  const pos = ui.positions[id] || { x: 0, y: 0 };
+  const x = Math.max(-maxX, Math.min(maxX, pos.x));
+  const y = Math.max(-maxY, Math.min(maxY, pos.y));
+  ui.positions[id] = { x, y };
+  win.style.setProperty('--dx', `${x}px`);
+  win.style.setProperty('--dy', `${y}px`);
 }
 
 function installDrag(win, id) {
@@ -440,6 +479,7 @@ function renderWindows() {
     win.dataset.app = id;
     win.style.zIndex = String(ui.app === id ? 20 : 5 + index);
     const pos = ui.positions[id] || { x: (index - Math.max(0, apps.length - 1) / 2) * 38, y: (index - Math.max(0, apps.length - 1) / 2) * 24 };
+    ui.positions[id] = { ...pos };
     win.style.setProperty('--dx', `${pos.x}px`);
     win.style.setProperty('--dy', `${pos.y}px`);
     win.replaceChildren(...views[id]());
@@ -450,7 +490,10 @@ function renderWindows() {
   });
 
   els.windows.replaceChildren(...nodes);
-  els.windows.querySelectorAll('.window').forEach((win) => installDrag(win, win.dataset.app));
+  els.windows.querySelectorAll('.window').forEach((win) => {
+    clampWindowPosition(win, win.dataset.app);
+    installDrag(win, win.dataset.app);
+  });
 
   els.windows.querySelectorAll('[data-scroll]').forEach((n) => {
     const prev = scrolls[n.dataset.scroll];
@@ -465,7 +508,11 @@ function renderEmail() {
   const list = h('div', 'list');
   if (!state.inbox.length) list.append(h('div', 'empty', 'Inbox zero.'));
   state.inbox.forEach((m) => {
-    const row = h('button', `row${m.unread ? ' unread' : ''}`, h('div', 'top', h('span', 'name', m.from), m.unread ? h('span', 'pill', '●') : null), h('div', 'sub sub-b', m.subject));
+    const row = h('button', `row mail-row${m.unread ? ' unread' : ''}`,
+      h('span', 'mail-row-icon', '✉'),
+      h('div', 'mail-row-copy',
+        h('div', 'top', h('span', 'name', m.from), m.unread ? h('span', 'pill', '●') : null),
+        h('div', 'sub sub-b', m.subject)));
     row.type = 'button';
     row.setAttribute('aria-current', String(ui.sel.email === m.id));
     row.addEventListener('click', () => openRef(`email:${m.id}`));
@@ -538,9 +585,12 @@ function renderMessages() {
     const last = real[real.length - 1];
     const n = msgs.filter((m) => m.unread).length;
     const off = id !== 'dana' && state.online[id] === false;
-    const row = h('button', `row${n ? ' unread' : ''}`,
-      h('div', 'top', h('span', 'name', h('span', `dotpres${off ? ' off' : ''}`), t.name), n ? h('span', 'pill', n) : null),
-      h('div', 'sub sub-b', last ? (last.from === 'me' ? `You: ${last.text}` : last.text) : t.role));
+    const initials = t.name.split(' ').map((part) => part[0]).join('').slice(0, 2);
+    const row = h('button', `row message-row${n ? ' unread' : ''}`,
+      h('span', `msg-avatar avatar-${id}`, initials),
+      h('div', 'message-row-copy',
+        h('div', 'top', h('span', 'name', h('span', `dotpres${off ? ' off' : ''}`), t.name), n ? h('span', 'pill', n) : null),
+        h('div', 'sub sub-b', last ? (last.from === 'me' ? `You: ${last.text}` : last.text) : t.role)));
     row.type = 'button';
     row.setAttribute('aria-current', String(ui.sel.messages === id));
     row.addEventListener('click', () => openRef(`thread:${id}`));
@@ -722,7 +772,10 @@ function slotForm(slot) {
 function renderFiles() {
   const list = h('div', 'list');
   state.files.forEach((f) => {
-    const row = h('button', 'row', h('div', 'name', f.name), h('div', 'sub', f.meta));
+    const ext = (f.name.split('.').pop() || 'FILE').toUpperCase();
+    const row = h('button', 'row file-row',
+      h('span', `file-type file-type-${ext.toLowerCase()}`, ext.slice(0, 4)),
+      h('div', 'file-row-copy', h('div', 'name', f.name), h('div', 'sub', f.meta)));
     row.type = 'button';
     row.setAttribute('aria-current', String(ui.sel.files === f.id));
     row.addEventListener('click', () => {
@@ -876,24 +929,43 @@ function alertRow(a) {
   return row;
 }
 
-function myNarcSummary() {
-  const status = state.flags > 0
-    ? `Integrity review · ${state.flags} flag${state.flags === 1 ? '' : 's'}`
-    : state.you.predicted
-      ? 'Predictive review open'
-      : state.you.trusted
-        ? 'Trusted Reviewer'
-        : 'No active integrity review';
-  const card = h('div', 'my-narc');
-  card.append(
-    h('div', 'case-person', 'Employee 4417'),
-    h('div', 'my-status', status),
-    h('div', 'my-facts',
-      h('div', null, h('span', null, 'Visible Activity'), h('b', null, String(state.score))),
-      h('div', null, h('span', null, 'Integrity flags'), h('b', null, String(state.flags))),
-      h('div', null, h('span', null, 'Peer reports supplied'), h('b', null, String(state.you.reports)))));
-  if (state.you.peerReportsReceived) card.append(h('p', 'narc-compact-note', `Peer context naming you: ${state.you.peerReportsReceived} record${state.you.peerReportsReceived === 1 ? '' : 's'}.`));
-  return card;
+function narcStatusFor(who, alert) {
+  if (alert && !alert.closed) return caseView(state, alert).model?.label || alert.title;
+  if (who === 'me') {
+    if (state.flags > 0) return `Integrity review · ${state.flags} flag${state.flags === 1 ? '' : 's'}`;
+    if (state.you.predicted) return 'Predictive review';
+    if (state.you.trusted) return 'Trusted Reviewer';
+    return 'No current concern';
+  }
+  return STATUS_LABEL[state.people[who]?.status] || 'EMPLOYED';
+}
+
+function currentPersonRow(who, name) {
+  const alert = latestAlertFor(who);
+  const row = h('button', `person-row${ui.narcPerson === who ? ' selected' : ''}`,
+    h('span', 'person-name', name),
+    h('span', 'person-status', narcStatusFor(who, alert)));
+  row.type = 'button';
+  row.addEventListener('click', () => {
+    ui.narcPerson = who;
+    if (alert) ui.sel.narc = alert.id;
+    render();
+  });
+  return row;
+}
+
+function emptyNarcPerson(who, name) {
+  const wrap = h('div', 'narc-empty-person',
+    h('div', 'case-person', name),
+    h('div', 'narc-empty-status', narcStatusFor(who, latestAlertFor(who))));
+  if (who === 'me' && state.you.trusted) {
+    wrap.append(h('p', null, 'Your peer input currently receives extra corroboration weight.'));
+  } else if (who === 'me' && state.flags > 0) {
+    wrap.append(h('p', null, 'Your evidence is currently weighted lower because of recorded integrity concerns.'));
+  } else {
+    wrap.append(h('p', null, 'No active AI assessment for this person.'));
+  }
+  return wrap;
 }
 
 function renderNarc() {
@@ -901,55 +973,32 @@ function renderNarc() {
     h('span', 'brand', eyeMark(), h('span', null, 'NARC')),
     h('span', 'ai-label', 'AI Workforce Assessment'));
 
-  const { active, team, history } = narcSections(state);
+  const { history } = narcSections(state);
   const tabs = h('div', 'narc-primary-tabs',
-    btn('My NARC', 'narc-tab', () => { ui.narcView = 'me'; render(); }, { 'aria-pressed': String(ui.narcView === 'me') }),
-    btn('Company', 'narc-tab', () => { ui.narcView = 'company'; render(); }, { 'aria-pressed': String(ui.narcView === 'company') }),
-    btn(`History ${history.length ? `(${history.length})` : ''}`, 'narc-tab', () => { ui.narcView = 'history'; render(); }, { 'aria-pressed': String(ui.narcView === 'history') })
-  );
+    btn('Current', 'narc-tab', () => { ui.narcView = 'current'; render(); }, { 'aria-pressed': String(ui.narcView === 'current') }),
+    btn(`History${history.length ? ` · ${history.length}` : ''}`, 'narc-tab', () => { ui.narcView = 'history'; render(); }, { 'aria-pressed': String(ui.narcView === 'history') }));
 
   const list = h('div', 'list');
   const detail = h('div', 'detail');
 
-  if (ui.narcView === 'me') {
-    list.append(h('div', 'narc-list-heading', 'Your standing'));
-    const own = active[0] || latestAlertFor('me');
-    if (own) list.append(alertRow(own));
-    else list.append(h('div', 'none', 'No active assessment.'));
-    detail.append(myNarcSummary());
-    if (active[0]) detail.append(caseNode(active[0]));
-  } else if (ui.narcView === 'company') {
-    list.append(h('div', 'narc-list-heading', 'People'));
-    Object.entries(PEOPLE).forEach(([id, person]) => {
-      const latest = latestAlertFor(id);
-      const status = state.shown[id] || state.people[id].status;
-      const row = h('button', `person-row${ui.narcPerson === id ? ' selected' : ''}`,
-        h('span', 'person-name', person.name),
-        h('span', `person-status ${status}`, status.replaceAll('_', ' ')));
-      row.type = 'button';
-      row.addEventListener('click', () => {
-        ui.narcPerson = id;
-        if (latest) ui.sel.narc = latest.id;
-        render();
-      });
-      list.append(row);
-    });
-    const person = PEOPLE[ui.narcPerson] || PEOPLE.luis;
-    const latest = latestAlertFor(ui.narcPerson);
-    if (latest) detail.append(caseNode(latest));
-    else detail.append(
-      h('div', 'company-person-empty',
-        h('div', 'case-person', person.name),
-        h('div', 'my-status', STATUS_LABEL?.[state.people[ui.narcPerson]?.status] || state.people[ui.narcPerson]?.status || 'EMPLOYED'),
-        h('p', null, 'No NARC assessment on file yet.')));
-  } else {
+  if (ui.narcView === 'history') {
     list.append(h('div', 'narc-list-heading', 'Past assessments'));
-    if (!history.length) list.append(h('div', 'none', 'No prior assessments.'));
+    if (!history.length) list.append(h('div', 'none', 'Nothing here yet.'));
     history.forEach((item) => list.append(alertRow(item)));
     let selected = state.alerts.find((x) => x.id === ui.sel.narc && (x.closed || !x.incident));
     if (!selected) selected = history[0] || null;
     if (selected) detail.append(caseNode(selected));
-    else detail.append(h('div', 'about', 'No prior assessments.'));
+    else detail.append(h('div', 'narc-empty-person', h('div', 'case-person', 'No history yet')));
+  } else {
+    list.append(h('div', 'narc-list-heading', 'People'));
+    list.append(currentPersonRow('me', 'Employee 4417'));
+    Object.entries(PEOPLE).forEach(([id, person]) => list.append(currentPersonRow(id, person.name)));
+
+    const who = ui.narcPerson || 'me';
+    const name = who === 'me' ? 'Employee 4417' : PEOPLE[who]?.name;
+    const latest = latestAlertFor(who);
+    if (latest) detail.append(caseNode(latest));
+    else detail.append(emptyNarcPerson(who, name));
   }
 
   return windowShell('NARC', h('div', 'body narc-body', top, tabs, h('div', 'narc-main', list, detail)));
@@ -978,7 +1027,7 @@ function caseNode(a) {
   );
 
   box.append(h('div', 'sect observed', 'Why'));
-  const observed = (c.observed || []).slice(0, 3);
+  const observed = (c.observed || []).slice(0, 2);
   box.append(h('ul', null, observed.map((o) => h('li', null, o))));
 
   const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
@@ -1033,18 +1082,20 @@ function caseNode(a) {
 // in the app badges and NARC's history.
 function renderToasts() {
   const live = state.phase === 'ending' ? [] : state.toasts.filter((t) => !t.gone);
-  // One focal notification at a time, so it never competes with whatever the
-  // player is already looking at (#44). The one deliberate exception is the
-  // NARC 2.0 catch (#20's `big` flag), which can still share the rail with
-  // one more rather than being buried under routine stacking.
+  // Keep one focal notification by default, but never turn older notices into
+  // an unreadable count. The player can expand the stack and inspect each one.
   const max = live.some((t) => t.big) ? 2 : 1;
-  const shown = live.slice(-max);
-  const more = live.length - shown.length;
+  const more = Math.max(0, live.length - max);
+  const shown = ui.toastHistoryOpen ? live : live.slice(-max);
   els.toasts.replaceChildren();
   if (more > 0) {
-    els.toasts.append(h('div', 'more',
-      h('span', null, `${more} earlier notification${more === 1 ? '' : 's'}`),
-      btn('Clear all', 'clear', () => dispatch({ do: 'clear' }))));
+    const summary = h('div', 'more',
+      btn(ui.toastHistoryOpen ? 'Hide earlier' : `Show ${more} earlier notification${more === 1 ? '' : 's'}`, 'show-earlier', () => {
+        ui.toastHistoryOpen = !ui.toastHistoryOpen;
+        render();
+      }),
+      btn('Clear all', 'clear', () => dispatch({ do: 'clear' })));
+    els.toasts.append(summary);
   }
   shown.forEach((t) => {
     const label = { narc: 'NARC', messages: 'Messages', email: 'Email' }[t.app];
