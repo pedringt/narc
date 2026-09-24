@@ -593,17 +593,33 @@ const INCIDENTS = {
       say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
       s.calendar.push({ id: 'c-luis1', who: 'luis', day: 'Tue', start: '10:00', end: '11:15', title: 'Desk block', where: 'Customer Operations', focus: false });
       mark(s, 8, 'calendar', { when: 'e2', hint: 'Luis has an unmarked block on his calendar.' });
-      s.files.unshift({
-        id: 'f-queue',
-        name: 'Support_queue_weekly.xlsx',
-        meta: 'Spreadsheet · team report',
-        body: [
-          'Tickets closed this week, as a share of the team median:',
-          'Luis Perez: 112%',
-          'Team median: 100%',
-        ],
-      });
-      mark(s, 8, 'files', { when: 'e2', hint: 'A team report just landed.' });
+      s.files.unshift(
+        {
+          id: 'f-queue',
+          name: 'Support_queue_weekly.xlsx',
+          meta: 'Spreadsheet · team report',
+          body: [
+            'Tickets closed this week, as a share of the team median:',
+            'Luis Perez: 112%',
+            'Team median: 100%',
+          ],
+        },
+        {
+          id: 'f-narc-notes',
+          name: 'NARC_notes.txt',
+          meta: 'Text file · shared folder · author unknown',
+          body: [
+            'Things people think NARC actually notices:',
+            '• Keyboard/mouse activity counts. Reading paper apparently does not.',
+            '• Calendar labels seem to change how idle time is interpreted.',
+            '• Manager-submitted records seem to move confidence more than our explanations.',
+            '• Not sure whether it checks when a calendar record was created.',
+            '• Exact repeating activity feels like the kind of thing an update could learn to spot.',
+            'Nobody has confirmed any of this. Add your own bad ideas below.',
+          ],
+        },
+      );
+      mark(s, 8, 'files', { when: 'e2', hint: 'A team report and a shared NARC notes file just landed.' });
       say(s, 16, 'luis', s.helper.installed
         ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
         : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2', prompt: 'luis-e2' });
