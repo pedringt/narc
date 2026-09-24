@@ -741,3 +741,34 @@ This should remain one supporting case-study insight rather than the overarching
 ### Attribution note
 
 The product direction, tradeoffs, and decision to make peer reporting reciprocal are Paige's design decisions developed through iterative playtest/review. AI tools assisted with brainstorming, implementation, regression coverage, and documentation.
+
+
+## Live playtest decisions: connected workstation and simpler NARC (2026-09-24)
+
+A live self-play pass exposed an important implementation gap: several earlier product decisions existed in code or issue descriptions but did not yet feel true in the experience.
+
+Observed friction included:
+- The Loop and Utilities windows could render with their title bars cut off.
+- The desktop palette had changed, but the background still read as a color treatment rather than a designed company wallpaper.
+- Messages, Email, Calendar, Files, and Utilities still looked too much like variations of the same app shell.
+- Dana's first interaction proved the player could click Messages and Calendar, but did not teach the workstation's actual evidence model.
+- a collapsed “earlier notifications” count could only be cleared, not read
+- NARC was still more complicated than the product needed, even after an earlier simplification pass
+
+### Product decisions
+
+**Make onboarding teach the whole system.** Dana now walks the player through the normal workstation before any case begins. The tutorial establishes the important distinction directly through use: the human reality is distributed across normal work apps while NARC sees selected traces and produces an assessment.
+
+**Fix the shell once, not app by app.** The clipping problem is handled at the shared window-positioning layer by clamping windows to the usable desktop, with app-specific height limits only as an additional safety guard.
+
+**Give the company laptop a real visual identity.** A branded abstract Meridian wallpaper and stronger per-app colors/icons make the workstation feel authored rather than like a generic dashboard.
+
+**Make NARC simpler than the things it judges.** The current NARC surface is intentionally reduced to Current / History, a short people list, and one compact assessment. The surrounding apps contain the messy context; NARC should communicate the machine's reductive interpretation.
+
+**Notification history is part of causality.** Older notifications remain inspectable because players need to reconstruct what happened and connect later consequences to earlier system reactions.
+
+**Use The Loop as the workplace-level consequence surface.** A small Workplace pulse reflects Trusted Reviewer status, integrity concerns, peer-context activity, and coworker status changes. This helps the week read as one workplace changing around NARC rather than six isolated cases.
+
+### Attribution
+
+These product decisions came from Paige's live playtesting and direction. AI tools assisted with repository inspection, implementation, regression-test updates, and documentation.
