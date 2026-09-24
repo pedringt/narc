@@ -693,3 +693,51 @@ A later first-run pass strengthened Employee 4417's personal stakes without addi
 The missing piece was a concrete upside for sustained company-friendly behavior. prototype-v1 now allows repeated peer reporting to earn **Trusted Reviewer** status. The status is surfaced through People Operations before the ending and can increase the weight of a later piece of real evidence submitted for Marcus. This makes earlier standing affect a later decision rather than existing only as an ending adjective.
 
 The satire is intentional: cooperating with a questionable system can grant enough institutional credibility to help someone later. There is no universal good/bad score, and the same behavior can be personally advantageous while harming coworkers.
+
+
+## Product direction: NARC turns the people into narcs (2026-09-24)
+
+The strongest framing for the current game is broader than "AI surveillance is bad" or "NARC is the dark version of State."
+
+The central design question is:
+
+> What happens when workplace AI does not merely observe people, but changes how people behave around one another?
+
+The game became more interesting once Employee 4417 could do more than help coworkers respond to NARC. The player can now choose when to cooperate with the system, when to withhold peer context, when to expose a coworker, and when to use the same information channels for self-protection. Coworkers can also supply context about Employee 4417 when pressure rises.
+
+The key social insight is:
+
+> NARC turns the people into narcs.
+
+NARC does not need complete visibility if employees are incentivized to provide "peer context" for one another. As consequences become more serious, the workplace itself can become part of the surveillance system.
+
+This supports several product lessons:
+- metrics change behavior, not just measurement
+- humans can become part of an AI system's input layer
+- an AI system can exert power without being omniscient
+- anticipated judgment can change behavior even when the system has not acted
+- individual self-protection can create a collectively worse workplace
+
+The current implementation also introduces two authored social outcomes without a morality meter:
+- **collective non-cooperation:** employees stop supplying unnecessary peer verification, reducing NARC's confidence
+- **paranoid collapse:** peer reporting and defensive documentation increase until the office optimizes for being explainable to NARC instead of doing normal work
+
+A related authored beat explores anticipatory harm: Priya can resign while NARC's concern is still low, making the business cost visible even though the feared automated punishment never occurred.
+
+### State connection: supporting point, not the thesis
+
+State is useful as a contrast because it separates evidence, model interpretation, human authorization, and maintained Current State.
+
+NARC explores one failure mode on the other side of that design:
+
+> What happens when an AI interpretation becomes operational truth too easily?
+
+The interesting loop is not simply "the model was wrong." It is:
+
+> claim -> accepted interpretation -> consequence -> changed human behavior -> new evidence -> stronger institutional confidence
+
+This should remain one supporting case-study insight rather than the overarching explanation for why NARC exists.
+
+### Attribution note
+
+The product direction, tradeoffs, and decision to make peer reporting reciprocal are Paige's design decisions developed through iterative playtest/review. AI tools assisted with brainstorming, implementation, regression coverage, and documentation.
