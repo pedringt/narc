@@ -106,6 +106,36 @@ function note(s, text, kind = 'narc') {
   s.log.push({ t: s.t, kind, text });
 }
 
+// What's next worth stopping for, given the current state -- so the player
+// can say "work until something needs attention" instead of clicking through
+// empty half-hours one at a time. Only clock thresholds that could actually
+// change something are candidates: a still-pending deadline, a request that
+// hasn't opened yet (skipping ones gated on a flag that was never earned,
+// since they will never fire), the rework task's own appearance, and the
+// Focus Time spread that can trigger NARC's adaptation. Read-only: it never
+// itself changes state. Ties are broken by listing order (earliest-defined
+// candidate wins), which keeps the label stable rather than arbitrary.
+function nextEvent(s) {
+  const { tasks, requests, flags } = s;
+  const candidates = [];
+  if (tasks.vendor.status === 'pending') candidates.push({ t: tasks.vendor.deadline, label: 'the Halcyon deadline' });
+  if (tasks.client.status === 'pending') candidates.push({ t: tasks.client.deadline, label: "the client's deadline" });
+  if (tasks.project.status === 'pending') candidates.push({ t: tasks.project.deadline, label: "Marcus's project deadline" });
+  if (tasks.rework.status === 'pending') candidates.push({ t: tasks.rework.deadline, label: 'the rework deadline' });
+  else if (tasks.rework.status === 'hidden' && (flags.vendorRisky || flags.clientUnresolved)) {
+    candidates.push({ t: 13 * 60, label: 'this morning catching up with you' });
+  }
+  if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
+  if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
+  if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
+  if (requests.marcusFallout.status === 'pending' && flags.cutWithoutMarcus) {
+    candidates.push({ t: requests.marcusFallout.at, label: 'Marcus finding out' });
+  }
+  if (!flags.spreadHappened) candidates.push({ t: 13 * 60 + 30, label: 'how Focus Time reads changing' });
+  candidates.push({ t: END, label: 'the end of the day' });
+  return candidates.filter((c) => c.t > s.t).sort((a, b) => a.t - b.t)[0];
+}
+
 // Every meaningful action goes through here so time is always the resource
 // being spent, and the "what changed" feed always sees it.
 function spend(s, minutes, { visible = null } = {}) {
@@ -264,17 +294,15 @@ export function act(state, a) {
       note(s, 'You let time pass without doing anything NARC or anyone else can see.', 'system');
       break;
     }
-    case 'plainWork': {
-      // A neutral way to advance the clock when nothing urgent is open: real
-      // but unremarkable work that NARC neither rewards nor flags. Without
-      // this, a player who clears their plate early has no move that isn't
-      // "spam Focus Time" -- a loop-breaking dead end found in playtesting.
-      // A 30-minute step, not 15: even with #66's afternoon additions, an
-      // 8-hour day with a handful of authored decisions has real unfilled
-      // stretches, and halving the click count for the same stretch is
-      // honest tuning, not a substitute for content this pass didn't add.
-      spend(s, 30);
-      note(s, 'Ordinary work. Nothing NARC singles out either way.', 'system');
+    case 'workUntil': {
+      // A single contextual action, not a repeated filler click: jump
+      // straight to whatever is next worth stopping for. It represents
+      // ordinary background work, so -- deliberately -- it does not touch
+      // the index, trust, or any flag; it only spends the time. Replaces the
+      // "click Keep working a dozen times" pattern found in playtesting.
+      const target = nextEvent(s).t;
+      spend(s, Math.max(0, target - s.t));
+      note(s, 'You keep working. Nothing NARC or anyone else singles out.', 'system');
       break;
     }
     case 'logoff':
@@ -406,4 +434,4 @@ export function ending(s) {
   return { index: s.index, actual: s.actual, lines };
 }
 
-export { clock, START, END };
+export { clock, START, END, nextEvent };

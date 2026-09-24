@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { newGame, act, ending, START, END } from './day.js';
+import { newGame, act, ending, START, END, nextEvent } from './day.js';
 
 // -------------------------------------------------------- time is spent
 {
@@ -144,6 +144,17 @@ import { newGame, act, ending, START, END } from './day.js';
   assert.equal(cutAlone.requests.marcusFallout.status, 'open', 'cutting without him earns the confrontation');
 
   let consulted = act(newGame(), { do: 'task', id: 'project', approach: 'consult' });
+  consulted = act(consulted, { do: 'task', id: 'vendor', approach: 'thorough' });
+  consulted = act(consulted, { do: 'task', id: 'client', approach: 'investigate' });
+  consulted = act(consulted, { do: 'respond', id: 'luisTip', choice: 'thank' });
+  consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 12:10
+  consulted = act(consulted, { do: 'respond', id: 'marcusFavor', choice: 'decline' });
+  consulted = act(consulted, { do: 'workUntil' }); // -> Dana's check-in at 1:30
+  consulted = act(consulted, { do: 'respond', id: 'danaCheckin', choice: 'brief' });
+  // Everything clock-based and flag-free is now resolved; with no flag ever
+  // earned, Marcus's fallout (2:30) must not be the next stop -- it should
+  // skip straight to end of day.
+  assert.equal(nextEvent(consulted).t, END, "workUntil should never stop at Marcus's fallout time when it was never earned");
   consulted = act(consulted, { do: 'idle', minutes: 6 * 60 });
   assert.equal(consulted.requests.marcusFallout.status, 'pending', 'consulting him first means there is nothing to come back');
 }
@@ -159,20 +170,55 @@ import { newGame, act, ending, START, END } from './day.js';
   assert.ok(s.index > before, 'explaining it helps, at least partially');
 }
 
-// ----------------------------------------- a neutral way to pass time exists
+// -------------------- a single contextual jump replaces repeated filler clicks
 {
   // Found in playtesting: once the day's tasks/requests are all closed, the
-  // only remaining action was Focus Time, which is a loaded move (it feeds
-  // the index and the adaptation counter), not a neutral "keep going".
+  // only remaining action was Focus Time (a loaded move) or a 15/30-minute
+  // "Keep working" click repeated a dozen-plus times. Replaced with one
+  // action that jumps straight to whatever is next worth stopping for.
   let s = newGame();
   s = act(s, { do: 'task', id: 'vendor', approach: 'quick' });
   s = act(s, { do: 'task', id: 'client', approach: 'canned' });
   s = act(s, { do: 'task', id: 'project', approach: 'cut' });
-  const before = { t: s.t, index: s.index, focusUses: s.narc.focusUses };
-  s = act(s, { do: 'plainWork' });
-  assert.equal(s.t, before.t + 30, 'plain work still spends time');
-  assert.equal(s.index, before.index, 'but does not move the index either way');
-  assert.equal(s.narc.focusUses, before.focusUses, 'and does not feed the Focus Time counter');
+  // The three tasks land exactly on 9:20, the same minute Luis's tip opens,
+  // so it's already open -- the next thing worth jumping to is Marcus's
+  // favor at 12:10.
+  assert.equal(s.requests.luisTip.status, 'open');
+  assert.equal(nextEvent(s).t, 12 * 60 + 10);
+  s = act(s, { do: 'respond', id: 'luisTip', choice: 'thank' });
+
+  const before = { index: s.index, focusUses: s.narc.focusUses, actual: s.actual };
+  s = act(s, { do: 'workUntil' });
+  assert.equal(s.t, 12 * 60 + 10, 'jumps exactly to the next thing, not a fixed step');
+  assert.equal(s.requests.marcusFavor.status, 'open', 'and that thing actually opened');
+  assert.equal(s.index, before.index, 'the jump itself changes nothing');
+  assert.equal(s.narc.focusUses, before.focusUses);
+  assert.equal(s.actual, before.actual);
+
+  // Chained the rest of the way -- resolving whatever opens with its
+  // cheapest option -- it reaches end of day on a small, bounded number of
+  // contextual jumps rather than a click-to-burn-time loop.
+  const cheapest = { marcusFavor: 'decline', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
+  let hops = 0;
+  while (s.phase !== 'end' && hops < 40) {
+    const openReq = Object.entries(s.requests).find(([, r]) => r.status === 'open');
+    const openTask = Object.entries(s.tasks).find(([, t]) => t.status === 'pending');
+    if (openReq) s = act(s, { do: 'respond', id: openReq[0], choice: cheapest[openReq[0]] });
+    else if (openTask) s = act(s, { do: 'task', id: openTask[0], approach: cheapest[openTask[0]] || 'escalate' });
+    else { s = act(s, { do: 'workUntil' }); hops += 1; }
+  }
+  assert.equal(s.phase, 'end');
+  assert.ok(hops <= 6, `expected a handful of contextual jumps, got ${hops}`);
+}
+
+// nextEvent must never point backwards or at the current instant.
+{
+  let s = newGame();
+  for (let i = 0; i < 10 && s.phase !== 'end'; i += 1) {
+    const n = nextEvent(s);
+    assert.ok(n.t > s.t, 'always strictly in the future');
+    s = act(s, { do: 'workUntil' });
+  }
 }
 
 console.log('day.js tests passed');

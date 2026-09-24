@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, PEOPLE, END } from './day.js';
+import { newGame, act, ending, clock, PEOPLE, END, nextEvent } from './day.js';
 
 let state = newGame();
 const root = document.getElementById('day');
@@ -119,10 +119,10 @@ function render() {
   const nothingOpen = Object.values(state.tasks).every((t) => t.status !== 'pending')
     && Object.values(state.requests).every((r) => r.status !== 'open');
   if (nothingOpen && state.phase === 'day') {
+    const next = nextEvent(state);
     const wait = h('div', 'card');
     wait.append(h('h3', null, 'Nothing urgent right now'));
-    wait.append(h('p', 'muted', 'Keep working until something else comes up.'));
-    wait.append(btn('Keep working (30 min)', 'btn ghost dark', () => dispatch({ do: 'plainWork' })));
+    wait.append(btn(`Work until ${clock(next.t)} (${next.label})`, 'btn ghost dark', () => dispatch({ do: 'workUntil' })));
     left.append(wait);
   }
 
