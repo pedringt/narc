@@ -1915,4 +1915,51 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(record().level, 'flagged', 'a flag on file lowers trust in self-reported evidence');
 }
 
+// -------- peer reporting becomes reciprocal and can shape the ending (#53-#55)
+
+{
+  const s = play(
+    { e1: 'explain', e2: 'ignore', e3: 'badtip', e4: 'context', e5: 'label' },
+    { stopAt: 'e6' },
+  );
+  assert.equal(s.you.peerReportsReceived, 1, 'Marcus can feed peer context about Employee 4417 back into NARC');
+  assert.ok(s.social.paranoia >= 1, 'being reported by a coworker increases the social-pressure state');
+}
+
+{
+  const s = play({
+    e1: 'explain',
+    e2: 'evidence',
+    e3: 'transit',
+    e4: 'context',
+    e5: 'label',
+    e6: 'vouch_trace',
+  });
+  const out = ending(s);
+  assert.equal(s.you.reports, 0, 'collective route does not require peer reporting');
+  assert.equal(s.social.resignation, false);
+  assert.ok(out.company.some((line) => /Peer verification participation declined/.test(line)),
+    'a low-report, protective run can end in collective non-cooperation');
+  assert.ok(out.debrief.some((d) => /Collective non-cooperation/.test(d.title)));
+}
+
+{
+  const s = play({
+    e1: 'explain',
+    e2: 'confirm',
+    e3: 'truth',
+    e4: 'context',
+    e5: 'blame',
+    e6: 'vouch_trace',
+  });
+  const out = ending(s);
+  assert.equal(s.people.priya.status, 'quit', 'a high-report office can drive Priya to resign even without a severe NARC action against her');
+  assert.equal(s.social.resignation, true);
+  assert.ok(out.company.some((line) => /Documentation volume/.test(line)),
+    'heavy peer reporting can produce the paranoid-collapse company ending');
+  assert.ok(out.company.some((line) => /Highest quarterly output.*departing employee/.test(line)),
+    'the resignation lands the high-performer business-cost joke');
+  assert.ok(out.debrief.some((d) => /NARC turns people into narcs|Anticipated judgment/.test(d.title)));
+}
+
 console.log('NARC tests passed');
