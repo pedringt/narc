@@ -480,6 +480,9 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(relabeled.calendar.find((e) => e.id === 'c1').focus, true, 'Busy can be switched to Focus Time again');
   s = until(s, (x) => has(noticeTexts(x), /Focus time recognized/));
   assert.equal(s.score, before + 11, 'smaller than the jiggler’s +14, but honest');
+  assert.ok(s.reactions['calendar:c1'], 'the Focus Time reaction is visible on the calendar');
+  const backToBusy = act(s, { do: 'setFocus', event: 'c1', focus: false });
+  assert.equal(backToBusy.reactions['calendar:c1'], undefined, 'switching back to Busy clears stale inline Focus Time feedback');
   s = until(s, (x) => has(texts(x, 'dana'), /Calendar label changed the assessment/));
 
   // The difference from the jiggler: NARC 2.0 does not see through it.
