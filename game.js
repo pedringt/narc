@@ -1210,7 +1210,6 @@ const REPLIES = {
   'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
   'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
   'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
-  'dana:covermarcus': { text: 'I\u2019ll add something to his calendar backing up the bus story.', when: 'e3', prompt: 'dana-e3', branch: 'paper', event: CALENDAR_TIP },
   'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', prompt: 'dana-e3', branch: 'stay' },
   'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'admit' },
   'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'blame' },
