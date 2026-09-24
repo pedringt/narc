@@ -71,7 +71,6 @@ const DO = {
   e3: {
     truth: reply('dana', 'reportmarcus'),
     paper: (s) => act(s, { do: 'addEvent', title: 'Approved absence: transit delay' }),
-    cover: reply('dana', 'covermarcus'),
     transit: reply('marcus', 'transitAlert'),
     stay: logoff,
     badtip: reply('marcus', 'latecalendar'),
@@ -712,7 +711,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   let choice = patient(HONEST, 'e2');
   assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportluis', 'noreportluis']);
   choice = patient(HONEST, 'e3');
-  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportmarcus', 'covermarcus', 'nomarcus']);
+  assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['reportmarcus', 'nomarcus'], 'Dana handles testimony; Marcus\'s record workaround lives in Calendar');
   choice = patient({ ...HONEST, e2: 'script' }, 'e5');
   assert.deepEqual(replies(choice, 'dana').map((r) => r.id), ['ownscript', 'blameluis', 'unsurehelper']);
   choice = patient({ ...HONEST, e3: 'truth' }, 'e6');
