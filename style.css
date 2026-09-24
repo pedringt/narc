@@ -478,3 +478,60 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
 .intranet-post { border: 1px solid var(--app-line); border-radius: 8px; padding: 10px 14px; background: var(--app-panel); }
 .intranet-from { font-size: 12px; font-weight: 700; color: var(--app-muted); letter-spacing: .02em; margin-bottom: 4px; }
 .intranet-post p { margin: 0; font-size: 14px; line-height: 1.5; }
+
+
+/* #51 final company-laptop pass */
+.desk::before {
+  content: "MERIDIAN";
+  position: fixed; right: 34px; bottom: 24px; z-index: 0;
+  font-weight: 800; font-size: clamp(48px, 8vw, 110px); letter-spacing: .16em;
+  color: rgba(255,255,255,.045); pointer-events: none;
+}
+.workarea, .dock, .menubar { position: relative; z-index: 1; }
+
+.app-intranet { --app-accent: #3f675d; --app-accent-bg: #e8f0ed; }
+.app-intranet .titlebar { background: #f0eee7; border-color: #d8d3c8; }
+.loop-home { background: #f5f3ed; }
+.intranet-list { flex: 1; max-width: none; padding: 20px 24px; }
+.loop-welcome { padding: 18px 20px; border-radius: 8px; background: #244b43; color: #f5f3ed; margin-bottom: 6px; }
+.loop-welcome h2 { margin: 2px 0 4px; font-size: 26px; }
+.loop-welcome p { margin: 0; opacity: .84; }
+.loop-kicker { font-size: 10px; font-weight: 800; letter-spacing: .16em; opacity: .7; }
+.loop-side { width: 34%; min-width: 250px; max-width: 360px; padding: 20px 20px 20px 0; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+.loop-card { background: #fff; border: 1px solid #d8d3c8; border-radius: 8px; padding: 12px; }
+.loop-card-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: #667068; margin-bottom: 8px; }
+.loop-event { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding: 7px 0; border-top: 1px solid #ece8df; font-size: 13px; }
+.loop-event:first-of-type { border-top: 0; }
+.loop-event b { font-variant-numeric: tabular-nums; }
+.loop-muted { color: #6e756f; font-size: 12px; margin: 4px 0; }
+.employee-line { display: flex; gap: 10px; align-items: center; }
+.employee-line p { margin: 2px 0 0; }
+.employee-avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #dfe9e5; color: #244b43; font-weight: 800; }
+.loop-link { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid #ece8df; background: transparent; padding: 7px 2px; color: #315f55; }
+.loop-link:first-of-type { border-top: 0; }
+.loop-link:hover { text-decoration: underline; }
+.loop-card.nonsense { background: #fff8dc; border-color: #ddd09d; }
+
+.app-email .list { background: #f7f8fa; }
+.app-email .titlebar { background: #eef2f5; }
+.app-messages .titlebar { background: #eaf3ef; }
+.app-messages .list { background: #f2f7f5; width: 270px; }
+.app-messages .detail { background: #fbfdfc; }
+.app-calendar .titlebar { background: #f3eef8; }
+.app-calendar .pane { background-image: linear-gradient(to bottom, transparent 47px, #ece7f1 48px); background-size: 100% 48px; }
+.app-files .titlebar { background: #f6f1e7; }
+.app-files .list { background: #faf7f0; width: 260px; }
+.app-files .row .name::before { content: "▱ "; color: #9a7d4d; }
+.app-utilities .titlebar { background: #edf0f1; }
+.app-utilities .cards { background: #eef1f2; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.app-utilities .card { border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.015); }
+
+.narc-top .ai-label { color: var(--n-accent); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.narc-main .list { width: 250px; }
+.narc-main .sect-h { letter-spacing: .11em; }
+
+@media (max-width: 760px) {
+  .loop-home { display: block; overflow-y: auto; }
+  .loop-side { width: auto; max-width: none; padding: 0 20px 20px; }
+  .intranet-list { overflow: visible; }
+}
