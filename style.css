@@ -1006,3 +1006,12 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
   .dock-app .dock-icon svg { width: 18px; height: 18px; }
   .narc-main .list { width: 100%; }
 }
+
+.loop-pulse { background: #f4f8f6; border-color: #c9d8d1; }
+.loop-pulse-line {
+  padding: 6px 0;
+  border-top: 1px solid #dde7e2;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.loop-pulse-line:first-of-type { border-top: 0; }
