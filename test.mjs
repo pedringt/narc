@@ -743,20 +743,20 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(quick.marks.calendar, undefined);
 }
 
-// ---------------------------- the Culture Champion loophole exists first
+// ---------------------------- Culture Champion is a player-selected exemption
 
 {
   let s = play(HONEST, { stopAt: 'e3' });
   const email = mailOf(s, /Culture Champion nominations/);
   assert.ok(email, 'the nomination email is already in the inbox before Priya’s flag');
   assert.equal(email.form, 'nominate');
-  assert.match(email.body.join(' '), /Collaboration Index of 90/);
-  assert.match(email.body.join(' '), /exempt from Communication Load/);
+  assert.match(email.body.join(' '), /temporary monitoring exemption/);
+  assert.match(email.body.join(' '), /Any colleague may nominate any colleague/);
   assert.match(email.body.join(' '), /open now and close on Thursday/);
   assert.equal(act(newGame(), { do: 'nominate', who: 'priya' }).nominations.priya, undefined, 'nothing can be nominated before the email arrives');
   assert.equal(s.culture.open, true, 'the window opens with the email');
 
-  // Nominate Priya early and her flag never fires: the loophole, used ahead of time.
+  // Priya remains the immediate loophole: nominate her early and her communication flag never fires.
   {
     let early = act(s, { do: 'nominate', who: 'priya' });
     assert.equal(early.nominations.priya, 'submitted');
@@ -767,20 +767,21 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
     assert.equal(early.incident?.id === 'e4', false, 'no flag is left open for Priya');
   }
 
-  s = ticks(play(HONEST, { stopAt: 'e4' }), 5);
-  assert.equal(s.inbox.filter((m) => /Culture Champion nominations/.test(m.subject)).length, 1, 'and it is not sent again');
-  s = act(s, { do: 'nominate', who: 'luis' });
-  assert.equal(s.incident.id, 'e4');
-  assert.equal(s.nominations.luis, 'rejected', 'an ineligible nomination gets immediate state feedback');
-  const once = s.rev;
-  s = act(s, { do: 'nominate', who: 'luis' });
-  assert.equal(s.rev, once, 'the same nomination cannot be submitted repeatedly');
-  assert.equal(s.inbox.filter((m) => /Re: nomination of Luis Perez/.test(m.subject)).length, 0, 'rejected submissions do not generate duplicate email');
-  s = DO.e4.champion(s);
-  assert.equal(s.nominations.priya, 'submitted');
-  assert.equal(s.people.priya.status, 'promoted');
-  s = until(s, (x) => has(texts(x, 'priya'), /badge/));
-  assert.ok(has(noticeTexts(s), /Exempt from Communication Load/));
+  // The player can choose someone else. The choice is scarce and carries into that coworker’s next review.
+  {
+    let luis = ticks(play(HONEST, { stopAt: 'e4' }), 5);
+    luis = act(luis, { do: 'nominate', who: 'luis' });
+    assert.equal(luis.nominations.luis, 'submitted', 'Luis can genuinely be selected');
+    assert.equal(luis.people.luis.champion, true);
+    const once = luis.rev;
+    luis = act(luis, { do: 'nominate', who: 'marcus' });
+    assert.equal(luis.rev, once, 'only one Culture Champion can be selected');
+    assert.equal(luis.nominations.marcus, undefined);
+    luis = DO.e4.context(luis);
+    luis = until(luis, (x) => x.done.includes('e5'));
+    assert.equal(luis.picked.e5, 'champion', 'Luis’s later NARC review is intercepted by the exemption');
+    assert.equal(luis.people.luis.status, 'promoted');
+  }
 }
 
 // ------------------------------ NARC 2.0 is a beat, then it acts
