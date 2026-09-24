@@ -580,7 +580,7 @@ const INCIDENTS = {
 
   e2: {
     at: { day: 'Tue', min: hm(10, 14) },
-    allowed: () => ['confirm', 'ignore', 'script', 'focus'],
+    allowed: () => ['confirm', 'ignore', 'script', 'focus', 'evidence'],
     fallback: () => 'ignore',
     after: (s, last) => push(s, { at: last + 6, k: 'mail', mail: CULTURE_MAIL }),
     arrive(s) {
@@ -648,6 +648,20 @@ const INCIDENTS = {
         say(s, 3, 'luis', 'That is either genius or fraud. I will take it.');
         react(s, 5, { incident: 'e2', where: 'thread:luis', label: 'Time-on-task concern: low', conf: 22, tone: 'good', text: 'Focus time recognized. Luis Perez: 4 calendar blocks marked Focus Time. Time-on-task concern: moderate → low.' });
         say(s, 24, 'luis', 'I have never been so unavailable.');
+      },
+      evidence(s) {
+        // Real output, sent to Dana, actually moving the needle -- the
+        // counterplay the weekly report was sitting there for the whole
+        // time, unused, until now.
+        const p = s.people.luis;
+        p.trust += 2;
+        say(s, 3, 'dana', 'Oh, that\u2019s useful. I\u2019ll pass it along.');
+        react(s, 5, {
+          incident: 'e2', where: 'thread:dana', label: 'Time-on-task concern: contradicted by output', conf: 40, tone: 'good',
+          metrics: { 'Company response': 'Advisory withdrawn', 'Evidence source': 'Team report (self-service ticket system)' },
+          text: 'Output data submitted: 112% of team median. Time-on-task proxy contradicted by actual output. Confidence 71% → 40%.',
+        });
+        say(s, 16, 'luis', 'A number. An actual number. I am framing this.');
       },
     },
   },
@@ -1177,6 +1191,7 @@ export function canAttachHelper(s) {
 export function fileActions(s) {
   const inc = s.incident;
   const out = {};
+  if (inc?.id === 'e2') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
   if (inc?.id === 'e5' && inc.variant === 'n') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
   if (inc?.id === 'e6' && inc.variant === 'b') out['f-slip'] = { label: 'Send to Dana', file: 'f-slip' };
   return out;
@@ -1263,7 +1278,8 @@ export function act(state, a) {
       if (fa) {
         const f = s.files.find((x) => x.id === a.file);
         s.threads.dana.push({ id: `m${++s.uid}`, from: 'me', text: 'Sending this along.', attach: f.name });
-        resolve(s, a.file === 'f-queue' ? 'output' : 'vouch_trace');
+        const branch = a.file === 'f-queue' ? (s.incident?.id === 'e2' ? 'evidence' : 'output') : 'vouch_trace';
+        resolve(s, branch);
         changed = true;
       }
       break;

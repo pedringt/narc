@@ -66,6 +66,7 @@ const DO = {
     ignore: logoff,
     script: (s) => act(act(s, { do: 'helper', op: 'install' }), { do: 'attach', thread: 'luis', item: 'helper' }),
     focus: (s) => act(s, { do: 'markFocus', event: 'c-luis1' }),
+    evidence: (s) => act(s, { do: 'sendFile', file: 'f-queue' }),
   },
   e3: {
     truth: reply('dana', 'reportmarcus'),
@@ -121,7 +122,7 @@ function play(picks, { stopAt = null, from = null, afterAll = true } = {}) {
 
 const INCIDENT_BRANCHES = {
   e1: ['wait', 'explain', 'jiggle', 'focus'],
-  e2: ['confirm', 'ignore', 'script', 'focus'],
+  e2: ['confirm', 'ignore', 'script', 'focus', 'evidence'],
   e3: ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip'],
   e4: ['quiet', 'champion', 'leave', 'sync'],
   e5: ['admit', 'human', 'blame', 'label', 'output', 'letit'],
@@ -1047,7 +1048,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.deepEqual(opts(s, 'luis'), ['focus'], 'Luis: one tip; the comment-box lesson lives on Monday');
   s = ticks(play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e3' }), 60);
   assert.deepEqual(opts(s, 'marcus'), ['latecalendar', 'transitAlert'], 'Marcus: the bad-advice cut stays cut; the genuine help route (#38) is intentional, not a third cut route');
-  const perIncident = { e1: 4, e2: 4, e3: 6, e4: 4 };
+  const perIncident = { e1: 4, e2: 5, e3: 6, e4: 4 };
   for (const [inc, n] of Object.entries(perIncident)) {
     assert.ok(Object.keys(DO[inc]).length <= n, `${inc} has at most ${n} routes`);
   }
@@ -1189,7 +1190,7 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   const pick = (from, ids) => from.flatMap((c) => ids.map((id) => [...c, id]));
   let paths = [[]];
   paths = pick(paths, ['wait', 'explain', 'jiggle', 'focus']);
-  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus']);
+  paths = pick(paths, ['confirm', 'ignore', 'script', 'focus', 'evidence']);
   paths = pick(paths, ['truth', 'paper', 'cover', 'transit', 'stay', 'badtip']);
   paths = pick(paths, ['quiet', 'champion', 'leave', 'sync']);
   const e5 = { g: ['admit', 'human', 'blame'], c: [undefined], n: ['label', 'output', 'letit'] };
@@ -1216,8 +1217,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
       }
     }
   }
-  // e1 ×4 · e2 ×10 (confirm/ignore/script give 3 Luis returns each, focus gives 1) · e3 ×6 · e4 ×4 · e6 ×3
-  assert.equal(count, 4 * 10 * 6 * 4 * 3, 'every route reaches an ending');
+  // e1 ×4 · e2 ×13 (confirm/ignore/evidence give 3 Luis returns each, script ×3, focus ×1) · e3 ×6 · e4 ×4 · e6 ×3
+  assert.equal(count, 4 * 13 * 6 * 4 * 3, 'every route reaches an ending');
   assert.ok(outcomes.size >= 25, `endings differ across routes (${outcomes.size})`);
 }
 
@@ -1818,6 +1819,33 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.ok(meeting, 'Calendar is where the meeting actually gets created');
   assert.equal(meeting.day, 'Fri');
   assert.equal(s.people.priya.synced, true);
+}
+
+// -------- Luis's Tuesday output evidence matters before his PIP, not just after (#41a)
+
+{
+  // The support-queue file was there the whole time; it just wasn't
+  // actionable until much later. Now it is, during e2 itself.
+  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
+  assert.ok(s.files.some((f) => f.id === 'f-queue'), 'the file exists as soon as the case opens');
+  assert.ok(fileActions(s)['f-queue'], 'and is actionable right away, not just later');
+
+  s = act(s, { do: 'sendFile', file: 'f-queue' });
+  assert.equal(s.picked.e2, 'evidence');
+  assert.ok(s.threads.dana.some((m) => m.from === 'me' && /Support_queue_weekly/.test(m.attach || '')));
+  s = until(s, (x) => caseView(x, x.alerts.find((a) => a.incident === 'e2')).updated, { reads: false });
+  const card = caseView(s, s.alerts.find((a) => a.incident === 'e2'));
+  assert.match(card.model.label, /contradicted by output/);
+  assert.equal(card.model.confidence, 40);
+  assert.match(String(card.metrics.find(([k]) => k === 'Company response')[1]), /Advisory withdrawn/);
+
+  // Sending the same file later, during e5-n, still resolves the older
+  // 'output' outcome -- the branch it resolves depends on when you send it.
+  const later = play({ e1: 'explain', e2: 'ignore' }, { stopAt: 'e5' });
+  assert.equal(later.incident.variant, 'n');
+  const afterSend = act(later, { do: 'sendFile', file: 'f-queue' });
+  assert.equal(afterSend.picked.e5, 'output');
+  assert.equal(afterSend.picked.e2, 'ignore', 'e2 already resolved earlier and is untouched');
 }
 
 console.log('NARC tests passed');
