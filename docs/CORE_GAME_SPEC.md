@@ -560,3 +560,65 @@ The deterministic six-incident week now has a more connected workstation pass in
 - simplified My NARC / Company / History views
 
 The next step is verification and continued live playtesting, not promotion to `main`.
+
+
+## Current workstation rules (Sept 24 final feedback pass)
+
+### Onboarding
+
+Dana is the tutorial, but it must feel like ordinary manager setup rather than a game tutorial.
+
+The required sequence is:
+1. acknowledge the People Ops NARC email
+2. open The Loop
+3. inspect the Halvorsen MSA in Files
+4. inspect the Halvorsen block in Calendar
+5. inspect Utilities
+6. inspect NARC
+7. open Browser
+8. return to Messages and tell Dana the workstation makes sense
+
+No consequential incident begins until this sequence is complete.
+
+Each step teaches a reusable mental model:
+- **The Loop:** normal company home and workplace consequences
+- **Files:** evidence and context
+- **Calendar:** time/location/labels become evidence
+- **Utilities:** machine-side signals and workarounds
+- **NARC:** AI judgment, confidence, reasons, company action
+- **Browser:** normal browsing can also become a workplace signal
+- **Messages:** human context, requests, testimony, and social consequences
+
+### Desktop
+
+Desktop can keep up to three windows open on wide screens. Dock clicks open/raise; close hides without destroying state; dragging is basic and bounded. Every window must remain fully reachable, especially its title bar. Narrow layouts fall back to one primary window.
+
+The desktop background is an authored Meridian wallpaper with geometric branded art. It should look like a specific issued laptop, not a generic dark-green field.
+
+Normal apps should be visually distinct at a glance. Color and icon identity are allowed and encouraged as long as readability stays high.
+
+### NARC
+
+NARC is deliberately much simpler than the normal workstation.
+
+Primary navigation:
+- **Current**
+- **History**
+
+Current shows four people:
+- Employee 4417
+- Luis Perez
+- Marcus Reed
+- Priya Shah
+
+A selected assessment should answer only:
+1. who is being judged?
+2. what does NARC think, and with what confidence?
+3. what are the one or two strongest signals?
+4. what is the company doing about it?
+
+Do not restore dashboard-style metric grids or a dense My NARC / Company hierarchy unless a playtest proves they are needed.
+
+### Notifications
+
+Collapsed notification stacks must never become unreadable history. If older live notifications are summarized, the player must be able to expand them and open each one before clearing them.
