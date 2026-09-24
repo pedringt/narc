@@ -685,3 +685,324 @@ button.attach.clickable:focus-visible { outline: 2px solid var(--app-accent); ou
   .narc-primary-tabs { overflow-x: auto; }
   .browser-page h2 { font-size: 23px; }
 }
+
+
+/* ============================================================
+   Sept 24 final feedback pass
+   A designed Meridian desktop, distinct work apps, and a much
+   simpler NARC. These rules intentionally supersede earlier
+   shell experiments above.
+   ============================================================ */
+
+/* -- authored wallpaper ------------------------------------------------ */
+.desk {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(243, 190, 108, .12) 0 9%, transparent 9.5%),
+    radial-gradient(circle at 78% 74%, rgba(190, 92, 105, .14) 0 14%, transparent 14.5%),
+    linear-gradient(132deg, #153b48 0%, #1d5360 35%, #294d68 68%, #473f68 100%);
+}
+.desk::before,
+.desk::after { content: none; }
+
+.wallpaper-art {
+  position: fixed;
+  inset: 38px 0 72px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.wallpaper-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.2px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(90deg, rgba(0,0,0,.7), transparent 68%);
+  opacity: .28;
+}
+.wall-ring {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  transform: rotate(-12deg);
+}
+.ring-a {
+  width: min(48vw, 620px);
+  aspect-ratio: 1;
+  right: -7vw;
+  top: -12vh;
+  border-width: clamp(54px, 7vw, 100px);
+  border-color: rgba(235, 157, 91, .22);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.05) inset;
+}
+.ring-b {
+  width: min(36vw, 460px);
+  aspect-ratio: 1;
+  right: 18vw;
+  bottom: -22vh;
+  border-width: clamp(38px, 5vw, 72px);
+  border-color: rgba(122, 82, 128, .30);
+}
+.wall-ribbon {
+  position: absolute;
+  display: block;
+  width: 62vw;
+  height: 15vh;
+  border-radius: 999px;
+  transform-origin: center;
+  filter: saturate(.9);
+}
+.ribbon-a {
+  left: -20vw;
+  top: 54%;
+  transform: rotate(-18deg);
+  background: linear-gradient(90deg, rgba(72,157,151,.04), rgba(91,169,159,.22), rgba(242,179,99,.12));
+}
+.ribbon-b {
+  left: 9vw;
+  top: 70%;
+  transform: rotate(13deg);
+  background: linear-gradient(90deg, rgba(182,82,93,.03), rgba(182,82,93,.19), rgba(113,74,133,.18));
+}
+.wall-brand {
+  position: absolute;
+  left: 34px;
+  bottom: 26px;
+  color: rgba(248, 242, 229, .22);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .22em;
+}
+.workarea, .dock, .menubar { position: relative; z-index: 2; }
+
+/* -- never let a desktop window lose its title bar -------------------- */
+@media (min-width: 761px) {
+  .window {
+    max-height: calc(100% - 20px) !important;
+    max-width: calc(100% - 20px);
+  }
+  .window.app-intranet {
+    width: min(90%, 1120px);
+    height: min(700px, 82%);
+  }
+  .window.app-utilities {
+    width: min(80%, 900px);
+    height: min(630px, 76%);
+  }
+}
+
+/* -- distinct app identities ------------------------------------------ */
+.app-intranet { --app-accent: #2e6d63; --app-accent-bg: #e5f1ed; }
+.app-messages { --app-accent: #2768b2; --app-accent-bg: #e7f1fc; }
+.app-email { --app-accent: #a84f45; --app-accent-bg: #faece9; }
+.app-calendar { --app-accent: #7652a5; --app-accent-bg: #f0eafa; }
+.app-files { --app-accent: #a36d24; --app-accent-bg: #f8f0df; }
+.app-utilities { --app-accent: #3f6871; --app-accent-bg: #e8f0f1; }
+.app-browser { --app-accent: #87517e; --app-accent-bg: #f3e8f0; }
+
+.app-intranet .titlebar { background: #dcebe5; border-color: #bdd4cb; }
+.app-messages .titlebar { background: #dbeafb; border-color: #bfd2e9; }
+.app-email .titlebar { background: #f5dfdb; border-color: #e4c3bd; }
+.app-calendar .titlebar { background: #e9e0f5; border-color: #d2c3e6; }
+.app-files .titlebar { background: #f2e6cf; border-color: #deceb1; }
+.app-utilities .titlebar { background: #dfe9eb; border-color: #c4d4d7; }
+.app-browser .titlebar { background: #ecdfeb; border-color: #d7c2d2; }
+
+.title-icon,
+.dock-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 9px;
+}
+.title-icon {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+}
+.title-icon svg { width: 15px; height: 15px; }
+
+.title-icon-intranet, .dock-app-intranet .dock-icon { background: #347669; }
+.title-icon-messages, .dock-app-messages .dock-icon { background: #377cc8; }
+.title-icon-email, .dock-app-email .dock-icon { background: #bb5f52; }
+.title-icon-calendar, .dock-app-calendar .dock-icon { background: #805eb0; }
+.title-icon-files, .dock-app-files .dock-icon { background: #b47a2b; }
+.title-icon-utilities, .dock-app-utilities .dock-icon { background: #527982; }
+.title-icon-browser, .dock-app-browser .dock-icon { background: #925c88; }
+.title-icon-narc, .dock-app-narc .dock-icon { background: #222b20; color: var(--n-accent); }
+
+.dock-app .dock-icon {
+  width: 36px;
+  height: 36px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.18);
+}
+.dock-app .dock-icon svg { width: 22px; height: 22px; }
+.dock-app { position: relative; }
+
+/* Messages reads like chat, not another inbox */
+.message-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0,1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+}
+.message-row-copy { min-width: 0; }
+.msg-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: #55758f;
+}
+.avatar-dana { background: #5d6ca8; }
+.avatar-luis { background: #3c7c78; }
+.avatar-marcus { background: #a36b45; }
+.avatar-priya { background: #8a5d8c; }
+.app-messages .list { background: #f2f7fc; }
+.app-messages .detail { background: #fbfdff; }
+.app-messages .bubble.me { background: #2f73bd; color: #fff; }
+.app-messages .bubble:not(.me):not(.system):not(.narc) { background: #e7edf4; color: #202a35; }
+
+/* Email reads like an inbox */
+.mail-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0,1fr);
+  gap: 8px;
+  align-items: start;
+}
+.mail-row-copy { min-width: 0; }
+.mail-row-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: #f2d8d3;
+  color: #9c473e;
+  font-size: 13px;
+}
+
+/* Files reads like a file manager */
+.file-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0,1fr);
+  gap: 10px;
+  align-items: center;
+}
+.file-row-copy { min-width: 0; }
+.file-type {
+  width: 36px;
+  height: 42px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid #d8c8a9;
+  color: #9b6a27;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .05em;
+}
+.file-type-txt { color: #50728b; border-color: #b8cbd7; }
+.file-type-xlsx { color: #3d7b55; border-color: #bdd5c4; }
+.app-files .row .name::before { content: none; }
+
+/* Utilities should look diagnostic rather than like a cut-off dashboard */
+.app-utilities .cards {
+  align-content: start;
+  overflow-y: auto;
+  padding-top: 18px;
+}
+.app-utilities .card {
+  border-top: 4px solid #718f96;
+  border-radius: 8px;
+}
+.app-utilities .card.sketchy { border-top-color: #ba754f; }
+.app-utilities .card.feed { border-top-color: #6687ac; }
+
+/* -- simpler NARC ----------------------------------------------------- */
+.narc-primary-tabs {
+  padding: 8px 12px;
+  gap: 5px;
+}
+.narc-tab {
+  border-radius: 5px;
+  padding: 6px 10px;
+}
+.narc-main .list { width: 220px; }
+.narc-main .detail { padding: 22px 26px; }
+.person-row { padding: 13px 14px; gap: 2px; }
+.person-name { font-size: 17px; }
+.person-status {
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: none;
+  line-height: 1.3;
+}
+.narc-empty-person { max-width: 560px; }
+.narc-empty-status {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 5px 8px;
+  border: 1px solid var(--n-line);
+  color: var(--n-accent);
+  background: #131713;
+  font-size: 12px;
+}
+.narc-empty-person p { color: var(--n-muted); max-width: 52ch; }
+.narc-main .case { max-width: 620px; }
+.narc-main .case-title {
+  margin-bottom: 10px !important;
+  opacity: .72;
+}
+.narc-main .model-box {
+  padding: 12px 14px;
+  border-radius: 4px;
+}
+.narc-main .assessment { font-size: 17px; }
+.narc-main .conf { font-size: 12px; margin-top: 3px; }
+.narc-main .sect { margin-top: 12px; }
+.narc-main ul { margin-top: 6px; padding-left: 18px; }
+.narc-main li { margin-bottom: 4px; }
+.narc-change { font-size: 11px; padding: 7px 9px; }
+.my-narc, .my-facts, .my-status { display: none !important; }
+
+/* -- readable notification history ----------------------------------- */
+.toasts .more {
+  align-items: center;
+}
+.toasts .more .show-earlier,
+.toasts .more .clear {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font-size: 12px;
+}
+.toasts .more .show-earlier {
+  color: #f0f4f7;
+  font-weight: 700;
+  text-align: left;
+}
+.toasts .more .show-earlier:hover,
+.toasts .more .clear:hover { text-decoration: underline; }
+.toasts .more .clear { color: #9ecbff; }
+
+/* -- tutorial marks should look deliberate on the dock --------------- */
+.dock .mark {
+  background: #ffd179;
+  box-shadow: 0 0 0 2px #182733;
+}
+
+/* -- narrow layouts keep the personality without the overlap ---------- */
+@media (max-width: 760px) {
+  .wallpaper-art { display: none; }
+  .title-icon { width: 22px; height: 22px; }
+  .dock-app .dock-icon { width: 28px; height: 28px; border-radius: 7px; }
+  .dock-app .dock-icon svg { width: 18px; height: 18px; }
+  .narc-main .list { width: 100%; }
+}
