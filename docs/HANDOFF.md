@@ -262,3 +262,5 @@ Keep the vocabulary light: **confidence, prediction, pattern detected, assessmen
 Per incident, aim for one judgment, a small amount of context, 2–3 actions, one visible model reaction, and one consequence.
 
 The Stanley Parable is a useful tonal/design reference for the feeling that the system notices what the player is doing and confidently reinterprets it. Do not copy the narrator structure. Use the principle: **the system watches the player's choices and keeps trying to explain them back to the player.**
+
+<!-- Vercel production retry marker: 2026-09-23 19:37 PT -->
