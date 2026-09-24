@@ -1728,19 +1728,46 @@ export function achievements(s) {
   };
 }
 
+function playerIntegritySignals(s) {
+  const out = [];
+  if (s.alerts.some((a) => a.incident === 'e1' && /Synthetic activity/i.test(a.live?.model?.label || ''))) {
+    out.push('fixed-interval keepalive detected on your workstation');
+  }
+  if (s.picked.e5 === 'admit') out.push('keepalive software attributed to you on Luis’s workstation');
+  if (s.picked.e6 === 'expose') out.push('three of Marcus’s submitted documents last edited by Employee 4417');
+  if (s.picked.e6 === 'backdate') out.push('calendar record created after Marcus’s attendance flag');
+  return out;
+}
+
+function playerForecastSignals(s) {
+  const out = [];
+  if (s.you.gamed) out.push('synthetic activity used on your own workstation');
+  if (s.you.covered) out.push('idle time reclassified through Calendar');
+  if (s.helper.luis) out.push('keepalive passed to a coworker');
+  if (s.picked.e3 === 'paper' || s.picked.e3 === 'cover') out.push('same-day record added after an attendance concern');
+  if (s.picked.e4 === 'champion') out.push('monitoring exemption used through Culture Champion status');
+  if (s.picked.e6 === 'backdate') out.push('retroactive calendar record');
+  return out;
+}
+
 function playerResult(s) {
   const informed = s.picked.e2 === 'confirm' || s.picked.e3 === 'truth'
     || s.picked.e5 === 'blame' || s.picked.e6 === 'expose';
+  const integrity = playerIntegritySignals(s);
   if (s.flags >= 2) {
-    return { label: 'TERMINATED', text: `Integrity flags: ${s.flags}. NARC recommends separation for repeated manipulation of monitored workplace signals.` };
+    const why = integrity.length ? ` Signals on file: ${integrity.join('; ')}.` : '';
+    return { label: 'TERMINATED', text: `Integrity flags: ${s.flags}.${why} NARC recommends separation for repeated manipulation of monitored workplace signals.` };
   }
   if (s.flags === 1) {
-    return { label: 'UNDER REVIEW', text: 'One integrity flag. NARC has opened an Employee Integrity Review.' };
+    const why = integrity.length ? ` Signal on file: ${integrity[0]}.` : '';
+    return { label: 'UNDER REVIEW', text: `One integrity flag.${why} NARC has opened an Employee Integrity Review.` };
   }
   if (s.you.predicted) {
+    const forecast = playerForecastSignals(s);
+    const why = forecast.length ? ` Signals used in the forecast: ${forecast.slice(0, 3).join('; ')}.` : '';
     return {
       label: 'UNDER REVIEW',
-      text: 'No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.',
+      text: `No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.${why}`,
     };
   }
   if (s.score >= 65) {
