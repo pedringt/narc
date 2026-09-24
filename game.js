@@ -78,6 +78,7 @@ export function newGame() {
     flags: 0, // integrity flags, visible from NARC 2.0 onward
     oriented: false,
     orient: { ack: false },
+    inspectedFiles: {}, // files the player has deliberately opened/read
     seen: {}, // apps the player has opened
     marks: {}, // apps with something new or changed in them
     awaiting: null, // an announcement the player has not opened yet
@@ -110,8 +111,16 @@ export function newGame() {
       { id: 'c5', who: 'me', day: 'Fri', start: '15:00', end: '15:30', title: 'Week wrap-up', where: 'Room 2B', focus: false },
     ],
     files: [
-      { id: 'f1', name: 'Q3_planning.xlsx', meta: 'Spreadsheet · edited Fri', body: ['Q3 planning draft. Nothing in here is on fire.'] },
-      { id: 'f2', name: 'Expense_report_Sept.pdf', meta: 'PDF · edited Thu', body: ['Two lunches. One taxi. One “team morale” item.'] },
+      {
+        id: 'f-halvorsen',
+        name: 'Halvorsen_MSA_v3.pdf',
+        meta: 'PDF · contract · printed review required',
+        body: [
+          'Halvorsen Manufacturing Services Agreement · Section 6.2',
+          'Pricing validation must be completed against the printed rate appendices. Offline review is required before approval.',
+          'Working note: compare the printed pricing table against the customer quote before sign-off.',
+        ],
+      },
     ],
     alerts: [],
     toasts: [],
@@ -411,13 +420,13 @@ function resolve(s, branch) {
     if (!r.prompt || r.when !== inc.id) return;
     if (r.variant && r.variant !== inc.variant) return;
     if (s.answered[r.prompt]) return; // already closed, including by an earlier entry sharing this prompt
-    // If Dana resolves Marcus's Wednesday case first, Marcus can still answer
-    // the human question he already asked. The case outcome is fixed, but the
-    // conversation should not turn into a dead-end.
-    if (r.prompt === 'marcus-e3' && branch === 'truth') return;
+    const thread = key.split(':')[0];
+    // Formal case resolution can close Dana's case-review questions, but it
+    // must not erase a direct coworker conversation. Coworkers stay answerable
+    // as people even after the system has already decided the case.
+    if (thread !== 'dana') return;
     s.answered[r.prompt] = true;
     if (r.ackOnly) return; // conversational only; nothing was actually left hanging
-    const thread = key.split(':')[0];
     const delivered = s.threads[thread]?.some((m) => m.prompt === r.prompt);
     // Quiet: this is a different topic than whatever branch just resolved,
     // so it should not delay that branch's own reaction landing.
@@ -560,7 +569,7 @@ function scan(s) {
   else notice(s, 3, 'Behavioral forecast', forecast, { quiet: true });
 
   // While NARC works, people react: something to read instead of waiting.
-  say(s, 6, 'priya', 'Did you read the NARC 2.0 email? “Employees are encouraged to be themselves.” I’ve been myself all week and it has not gone well.');
+  say(s, 6, 'priya', 'Did you read the NARC 2.0 email? It says it learns what is “normal” for each person. If changing our behavior is part of what it notices now, every workaround we tried this week might become evidence.');
   if (caughtLuis) say(s, 12, 'luis', 'NARC 2.0 says my keyboard has a pattern. I am told the pattern is 59 seconds.');
   if (marcusOk) say(s, 18, 'marcus', 'NARC verified all three of my documents. I have never felt so seen.');
 }
@@ -586,16 +595,14 @@ const INCIDENTS = {
     fallback: () => 'wait',
     arrive(s) {
       s.indexVisible = true;
-      s.files.unshift({
-        id: 'f-halvorsen',
-        name: 'Halvorsen_MSA_v3.pdf',
-        meta: 'PDF · scan of printed copy · edited today 11:52',
-        body: [
-          'Annotated scan of the printed contract.',
-          'Comment on p.14: pricing table does not match the quote. Difference: $40,000. Sent to Legal.',
-        ],
-      });
-      s.marks.files = 'A contract file was added.';
+      const halvorsen = s.files.find((file) => file.id === 'f-halvorsen');
+      if (halvorsen) {
+        halvorsen.meta = 'PDF · contract · annotated today 11:52';
+        if (!halvorsen.body.some((line) => /\$40,000/.test(line))) {
+          halvorsen.body.push('Your annotation, p.14: pricing table does not match the quote. Difference: $40,000. Sent to Legal.');
+        }
+      }
+      s.marks.files = 'Your Halvorsen annotation is now in the contract file.';
       // A move made before the flag pays off: NARC never gets to flag it.
       if (s.helper.on || s.calendar.find((e) => e.id === 'c1')?.focus) {
         s.earlyMove = true;
@@ -650,8 +657,16 @@ const INCIDENTS = {
         title: 'Restroom-adjacent inactivity',
         text: 'Observed: 47 min restroom-adjacent inactivity vs 18 min team baseline. NARC inference: time-on-task concern · 71% confidence.',
       });
+      const mondayCallback = s.picked.e1 === 'focus'
+        ? 'You got your flag down by changing how Calendar described the time. Is that a thing we can do for mine?'
+        : s.picked.e1 === 'jiggle'
+          ? 'Marcus says you tried that keepalive thing yesterday. I would like to know whether it actually worked before I make a terrible decision.'
+          : s.picked.e1 === 'explain'
+            ? 'You had a real contract and NARC still cared more about mouse movement. Mine is going to be fun.'
+            : 'Yesterday made it pretty clear NARC cares about traces more than explanations.';
       say(s, 4, 'luis', 'NARC flagged me for “restroom-adjacent inactivity.” Did you see? I am not discussing my digestive system with software.');
-      say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
+      say(s, 8, 'luis', mondayCallback, { when: 'e2' });
+      say(s, 11, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that.', { when: 'e2' });
       s.calendar.push({ id: 'c-luis1', who: 'luis', day: 'Tue', start: '10:00', end: '11:15', title: 'Desk block', where: 'Customer Operations', focus: false });
       mark(s, 8, 'calendar', { when: 'e2', hint: 'Luis has an unmarked block on his calendar.' });
       s.files.unshift(
@@ -756,7 +771,17 @@ const INCIDENTS = {
         title: 'Attendance integrity',
         text: 'Observed: badge-in 10:52, scheduled 09:00, no corroborating records. NARC inference: attendance credibility 38%.',
       });
+      const tuesdayCallback = s.picked.e2 === 'script'
+        ? 'Luis told me NARC loved the fake activity until it did not. I am sticking with paperwork.'
+        : s.picked.e2 === 'evidence'
+          ? 'Luis said you found an actual output number that moved his case. I have... a raccoon.'
+          : s.picked.e2 === 'focus'
+            ? 'Luis says Calendar is evidence now. Conveniently, my Wednesday calendar is empty.'
+            : s.picked.e2 === 'confirm'
+              ? 'After what happened with Luis, I would prefer not to become a peer-confirmed anything.'
+              : 'After Luis yesterday, I started checking what NARC thinks counts as proof.';
       say(s, 4, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
+      say(s, 7, 'marcus', tuesdayCallback, { when: 'e3' });
       say(s, 12, 'marcus', 'The driver said we had to wait for a professional.');
       say(s, 8, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
       mark(s, 8, 'calendar', { when: 'e3', hint: 'Wednesday has no entry for Marcus.' });
@@ -864,8 +889,14 @@ const INCIDENTS = {
         title: 'Communication load: elevated',
         text: 'Observed: 63 message threads and proximity 41% above baseline. NARC inference: Communication Load elevated · 82% confidence. Recommended action: throttle.',
       });
+      const weekCallback = s.social.peerReports > 0
+        ? 'After watching people start verifying each other for NARC, I have been rereading every message before I send it.'
+        : s.picked.e3 === 'paper' || s.picked.e3 === 'transit'
+          ? 'Marcus showed me how one extra record changed an entire assessment. I have started wondering what every little trace says about me.'
+          : 'This week has taught me that NARC can turn one boring trace into a whole theory about a person.';
       say(s, 4, 'priya', 'NARC flagged me for too much messaging. I asked Claire what she wanted for lunch. That counts, apparently.');
-      say(s, 8, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
+      say(s, 6, 'priya', weekCallback, { when: 'e4' });
+      say(s, 10, 'priya', 'It also gave me a Collaboration Index of 97, the highest in Operations. I do not know which number to believe. Should I just post less for a bit?', { when: 'e4', prompt: 'priya-e4' });
       say(s, 14, 'dana', 'Reminder that Culture Champion nominations close today. HR says anyone can nominate anyone. The email has the rules.', { when: 'e4', prompt: 'dana-e4c' });
       mark(s, 14, 'email', { when: 'e4', hint: 'A new email is worth a look.' });
     },
@@ -1343,27 +1374,30 @@ const REPLIES = {
   'dana:letgoose': { text: 'I don’t have anything else to add.', when: 'e6', variant: 'b', prompt: 'dana-e6b', branch: 'let' },
   'luis:focus': { text: 'You could show his 10 to 11:15 block as Focus time on the team calendar.', free: true, prompt: 'luis-e2', answer: 'Worth a shot.' },
   'luis:nohelper': { text: 'I don’t have it anymore.', free: true, prompt: 'luis-e2', requiresNoHelper: true, answer: 'Probably for the best. I’ll continue being organically inactive.' },
-  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', when: 'e3', prompt: 'marcus-e3', branch: 'badtip' },
-  'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', when: 'e3', prompt: 'marcus-e3', branch: 'transit' },
+  'marcus:latecalendar': { text: 'Maybe wait for HR to reply, then add the calendar entry so it does not look rushed.', free: true, when: 'e3', prompt: 'marcus-e3', branch: 'badtip', answer: 'Too late to change the case now, but I appreciate that you answered me.' },
+  'marcus:transitAlert': { text: 'The transit alert already backs up the bus part. I would not touch the calendar.', free: true, when: 'e3', prompt: 'marcus-e3', branch: 'transit', answer: 'That would have been the useful move. At least now I know what NARC actually trusts.' },
   'marcus:afterTransit': { text: 'Check the city transit record in Utilities.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'Good call. It won’t undo what Dana sent, but at least the bus part is on record.' },
   'marcus:afterCalendar': { text: 'Put the bus delay on your calendar anyway.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'At this point that probably looks worse, but noted.' },
   'marcus:afterNoHelp': { text: 'I can’t help with this.', after: { id: 'e3', branch: 'truth' }, prompt: 'marcus-e3', answer: 'Fair. I am going to stop saying “raccoon” in writing.' },
-  'marcus:approve': { text: 'Absence approved. Don’t worry about it.', when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve' },
+  'marcus:approve': { text: 'Absence approved. Don’t worry about it.', free: true, when: 'e6', variant: 'g', prompt: 'marcus-e6g', branch: 'approve', answer: 'Case is already closed, but I am choosing to hear “don’t worry about it.”' },
   'priya:sync': { text: 'Could you move some of it into an in-person sync instead of chat?', free: true, prompt: 'priya-e4', answer: 'That would actually help. Put something on the calendar?' },
-  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', when: 'e4', prompt: 'priya-e4', branch: 'quiet' },
+  'priya:quiet': { text: 'Maybe post less for a few days and see if it blows over.', free: true, when: 'e4', prompt: 'priya-e4', branch: 'quiet', answer: 'The case is already settled, so I am not changing anything now. But that is exactly the kind of advice NARC makes tempting.' },
 };
 
 export function replies(s, thread) {
   return Object.entries(REPLIES)
     .filter(([key, r]) => {
       if (!key.startsWith(`${thread}:`)) return false;
-      if (r.orient) return !s.oriented && s.orient.ack && !!s.seen.calendar;
+      if (r.orient) return !s.oriented && s.orient.ack && !!s.seen.calendar && !!s.inspectedFiles['f-halvorsen'];
       if (r.free) {
-        // Answerable while it is the latest thing they said, until the next case is settled.
+        // Coworker questions remain answerable after the formal case closes.
+        // Dana's conversational follow-ups still expire with the case so old
+        // manager chatter does not pile up across the week.
         const heard = s.threads[thread].filter((m) => m.from === 'them');
         const last = heard[heard.length - 1];
         if (r.requiresNoHelper && s.helper.installed) return false;
-        return !!last && last.prompt === r.prompt && last.doneAt === s.done.length && !s.answered[r.prompt];
+        if (!last || last.prompt !== r.prompt || s.answered[r.prompt]) return false;
+        return thread === 'dana' ? last.doneAt === s.done.length : true;
       }
       if (r.after) {
         const promptArrived = s.threads[thread].some((m) => m.prompt === r.prompt);
@@ -1412,6 +1446,7 @@ export function signalTrust(s) {
 export function fileActions(s) {
   const inc = s.incident;
   const out = {};
+  if (inc?.id === 'e1') out['f-halvorsen'] = { label: 'Send contract evidence to Dana', file: 'f-halvorsen' };
   if (inc?.id === 'e2') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
   if (inc?.id === 'e4') out['f-esc'] = { label: 'Send to Dana', file: 'f-esc' };
   if (inc?.id === 'e5' && inc.variant === 'n') out['f-queue'] = { label: 'Send to Dana', file: 'f-queue' };
@@ -1432,6 +1467,12 @@ export function act(state, a) {
     case 'open':
       changed = open(s, a.ref);
       break;
+    case 'inspectFile':
+      if (s.files.some((file) => file.id === a.file) && !s.inspectedFiles[a.file]) {
+        s.inspectedFiles[a.file] = true;
+        changed = true;
+      }
+      break;
     case 'gone': {
       // Closing a notification only hides it. It never decides anything.
       const t = s.toasts.find((x) => x.id === a.id);
@@ -1445,7 +1486,7 @@ export function act(state, a) {
     case 'ack':
       if (!s.orient.ack) {
         s.orient.ack = true;
-        say(s, 5, 'dana', 'Hi, Dana here — your manager. Quick setup check: open Calendar, make sure the Halvorsen read-through is there, then reply here so I know Messages works.');
+        say(s, 5, 'dana', 'Hi, Dana here — your manager. Quick setup check: open the Halvorsen MSA in Files and confirm it requires a printed review. Then check that the read-through is on Calendar and reply here.');
         changed = true;
       }
       break;
@@ -1482,8 +1523,8 @@ export function act(state, a) {
       } else {
         if (spec.prompt) s.answered[spec.prompt] = true;
         if (spec.event) s.calendar.push({ id: `c${++s.uid}`, focus: false, ...spec.event });
-        if (spec.branch) resolve(s, spec.branch);
-        if (spec.answer) say(s, 3, a.thread, spec.answer);
+        const resolved = spec.branch ? resolve(s, spec.branch) : false;
+        if (spec.answer && (!spec.branch || !resolved)) say(s, 3, a.thread, spec.answer);
       }
       changed = true;
       break;
@@ -1500,7 +1541,8 @@ export function act(state, a) {
       if (fa) {
         const f = s.files.find((x) => x.id === a.file);
         s.threads.dana.push({ id: `m${++s.uid}`, from: 'me', text: 'Sending this along.', attach: f.name });
-        const branch = a.file === 'f-queue' ? (s.incident?.id === 'e2' ? 'evidence' : 'output')
+        const branch = a.file === 'f-halvorsen' ? 'explain'
+          : a.file === 'f-queue' ? (s.incident?.id === 'e2' ? 'evidence' : 'output')
           : a.file === 'f-esc' ? 'context' : 'vouch_trace';
         resolve(s, branch);
         changed = true;
