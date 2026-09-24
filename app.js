@@ -3,7 +3,7 @@
 
 import {
   newGame, tick, act, unread, attention, ownCase, narcSections, logoffInfo, clockText, caseView,
-  replies, canAttachHelper, calendarAction, fileActions, signalTrust, ending, THREADS, PEOPLE,
+  replies, canAttachHelper, calendarAction, fileActions, signalTrust, ending, THREADS, PEOPLE, STATUS_LABEL,
 } from './game.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -13,7 +13,8 @@ const ICON = {
   calendar: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
   files: svg('<path d="M3 6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
   utilities: svg('<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'),
-  narc: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/>'),
+  browser: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/>'),
+  narc: svg('<ellipse cx="8" cy="12" rx="4" ry="5"/><ellipse cx="16" cy="12" rx="4" ry="5"/><circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none"/>'),
   intranet: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h4M7 16h7"/>'),
 };
 
@@ -24,6 +25,7 @@ const APPS = [
   { id: 'calendar', label: 'Calendar' },
   { id: 'files', label: 'Files' },
   { id: 'utilities', label: 'Utilities' },
+  { id: 'browser', label: 'Browser' },
   { id: 'narc', label: 'NARC' },
 ];
 
@@ -42,6 +44,89 @@ const INTRANET_POSTS = [
 ];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
+const BROWSER_STORIES = [
+  {
+    id: 'ai-mouse',
+    source: 'WorkFuture Daily',
+    title: 'Startup says its AI can detect employee enthusiasm from mouse movement',
+    dek: 'The company says “micro-velocity patterns” correlate with commitment. Researchers say that is not a sentence.',
+    body: [
+      'A workplace analytics startup says it can estimate employee enthusiasm from mouse speed, click timing, and window switching.',
+      'The company says the score should never be used alone for employment decisions. Its sales page includes a button labeled “Automate Intervention.”',
+    ],
+  },
+  {
+    id: 'calendar-proof',
+    source: 'Office Systems Weekly',
+    title: 'Why your calendar is becoming workplace evidence',
+    dek: 'Scheduling metadata is increasingly treated as a record of where work happened, even when the work itself lives elsewhere.',
+    body: [
+      'Workplace systems often have easier access to timestamps, meetings, and device events than to the actual quality of the work.',
+      'That makes calendar records convenient evidence. It does not make them complete evidence, and late edits can create a second trail of their own.',
+    ],
+  },
+  {
+    id: 'anti-gaming',
+    source: 'Model Behavior',
+    title: 'The anti-idle arms race is getting an anti-anti-idle layer',
+    dek: 'New tools look for repeating input patterns after workers learned to spoof activity.',
+    body: [
+      'Monitoring vendors are adding pattern detection aimed at synthetic keyboard and mouse activity.',
+      'The predictable result: tools that randomize the synthetic activity. The less predictable result: everyone now has a stronger opinion about 59 seconds.',
+    ],
+  },
+  {
+    id: 'celebrity',
+    source: 'StarTap',
+    title: 'Actor apologizes after accidentally launching six skincare brands',
+    dek: 'Three were apparently intended to be group chats.',
+    body: [
+      'Representatives confirmed the actor remains “deeply committed to hydration.”',
+      'A seventh brand briefly appeared overnight and has since been described as a misunderstanding.',
+    ],
+  },
+  {
+    id: 'meetings',
+    source: 'Executive Tomorrow',
+    title: 'CEO replaces meetings with autonomous meetings',
+    dek: 'Employees now receive summaries of conversations nobody attended.',
+    body: [
+      'The company says the new process has reduced calendar load by 34%.',
+      'Employees say they are spending the recovered time correcting what the autonomous meetings decided they promised to do.',
+    ],
+  },
+  {
+    id: 'preburnout',
+    source: 'PeopleOps Today',
+    title: 'Productivity app adds “Pre-Burnout Detection”',
+    dek: 'The feature can schedule a mandatory resilience webinar before you know you are tired.',
+    body: [
+      'The vendor says the model identifies early signs of strain from work patterns and communication volume.',
+      'The webinar is two hours long and cannot be declined.',
+    ],
+  },
+  {
+    id: 'goose',
+    source: 'Metro Desk',
+    title: 'Local goose interrupts municipal AI pilot',
+    dek: 'Officials say the bird was classified as “unplanned stakeholder presence.”',
+    body: [
+      'Transit service was delayed while staff moved the goose away from a sensor array.',
+      'The city says the pilot performed as designed. The goose did not respond to a request for comment.',
+    ],
+  },
+  {
+    id: 'celebrity-two',
+    source: 'StarTap',
+    title: 'Singer denies feud with own airport lounge portrait',
+    dek: '“We are in a good place,” the portrait’s spokesperson said.',
+    body: [
+      'The dispute began after fans noticed the portrait had been moved closer to a vending machine.',
+      'Both parties are expected to attend the same fragrance launch next month.',
+    ],
+  },
+];
+
 let state;
 let ui;
 let logoffOpen = false;
@@ -50,12 +135,15 @@ const shownToasts = new Set();
 function freshUi() {
   return {
     app: 'email',
-    detail: true, // the welcome email is already open
-    sel: { email: null, messages: null, files: null, narc: null },
+    openApps: ['email'],
+    detail: { email: true },
+    sel: { email: null, messages: null, files: null, narc: null, browser: null },
     day: 'Mon',
     dayTouched: false,
     team: false,
-    narcHistoryPinned: false,
+    narcView: 'me',
+    narcPerson: 'luis',
+    positions: {},
     draft: { note: '', title: '', attribute: '', nominee: '' },
     lastHint: {}, // the reason a dock dot appeared, kept for one visit after it's cleared (#39)
   };
@@ -131,29 +219,59 @@ function dispatch(action) {
   render();
 }
 
+function ensureWindow(id) {
+  if (!ui.openApps.includes(id)) {
+    if (ui.openApps.length >= 3) ui.openApps.shift();
+    ui.openApps.push(id);
+  } else {
+    ui.openApps = [...ui.openApps.filter((app) => app !== id), id];
+  }
+  if (!(id in ui.detail)) ui.detail[id] = false;
+}
+
+function focusWindow(id) {
+  if (!ui.openApps.includes(id)) return;
+  ui.app = id;
+  ui.openApps = [...ui.openApps.filter((app) => app !== id), id];
+  document.querySelectorAll('.window[data-app]').forEach((w) => {
+    const active = w.dataset.app === id;
+    w.classList.toggle('active-window', active);
+    w.style.zIndex = active ? '20' : String(5 + ui.openApps.indexOf(w.dataset.app));
+  });
+  renderChrome();
+}
+
+function closeWindow(id) {
+  ui.openApps = ui.openApps.filter((app) => app !== id);
+  if (ui.app === id) ui.app = ui.openApps[ui.openApps.length - 1] || null;
+  render();
+}
+
 function openRef(ref) {
   const [kind, id] = ref.split(':');
-  if (kind === 'email') { ui.app = 'email'; ui.sel.email = id; ui.detail = true; }
-  if (kind === 'thread') { ui.app = 'messages'; ui.sel.messages = id; ui.detail = true; }
-  if (kind === 'alert') { ui.app = 'narc'; ui.sel.narc = id; ui.detail = true; }
-  state = act(state, { do: 'view', app: ui.app });
+  let app = ui.app;
+  if (kind === 'email') { app = 'email'; ui.sel.email = id; ui.detail.email = true; }
+  if (kind === 'thread') { app = 'messages'; ui.sel.messages = id; ui.detail.messages = true; }
+  if (kind === 'alert') { app = 'narc'; ui.sel.narc = id; ui.detail.narc = true; }
+  ensureWindow(app);
+  ui.app = app;
+  state = act(state, { do: 'view', app });
   dispatch({ do: 'open', ref });
 }
 
 function goApp(id) {
   // A hint banner lives for exactly one visit: gone once you leave the app,
   // so it never resurfaces stale on a later, unrelated visit.
-  if (ui.app !== id) delete ui.lastHint[ui.app];
+  if (ui.app && ui.app !== id) delete ui.lastHint[ui.app];
+  ensureWindow(id);
   ui.app = id;
-  ui.detail = false;
   // The dock dot is about to be cleared by the view action below; keep the
   // reason it was there so the app can still say what changed.
   if (typeof state.marks[id] === 'string') ui.lastHint[id] = state.marks[id];
   if (id === 'narc') {
-    ui.narcHistoryPinned = false;
     const { active, team } = narcSections(state);
     const current = active[0] || team[0];
-    if (current) ui.sel.narc = current.id;
+    if (current && !ui.sel.narc) ui.sel.narc = current.id;
   }
   if (!ui.dayTouched) ui.day = state.clock.day;
   dispatch({ do: 'view', app: id });
@@ -173,7 +291,7 @@ root.innerHTML = `
   </header>
   <div class="stage">
     <nav class="dock" id="dock" aria-label="Apps"></nav>
-    <main class="workarea"><section class="window" id="win"></section></main>
+    <main class="workarea"><div class="window-stack" id="windows"></div></main>
   </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <div id="modal"></div>
@@ -184,7 +302,7 @@ const els = {
   trayText: root.querySelector('#trayText'),
   logoff: root.querySelector('#logoff'),
   dock: root.querySelector('#dock'),
-  win: root.querySelector('#win'),
+  windows: root.querySelector('#windows'),
   toasts: root.querySelector('#toasts'),
   modal: root.querySelector('#modal'),
   overlay: root.querySelector('#overlay'),
@@ -210,7 +328,9 @@ function trayLabel() {
 // actually introduced. Keep the current app visible so notification deep-links
 // never strand the player.
 function visibleApps() {
-  const ids = new Set(['email', 'intranet', ui.app]);
+  const ids = new Set(['email', 'intranet']);
+  if (ui.app) ids.add(ui.app);
+  if (state.oriented || state.seen.browser) ids.add('browser');
   if (state.threads.dana.length || state.seen.messages) {
     ids.add('messages');
     ids.add('calendar');
@@ -245,6 +365,7 @@ function renderChrome() {
     b.firstChild.innerHTML = ICON[a.id];
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === a.id));
+    b.classList.toggle('is-open', ui.openApps.includes(a.id));
     if (count) b.append(h('span', a.id === 'narc' ? `badge ${ownCase(state) ? 'action' : 'team'}` : 'badge', count));
     else if (state.marks[a.id]) b.append(h('span', 'mark', ''));
     b.setAttribute('aria-label', count ? `${a.label}, ${count} ${a.id === 'narc' ? (ownCase(state) ? 'needs attention' : 'team alert') : 'unread'}` : state.marks[a.id] ? `${a.label}, something new` : a.label);
@@ -255,27 +376,83 @@ function renderChrome() {
 
 // ----------------------------------------------------------------- windows
 
+let renderingApp = 'email';
+
 function windowShell(title, ...body) {
+  const app = renderingApp;
   const bar = h('div', 'titlebar', h('span', 'lights', h('i'), h('i'), h('i')));
-  const back = btn('‹ Back', 'back', () => { ui.detail = false; render(); });
-  bar.append(back, title);
+  const back = btn('‹ Back', 'back', () => { ui.detail[app] = false; render(); });
+  const close = btn('×', 'win-close', () => closeWindow(app), { 'aria-label': `Hide ${title}` });
+  bar.append(back, h('span', 'window-title', title), close);
   return [bar, ...body];
 }
 
-function renderWindow() {
+function installDrag(win, id) {
+  const bar = win.querySelector('.titlebar');
+  if (!bar || window.matchMedia('(max-width: 760px)').matches) return;
+  bar.addEventListener('pointerdown', (event) => {
+    if (event.target.closest('button')) return;
+    focusWindow(id);
+    const start = ui.positions[id] || { x: 0, y: 0 };
+    const sx = event.clientX;
+    const sy = event.clientY;
+    bar.setPointerCapture(event.pointerId);
+    const move = (e) => {
+      const area = els.windows.getBoundingClientRect();
+      const rect = win.getBoundingClientRect();
+      const maxX = Math.max(0, (area.width - rect.width) / 2);
+      const maxY = Math.max(0, (area.height - rect.height) / 2);
+      const x = Math.max(-maxX, Math.min(maxX, start.x + e.clientX - sx));
+      const y = Math.max(-maxY, Math.min(maxY, start.y + e.clientY - sy));
+      win.style.setProperty('--dx', `${x}px`);
+      win.style.setProperty('--dy', `${y}px`);
+      ui.positions[id] = { x, y };
+    };
+    const up = () => {
+      bar.removeEventListener('pointermove', move);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+    };
+    bar.addEventListener('pointermove', move);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
+  });
+}
+
+function renderWindows() {
   const scrolls = {};
-  els.win.querySelectorAll('[data-scroll]').forEach((n) => { scrolls[n.dataset.scroll] = [n.scrollTop, n.scrollTop + n.clientHeight >= n.scrollHeight - 40]; });
+  els.windows.querySelectorAll('[data-scroll]').forEach((n) => {
+    scrolls[n.dataset.scroll] = [n.scrollTop, n.scrollTop + n.clientHeight >= n.scrollHeight - 40];
+  });
 
   const views = {
     email: renderEmail, messages: renderMessages, calendar: renderCalendar,
-    files: renderFiles, utilities: renderUtilities, narc: renderNarc,
-    intranet: renderIntranet,
+    files: renderFiles, utilities: renderUtilities, browser: renderBrowser,
+    narc: renderNarc, intranet: renderIntranet,
   };
-  const nodes = views[ui.app]();
-  els.win.className = `window app-${ui.app}${ui.app === 'narc' ? ' narc' : ''}${ui.detail ? ' show-detail' : ''}`;
-  els.win.replaceChildren(...nodes);
+  const narrow = window.matchMedia('(max-width: 760px)').matches;
+  const apps = narrow ? (ui.app ? [ui.app] : []) : ui.openApps;
+  const nodes = [];
 
-  els.win.querySelectorAll('[data-scroll]').forEach((n) => {
+  apps.forEach((id, index) => {
+    renderingApp = id;
+    const win = h('section', `window app-${id}${id === 'narc' ? ' narc' : ''}${ui.detail[id] ? ' show-detail' : ''}${ui.app === id ? ' active-window' : ''}`);
+    win.dataset.app = id;
+    win.style.zIndex = String(ui.app === id ? 20 : 5 + index);
+    const pos = ui.positions[id] || { x: (index - Math.max(0, apps.length - 1) / 2) * 38, y: (index - Math.max(0, apps.length - 1) / 2) * 24 };
+    win.style.setProperty('--dx', `${pos.x}px`);
+    win.style.setProperty('--dy', `${pos.y}px`);
+    win.replaceChildren(...views[id]());
+    win.addEventListener('pointerdown', () => {
+      if (ui.app !== id) focusWindow(id);
+    }, { capture: true });
+    nodes.push(win);
+  });
+
+  els.windows.replaceChildren(...nodes);
+  els.windows.querySelectorAll('.window').forEach((win) => installDrag(win, win.dataset.app));
+
+  els.windows.querySelectorAll('[data-scroll]').forEach((n) => {
     const prev = scrolls[n.dataset.scroll];
     if (n.dataset.stick && (!prev || prev[1])) n.scrollTop = n.scrollHeight;
     else if (prev) n.scrollTop = prev[0];
@@ -548,7 +725,11 @@ function renderFiles() {
     const row = h('button', 'row', h('div', 'name', f.name), h('div', 'sub', f.meta));
     row.type = 'button';
     row.setAttribute('aria-current', String(ui.sel.files === f.id));
-    row.addEventListener('click', () => { ui.sel.files = f.id; ui.detail = true; render(); });
+    row.addEventListener('click', () => {
+      ui.sel.files = f.id;
+      ui.detail.files = true;
+      dispatch({ do: 'inspectFile', file: f.id });
+    });
     list.append(row);
   });
   const detail = h('div', 'detail file-body');
@@ -618,122 +799,197 @@ function renderUtilities() {
   return windowShell('Utilities', h('div', 'body', hintBanner('utilities'), cards));
 }
 
+// ------------------------------------------------------------------ browser
+
+function renderBrowser() {
+  const list = h('div', 'list browser-list');
+  BROWSER_STORIES.forEach((story) => {
+    const row = h('button', 'row',
+      h('div', 'browser-source', story.source),
+      h('div', 'name', story.title),
+      h('div', 'sub browser-dek', story.dek));
+    row.type = 'button';
+    row.setAttribute('aria-current', String(ui.sel.browser === story.id));
+    row.addEventListener('click', () => {
+      ui.sel.browser = story.id;
+      ui.detail.browser = true;
+      render();
+    });
+    list.append(row);
+  });
+
+  const detail = h('div', 'detail browser-page');
+  const story = BROWSER_STORIES.find((item) => item.id === ui.sel.browser);
+  if (!story) {
+    detail.append(
+      h('div', 'browser-home-kicker', 'MERIDIAN START'),
+      h('h2', null, 'Good morning. Unfortunately, the internet is still here.'),
+      h('p', 'browser-home-copy', 'Company network highlights, industry news, and several stories that absolutely did not need to be published.'),
+      h('div', 'browser-feature',
+        h('div', 'browser-source', BROWSER_STORIES[0].source),
+        h('h3', null, BROWSER_STORIES[0].title),
+        h('p', null, BROWSER_STORIES[0].dek),
+        btn('Read story', 'btn primary', () => { ui.sel.browser = BROWSER_STORIES[0].id; ui.detail.browser = true; render(); }))
+    );
+  } else {
+    detail.append(
+      h('div', 'browser-source', story.source),
+      h('h2', null, story.title),
+      h('p', 'browser-lede', story.dek));
+    story.body.forEach((p) => detail.append(h('p', null, p)));
+  }
+  return windowShell('Browser · Meridian Start', h('div', 'body', list, detail));
+}
+
 // -------------------------------------------------------------------- NARC
 
+function alertWho(a) {
+  if (!a?.incident) return null;
+  if (['e2', 'e5'].includes(a.incident)) return 'luis';
+  if (['e3', 'e6'].includes(a.incident)) return 'marcus';
+  if (a.incident === 'e4') return 'priya';
+  return a.incident === 'e1' ? 'me' : null;
+}
+
+function latestAlertFor(who) {
+  return state.alerts.find((a) => alertWho(a) === who) || null;
+}
+
+function eyeMark() {
+  return h('span', 'narc-eyes', h('i'), h('i'));
+}
+
 function alertRow(a) {
+  const c = caseView(state, a);
   const open = a.incident && !a.closed;
-  const mine = open && caseView(state, a).own;
+  const mine = open && c.own;
   const row = h('button', `row${mine ? ' active' : ''}${open && !mine ? ' teamrow' : ''}${a.closed ? ' closed' : ''}`,
-    h('div', 'top', h('span', 'name', a.title), mine ? h('span', 'pill', 'Action') : null),
-    h('div', 'sub', a.text));
+    h('div', 'top', h('span', 'name', c.subject || a.title), mine ? h('span', 'pill', 'Action') : null),
+    h('div', 'sub', a.title));
   row.type = 'button';
   row.setAttribute('aria-current', String(ui.sel.narc === a.id));
   row.addEventListener('click', () => {
-    ui.narcHistoryPinned = !open;
-    openRef(`alert:${a.id}`);
+    ui.sel.narc = a.id;
+    ui.detail.narc = true;
+    render();
   });
   return row;
 }
 
+function myNarcSummary() {
+  const status = state.flags > 0
+    ? `Integrity review · ${state.flags} flag${state.flags === 1 ? '' : 's'}`
+    : state.you.predicted
+      ? 'Predictive review open'
+      : state.you.trusted
+        ? 'Trusted Reviewer'
+        : 'No active integrity review';
+  const card = h('div', 'my-narc');
+  card.append(
+    h('div', 'case-person', 'Employee 4417'),
+    h('div', 'my-status', status),
+    h('div', 'my-facts',
+      h('div', null, h('span', null, 'Visible Activity'), h('b', null, String(state.score))),
+      h('div', null, h('span', null, 'Integrity flags'), h('b', null, String(state.flags))),
+      h('div', null, h('span', null, 'Peer reports supplied'), h('b', null, String(state.you.reports)))));
+  if (state.you.peerReportsReceived) card.append(h('p', 'narc-compact-note', `Peer context naming you: ${state.you.peerReportsReceived} record${state.you.peerReportsReceived === 1 ? '' : 's'}.`));
+  return card;
+}
+
 function renderNarc() {
   const top = h('div', 'narc-top',
-    h('span', 'brand', 'NARC'),
+    h('span', 'brand', eyeMark(), h('span', null, 'NARC')),
     h('span', 'ai-label', 'AI Workforce Assessment'));
 
   const { active, team, history } = narcSections(state);
-  const currentItems = [...active, ...team];
-  const showingHistory = ui.narcHistoryPinned;
-  const list = h('div', 'list');
-  const switcher = h('div', 'narc-switcher',
-    btn('Current', 'narc-tab', () => {
-      ui.narcHistoryPinned = false;
-      const current = active[0] || team[0];
-      if (current) ui.sel.narc = current.id;
-      render();
-    }, { 'aria-pressed': String(!showingHistory) }),
-    btn(`History (${history.length})`, 'narc-tab', () => {
-      ui.narcHistoryPinned = true;
-      if (history[0]) ui.sel.narc = history[0].id;
-      render();
-    }, { 'aria-pressed': String(showingHistory) })
+  const tabs = h('div', 'narc-primary-tabs',
+    btn('My NARC', 'narc-tab', () => { ui.narcView = 'me'; render(); }, { 'aria-pressed': String(ui.narcView === 'me') }),
+    btn('Company', 'narc-tab', () => { ui.narcView = 'company'; render(); }, { 'aria-pressed': String(ui.narcView === 'company') }),
+    btn(`History ${history.length ? `(${history.length})` : ''}`, 'narc-tab', () => { ui.narcView = 'history'; render(); }, { 'aria-pressed': String(ui.narcView === 'history') })
   );
-  list.append(switcher);
 
-  const shown = showingHistory ? history : currentItems;
-  if (!shown.length) {
-    list.append(h('div', 'none', showingHistory ? 'No prior assessments.' : 'No active assessments.'));
-  } else {
-    shown.forEach((item) => list.append(alertRow(item)));
-  }
-
+  const list = h('div', 'list');
   const detail = h('div', 'detail');
-  const current = active[0] || team[0];
-  let selected = state.alerts.find((x) => x.id === ui.sel.narc);
-  if (!showingHistory && current && (!selected || selected.closed || !selected.incident)) {
-    selected = current;
-    ui.sel.narc = current.id;
-  }
-  if (showingHistory && (!selected || (selected.incident && !selected.closed))) {
-    selected = history[0] || null;
-    if (selected) ui.sel.narc = selected.id;
+
+  if (ui.narcView === 'me') {
+    list.append(h('div', 'narc-list-heading', 'Your standing'));
+    const own = active[0] || latestAlertFor('me');
+    if (own) list.append(alertRow(own));
+    else list.append(h('div', 'none', 'No active assessment.'));
+    detail.append(myNarcSummary());
+    if (active[0]) detail.append(caseNode(active[0]));
+  } else if (ui.narcView === 'company') {
+    list.append(h('div', 'narc-list-heading', 'People'));
+    Object.entries(PEOPLE).forEach(([id, person]) => {
+      const latest = latestAlertFor(id);
+      const status = state.shown[id] || state.people[id].status;
+      const row = h('button', `person-row${ui.narcPerson === id ? ' selected' : ''}`,
+        h('span', 'person-name', person.name),
+        h('span', `person-status ${status}`, status.replaceAll('_', ' ')));
+      row.type = 'button';
+      row.addEventListener('click', () => {
+        ui.narcPerson = id;
+        if (latest) ui.sel.narc = latest.id;
+        render();
+      });
+      list.append(row);
+    });
+    const person = PEOPLE[ui.narcPerson] || PEOPLE.luis;
+    const latest = latestAlertFor(ui.narcPerson);
+    if (latest) detail.append(caseNode(latest));
+    else detail.append(
+      h('div', 'company-person-empty',
+        h('div', 'case-person', person.name),
+        h('div', 'my-status', STATUS_LABEL?.[state.people[ui.narcPerson]?.status] || state.people[ui.narcPerson]?.status || 'EMPLOYED'),
+        h('p', null, 'No NARC assessment on file yet.')));
+  } else {
+    list.append(h('div', 'narc-list-heading', 'Past assessments'));
+    if (!history.length) list.append(h('div', 'none', 'No prior assessments.'));
+    history.forEach((item) => list.append(alertRow(item)));
+    let selected = state.alerts.find((x) => x.id === ui.sel.narc && (x.closed || !x.incident));
+    if (!selected) selected = history[0] || null;
+    if (selected) detail.append(caseNode(selected));
+    else detail.append(h('div', 'about', 'No prior assessments.'));
   }
 
-  if (!selected) {
-    detail.append(h('div', 'about',
-      showingHistory
-        ? 'No prior assessments.'
-        : 'NARC is active. No current assessment requires attention.'));
-  } else {
-    detail.append(caseNode(selected));
-  }
-  return windowShell('NARC', h('div', 'body', top, h('div', 'narc-main', list, detail)));
+  return windowShell('NARC', h('div', 'body narc-body', top, tabs, h('div', 'narc-main', list, detail)));
 }
 
 function caseNode(a) {
   const c = caseView(state, a);
   const box = h('div', 'case');
-  box.append(h('h2', null, c.title));
 
   if (c.notice) {
-    box.append(h('div', 'history-tag', 'RECENT ACTIVITY'), h('p', 'notice-copy', c.text));
+    box.append(h('div', 'history-tag', 'SYSTEM NOTE'), h('h2', null, c.title), h('p', 'notice-copy', c.text));
     return box;
   }
 
-  box.append(h('div', 'subject', c.subject));
-
-  // One moment in the game gets a distinct treatment: the first time NARC
-  // catches something the player did and revises its own prior belief. Same
-  // grammar as every other update, just not blended into it.
+  box.append(h('div', 'case-person', c.subject), h('h2', 'case-title', c.title));
   if (c.big) box.append(h('div', 'big-reveal', 'NARC ADAPTED'));
 
-  // Three questions, in the order a reader asks them: what does NARC think,
-  // why does it think that, and what happens because of it.
   const m = c.model;
   box.append(
     h('div', 'sect model', 'What NARC thinks'),
     h('div', `model-box${c.updated ? ' updated' : ''}${c.big ? ' big' : ''}`,
-      c.updated ? h('div', 'updated-tag', c.unchanged ? 'Assessment unchanged' : 'Assessment updated') : null,
-      m.was ? h('div', 'was', `${m.was.label} · ${m.was.confidence}% confidence`) : null,
       h('div', 'assessment', m.label),
-      h('div', 'conf', num(`conf:${a.id}`, m.confidence), '% confidence')
+      h('div', 'conf', num(`conf:${a.id}`, m.confidence), '% confidence'),
+      c.big && m.was ? h('div', 'was compact', `Previously: ${m.was.label} · ${m.was.confidence}%`) : null
     )
   );
-  if (c.reaction) box.append(h('div', 'reaction-line', c.reaction));
 
   box.append(h('div', 'sect observed', 'Why'));
-  box.append(h('ul', null, c.observed.map((o) => h('li', null, o))));
+  const observed = (c.observed || []).slice(0, 3);
+  box.append(h('ul', null, observed.map((o) => h('li', null, o))));
 
   const action = c.metrics.find(([k]) => /Recommended action|Automatic action|Company response/i.test(k));
   if (action) {
     box.append(h('div', 'company-action', h('span', null, 'Company response'), h('b', null, action[1])));
   }
 
+  if (c.reaction) box.append(h('div', 'narc-change', c.reaction));
   if (c.prompt) box.append(h('div', 'prompt', c.prompt));
-  if (c.note) box.append(h('div', 'viewonly', 'This is a team alert. Act through Messages, Files, Calendar, or Utilities if you want to intervene.'));
-  if (c.closed) {
-    box.append(h('div', 'closed-line', 'Recent activity · closed'));
-    return box;
-  }
+  if (c.note) box.append(h('div', 'viewonly', 'Use Messages, Files, Calendar, or Utilities if you want to intervene.'));
+  if (c.closed) return box;
 
   const ctl = h('div', 'ctl');
   c.controls.forEach((k) => {
@@ -881,7 +1137,7 @@ function captureFocus() {
 
 function restoreFocus(f) {
   if (!f) return;
-  const n = els.win.querySelector(`[data-key="${f.key}"]`);
+  const n = els.windows.querySelector(`[data-key="${f.key}"]`);
   if (!n) return;
   n.focus();
   try { n.setSelectionRange(f.start, f.end); } catch { /* not a text field */ }
@@ -890,7 +1146,7 @@ function restoreFocus(f) {
 function render() {
   const f = captureFocus();
   renderChrome();
-  renderWindow();
+  renderWindows();
   renderToasts();
   renderModal();
   renderOverlay();
@@ -921,8 +1177,8 @@ setInterval(() => {
     // A message that lands in the conversation you are reading is already read.
     const open = ui.app === 'messages' && ui.sel.messages;
     if (open && state.threads[open].some((m) => m.unread)) dispatch({ do: 'open', ref: `thread:${open}` });
-    // Something new in the app you are already looking at is not "new" to you.
-    if (state.marks[ui.app]) dispatch({ do: 'view', app: ui.app });
+    // Something new in the app you are actively looking at is not "new" to you.
+    if (ui.app && state.marks[ui.app]) dispatch({ do: 'view', app: ui.app });
   } else {
     els.clock.textContent = clockText(state);
   }
