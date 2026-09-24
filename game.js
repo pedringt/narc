@@ -84,7 +84,7 @@ export function newGame() {
     answered: {}, // conversational prompts the player has answered
     nominations: {}, // immediate nomination feedback + duplicate protection
     culture: { open: false }, // the nomination window: from the email until Priya's case ends
-    you: { gamed: false, covered: false, predicted: false },
+    you: { gamed: false, covered: false, predicted: false, reports: 0, trusted: false },
     helper: { discovered: false, installed: false, on: false, luis: null },
     people: {
       luis: { status: 'employed', trust: 0, monitored: 0, gamed: false, covered: false, caught: false },
@@ -163,6 +163,23 @@ const teamUpdate = (s, n, who) => mail(s, n, {
     'NARC has classified this transition as a Successful Outcome.',
   ],
 });
+
+function creditReport(s) {
+  s.you.reports += 1;
+  if (!s.you.trusted && s.you.reports >= 2 && s.flags === 0) {
+    s.you.trusted = true;
+    mail(s, 10, {
+      from: 'People Operations',
+      subject: 'Peer Review Reliability',
+      body: [
+        'NARC has classified your peer input as high-reliability.',
+        'Future evidence you submit during workforce reviews may receive additional corroboration weight.',
+        'Thank you for supporting healthy accountability.',
+      ],
+    });
+    score(s, 8, 4, 'Trusted Reviewer', 'Visible Activity Index: {from} → {to}. Peer Review Reliability: high.', { quiet: true });
+  }
+}
 
 function toast(s, t) {
   s.toasts.push({ id: `t${++s.uid}`, gone: false, at: s.t, ...t });
@@ -373,7 +390,7 @@ function resolve(s, branch) {
     const delivered = s.threads[thread]?.some((m) => m.prompt === r.prompt);
     // Quiet: this is a different topic than whatever branch just resolved,
     // so it should not delay that branch's own reaction landing.
-    if (delivered) say(s, 2, thread, CLOSING_LINE[r.prompt] ?? 'Never mind — that got settled another way.', { quiet: true });
+    if (delivered) say(s, 2, thread, closingLine(r.prompt, branch), { quiet: true });
   });
   const alert = s.alerts.find((a) => a.incident === inc.id);
   if (alert) alert.closed = true;
@@ -593,17 +610,33 @@ const INCIDENTS = {
       say(s, 8, 'luis', 'I also closed more support tickets than anyone this week, and NARC has nothing to say about that. I would take any advice at this point.', { when: 'e2' });
       s.calendar.push({ id: 'c-luis1', who: 'luis', day: 'Tue', start: '10:00', end: '11:15', title: 'Desk block', where: 'Customer Operations', focus: false });
       mark(s, 8, 'calendar', { when: 'e2', hint: 'Luis has an unmarked block on his calendar.' });
-      s.files.unshift({
-        id: 'f-queue',
-        name: 'Support_queue_weekly.xlsx',
-        meta: 'Spreadsheet · team report',
-        body: [
-          'Tickets closed this week, as a share of the team median:',
-          'Luis Perez: 112%',
-          'Team median: 100%',
-        ],
-      });
-      mark(s, 8, 'files', { when: 'e2', hint: 'A team report just landed.' });
+      s.files.unshift(
+        {
+          id: 'f-queue',
+          name: 'Support_queue_weekly.xlsx',
+          meta: 'Spreadsheet · team report',
+          body: [
+            'Tickets closed this week, as a share of the team median:',
+            'Luis Perez: 112%',
+            'Team median: 100%',
+          ],
+        },
+        {
+          id: 'f-narc-notes',
+          name: 'NARC_notes.txt',
+          meta: 'Text file · shared folder · author unknown',
+          body: [
+            'Things people think NARC actually notices:',
+            '• Keyboard/mouse activity counts. Reading paper apparently does not.',
+            '• Calendar labels seem to change how idle time is interpreted.',
+            '• Manager-submitted records seem to move confidence more than our explanations.',
+            '• Not sure whether it checks when a calendar record was created.',
+            '• Exact repeating activity feels like the kind of thing an update could learn to spot.',
+            'Nobody has confirmed any of this. Add your own bad ideas below.',
+          ],
+        },
+      );
+      mark(s, 8, 'files', { when: 'e2', hint: 'A team report and a shared NARC notes file just landed.' });
       say(s, 16, 'luis', s.helper.installed
         ? 'You still have that sketchy keepalive thing Marcus sent around, right? I would happily be “active” for a while.'
         : 'Did you ever install that keepalive file Marcus sent? Asking for an extremely inactive friend.', { when: 'e2', prompt: 'luis-e2' });
@@ -613,6 +646,7 @@ const INCIDENTS = {
     branches: {
       confirm(s) {
         const p = s.people.luis;
+        creditReport(s);
         p.monitored = 2;
         p.trust -= 2;
         say(s, 3, 'dana', 'Thanks. I’ll pass that along to NARC.');
@@ -687,6 +721,7 @@ const INCIDENTS = {
     branches: {
       truth(s) {
         const p = s.people.marcus;
+        creditReport(s);
         p.cred = 12;
         p.status = 'warning';
         p.trust -= 2;
@@ -909,6 +944,7 @@ const INCIDENTS = {
       },
       blame(s) {
         const p = s.people.luis;
+        creditReport(s);
         p.status = 'fired';
         p.trust -= 5;
         say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
@@ -1047,11 +1083,21 @@ const INCIDENTS = {
       },
       vouch_trace(s) {
         const p = s.people.marcus;
-        p.status = 'warning';
-        p.cred = 67;
-        say(s, 3, 'dana', 'Thank you. I’ll get this to NARC before it acts.');
-        react(s, 5, { incident: 'e6', where: 'files:f-slip', conf: 67, metrics: { 'Company response': 'Termination withdrawn. Final warning' }, tone: 'good', text: 'Trace attached. Attendance credibility 12% → 67%. Termination withdrawn. Final written warning issued.' });
-        say(s, 16, 'marcus', 'It was a goose. I don’t want to talk about the goose.');
+        const trusted = s.you.trusted && s.flags === 0;
+        p.status = trusted ? 'employed' : 'warning';
+        p.cred = trusted ? 82 : 67;
+        say(s, 3, 'dana', trusted
+          ? 'Your peer input is marked high-reliability now. I’ll send the trace under that review status.'
+          : 'Thank you. I’ll get this to NARC before it acts.');
+        react(s, 5, {
+          incident: 'e6', where: 'files:f-slip', conf: p.cred, metrics: { 'Company response': trusted ? 'Termination withdrawn. Absence approved' : 'Termination withdrawn. Final warning' }, tone: 'good',
+          text: trusted
+            ? 'Trace attached by Trusted Reviewer. Peer evidence weight increased. Attendance credibility 12% → 82%. Termination withdrawn. Absence approved.'
+            : 'Trace attached. Attendance credibility 12% → 67%. Termination withdrawn. Final written warning issued.',
+        });
+        say(s, 16, 'marcus', trusted
+          ? 'You reported me twice and somehow that is what made them believe you this time. I hate this system.'
+          : 'It was a goose. I don’t want to talk about the goose.');
         notice(s, 28, 'Outlier noted', 'Marcus Reed: first corroborated excuse on record. Classified as an outlier.');
         catchUp(s, 5, 'marcus');
       },
@@ -1124,17 +1170,53 @@ function open(s, ref) {
 // actually prompted them, so choices never appear before the conversation does.
 const CALENDAR_TIP = { who: 'marcus', day: 'Wed', start: '09:00', end: '10:45', title: 'Approved absence \u2014 transit delay', where: 'Added by Employee 4417' };
 const CLOSING_LINE = {
-  'dana-e2': 'Handled it another way, apparently. I’ll stand down.',
-  'dana-e3': 'Looks like that sorted itself out before I could weigh in.',
-  'dana-e5g': 'Never mind — the review already moved on without me.',
-  'dana-e5n': 'That seems to have resolved on its own.',
-  'dana-e6g': 'Someone got there first. I’ll drop it.',
-  'dana-e6b': 'That resolved itself. I’ll close this out.',
-  'luis-e2': 'Oh. Never mind, then.',
-  'marcus-e3': 'Guess we don’t need the calendar trick after all.',
-  'marcus-e6g': 'Cool, sounds handled.',
-  'priya-e4': 'Oh — okay, guess that’s settled already.',
+  'dana-e2': {
+    script: 'Luis already changed his activity pattern, so NARC closed the peer-verification step. I’ll stand down.',
+    focus: 'His calendar was updated before I answered. NARC closed the peer-verification step.',
+    evidence: 'The support-queue report answered it. NARC closed the peer-verification step.',
+    ignore: 'NARC closed it without peer input. I’ll stand down.',
+  },
+  'dana-e3': {
+    paper: 'A same-day calendar record went in before I answered. NARC closed the verification step.',
+    transit: 'The transit alert went in as evidence before I answered. NARC closed the verification step.',
+    badtip: 'Marcus added a record after the flag. NARC closed the verification step with a warning.',
+    stay: 'NARC closed the case without peer input. I’ll stand down.',
+  },
+  'dana-e5g': {
+    human: 'You changed the timing in Utilities, so the review moved on without me.',
+  },
+  'dana-e5n': {
+    output: 'The support-queue report went in before I answered. NARC closed the review.',
+  },
+  'dana-e6g': {
+    approve: 'Marcus’s approval went through before I answered. I’ll drop it.',
+  },
+  'dana-e6b': {
+    backdate: 'A calendar record was added after the flag. NARC closed the case from there.',
+  },
+  'marcus-e3': {
+    truth: 'Dana already sent NARC the location discrepancy, so my advice window is gone.',
+    paper: 'You already added the calendar record. Guess we don’t need the calendar trick after all.',
+    transit: 'The transit alert is already in the case now. That was the useful part anyway.',
+    stay: 'NARC closed it without anything else from us. Cool.',
+  },
+  'marcus-e6g': {
+    workshop: 'Dana already cleared the workshop route. Cool, sounds handled.',
+    expose: 'Dana already sent the document issue to NARC. Cool, sounds handled.',
+  },
+  'priya-e4': {
+    champion: 'The Culture Champion nomination cleared the flag before I had to change anything.',
+    sync: 'The calendar sync is on the books now. Okay, that settled it.',
+    context: 'Dana sent the escalation ticket into the case. That is a much better explanation than “talks too much.”',
+    leave: 'NARC started coaching before I changed anything. Cool system.',
+  },
 };
+
+function closingLine(prompt, branch) {
+  const lines = CLOSING_LINE[prompt];
+  if (!lines) return 'Never mind — that got settled another way.';
+  return lines[branch] ?? 'That case closed before I could answer.';
+}
 
 const REPLIES = {
   'dana:orient': { text: 'It’s blocked out, and Messages is working.', orient: true },
@@ -1158,7 +1240,6 @@ const REPLIES = {
   'dana:reportluis': { text: 'He is away from his desk a lot. The flag is probably accurate.', when: 'e2', prompt: 'dana-e2', branch: 'confirm' },
   'dana:noreportluis': { text: 'I don’t think I know enough to call that flag accurate.', when: 'e2', prompt: 'dana-e2', branch: 'ignore' },
   'dana:reportmarcus': { text: 'The location record does not match what he told us.', when: 'e3', prompt: 'dana-e3', branch: 'truth' },
-  'dana:covermarcus': { text: 'I\u2019ll add something to his calendar backing up the bus story.', when: 'e3', prompt: 'dana-e3', branch: 'paper', event: CALENDAR_TIP },
   'dana:nomarcus': { text: 'I don’t know enough to confirm the location trace.', when: 'e3', prompt: 'dana-e3', branch: 'stay' },
   'dana:ownscript': { text: 'I installed it for him.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'admit' },
   'dana:blameluis': { text: 'Luis set it up himself.', when: 'e5', variant: 'g', prompt: 'dana-e5g', branch: 'blame' },
@@ -1676,25 +1757,52 @@ export function achievements(s) {
   };
 }
 
+function playerIntegritySignals(s) {
+  const out = [];
+  if (s.alerts.some((a) => a.incident === 'e1' && /Synthetic activity/i.test(a.live?.model?.label || ''))) {
+    out.push('fixed-interval keepalive detected on your workstation');
+  }
+  if (s.picked.e5 === 'admit') out.push('keepalive software attributed to you on Luis’s workstation');
+  if (s.picked.e6 === 'expose') out.push('three of Marcus’s submitted documents last edited by Employee 4417');
+  if (s.picked.e6 === 'backdate') out.push('calendar record created after Marcus’s attendance flag');
+  return out;
+}
+
+function playerForecastSignals(s) {
+  const out = [];
+  if (s.you.gamed) out.push('synthetic activity used on your own workstation');
+  if (s.you.covered) out.push('idle time reclassified through Calendar');
+  if (s.helper.luis) out.push('keepalive passed to a coworker');
+  if (s.picked.e3 === 'paper' || s.picked.e3 === 'cover') out.push('same-day record added after an attendance concern');
+  if (s.picked.e4 === 'champion') out.push('monitoring exemption used through Culture Champion status');
+  if (s.picked.e6 === 'backdate') out.push('retroactive calendar record');
+  return out;
+}
+
 function playerResult(s) {
   const informed = s.picked.e2 === 'confirm' || s.picked.e3 === 'truth'
     || s.picked.e5 === 'blame' || s.picked.e6 === 'expose';
+  const integrity = playerIntegritySignals(s);
   if (s.flags >= 2) {
-    return { label: 'TERMINATED', text: `Integrity flags: ${s.flags}. NARC recommends separation for repeated manipulation of monitored workplace signals.` };
+    const why = integrity.length ? ` Signals on file: ${integrity.join('; ')}.` : '';
+    return { label: 'TERMINATED', text: `Integrity flags: ${s.flags}.${why} NARC recommends separation for repeated manipulation of monitored workplace signals.` };
   }
   if (s.flags === 1) {
-    return { label: 'UNDER REVIEW', text: 'One integrity flag. NARC has opened an Employee Integrity Review.' };
+    const why = integrity.length ? ` Signal on file: ${integrity[0]}.` : '';
+    return { label: 'UNDER REVIEW', text: `One integrity flag.${why} NARC has opened an Employee Integrity Review.` };
   }
   if (s.you.predicted) {
+    const forecast = playerForecastSignals(s);
+    const why = forecast.length ? ` Signals used in the forecast: ${forecast.slice(0, 3).join('; ')}.` : '';
     return {
       label: 'UNDER REVIEW',
-      text: 'No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.',
+      text: `No integrity flag. NARC predicted a policy-workaround likelihood of 78% or higher and opened a Predictive Integrity Review on the forecast alone.${why}`,
     };
   }
   if (s.score >= 65) {
     return {
       label: 'MODEL EMPLOYEE',
-      text: `Visible Activity Index: ${s.score}. NARC describes you as “aligned.”${informed ? ' Your reports about colleagues have been classified as collaboration.' : ''}`,
+      text: `Visible Activity Index: ${s.score}. NARC describes you as “aligned.”${informed ? ' Your reports about colleagues have been classified as collaboration.' : ''}${s.you.trusted && s.flags === 0 ? ' Trusted Reviewer access active. Quarterly performance bonus: 4%.' : ''}`,
     };
   }
   return {

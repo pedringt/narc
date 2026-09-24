@@ -656,3 +656,40 @@ not just fixes:
   immediately**: half the open AI-legibility issues (#24-26) were already satisfied by
   what had shipped in earlier passes, and closing them first made it obvious which two
   small, genuinely-missing pieces (#27, #28) were actually worth ten minutes each.
+
+
+## External playthrough: which AI ideas landed early (2026-09-23)
+
+A fresh-ish external playthrough stopped on Tuesday, before Priya, NARC 2.0, Friday, or the final report, but still independently identified several of the intended AI/product ideas:
+
+- visible keyboard/mouse activity was being used as a proxy for productive work
+- Luis's ticket output contradicted the time-on-task inference drawn from activity/location signals
+- employees changed behavior to satisfy what was measured
+- keepalive and Calendar tactics were understood as attempts to game the monitoring system
+- NARC's confidence could rise because of its evidence rules even when reality had not become better known
+- managers were being pulled into acting on automated assessments
+- surveillance changed workplace relationships and behavior
+
+This is useful evidence that the early game already communicates AI-system behavior without a tutorial.
+
+### Terminology guardrail
+
+Do not overstate what the game demonstrates.
+
+- Luis's route is **not evidence of training-data bias**; the game does not expose NARC's training data. Better language: proxy metric failure, incomplete observability, metric misalignment, or accurate signal / questionable inference.
+- A correctly observed signal (for example low input or restroom-adjacent time) is not automatically a **false positive**. The failure may be the inference built on top of the signal.
+- Confidence is **system belief, not probability of truth**. The 71 -> 74 style confidence increase is more accurately framed as confidence creep from the evidence rules, such as treating lack of contradiction as support.
+
+Portfolio/case-study copy should preserve the distinction between **data/signals, inferences, confidence, company policy, and outcomes** rather than using generic AI-bias language.
+
+
+## Product decision: compliance can create real authority (2026-09-23)
+
+A later first-run pass strengthened Employee 4417's personal stakes without adding a morality score. The game already contained two useful tensions:
+
+- reporting a coworker can improve the player's visible standing while worsening the coworker's outcome
+- admitting involvement in a workaround can protect a coworker while creating an integrity flag for Employee 4417
+
+The missing piece was a concrete upside for sustained company-friendly behavior. prototype-v1 now allows repeated peer reporting to earn **Trusted Reviewer** status. The status is surfaced through People Operations before the ending and can increase the weight of a later piece of real evidence submitted for Marcus. This makes earlier standing affect a later decision rather than existing only as an ending adjective.
+
+The satire is intentional: cooperating with a questionable system can grant enough institutional credibility to help someone later. There is no universal good/bad score, and the same behavior can be personally advantageous while harming coworkers.
