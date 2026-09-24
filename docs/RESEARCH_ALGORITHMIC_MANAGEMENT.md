@@ -344,3 +344,47 @@ For public case-study language, use the pattern:
 > grounded signal/capability -> plausible inference -> fictional institutional escalation
 
 Do not cite a collaboration analytics product as proof that a company currently fires individual workers from that metric. The existence of a measurable signal and the authority granted to it are separate claims.
+
+
+## Vendor-level verification refresh (2026-09-24)
+
+A fresh documentation check adds current product-level examples for the grounded signal layer of NARC.
+
+### Activity and application/website signals
+
+ActivTrak's current documentation describes:
+- website and application usage by duration
+- productive / unproductive / undefined classifications
+- active vs passive time
+- active time based on keyboard or mouse input
+- passive time when input stops, while explicitly noting that passive time can still include legitimate work such as meetings, videos, phone calls, or reading documentation
+- configurable thresholds for when passive time begins/stops
+
+Sources:
+- ActivTrak, *Website Usage*: https://support.activtrak.com/hc/en-us/articles/360030904192-Website-Usage
+- ActivTrak, *Active Time and Passive Time*: https://support.activtrak.com/hc/en-us/articles/360026990372-Active-Time-and-Passive-Time
+- ActivTrak, *Application Usage*: https://support.activtrak.com/hc/en-us/articles/35320836319643-Application-Usage
+- ActivTrak, *Insights Data Glossary*: https://support.activtrak.com/hc/en-us/articles/360058644472-Insights-Data-Glossary
+
+This is especially useful grounding for NARC's Monday joke: low keyboard/mouse input can be a real observable signal while still being incomplete evidence about whether useful work occurred.
+
+### Collaboration and calendar signals
+
+Microsoft Viva Insights documentation describes use of email, calendar, Teams chats/calls, focus time, and related collaboration activity to produce workplace insights. Microsoft also documents calendar-based focus-time behavior.
+
+Sources:
+- Microsoft, *Advanced analysis metric rules*: https://learn.microsoft.com/en-us/viva/insights/advanced/analyst/metric-rules
+- Microsoft, *Use Microsoft Viva Insights in Outlook*: https://learn.microsoft.com/en-us/viva/insights/personal/use/use-insights
+
+This supports using scheduling and collaboration traces as recognizable raw material for NARC. It does **not** establish that ordinary employers routinely use these signals to make NARC-style individual punitive decisions.
+
+### Claim boundary remains unchanged
+
+The existence of a measurable workplace signal is not evidence that NARC's fictional inference or institutional response is standard practice.
+
+Public case-study language should continue to separate:
+1. **documented signal/capability**
+2. **plausible inference**
+3. **fictional satirical escalation**
+
+For example, keyboard/mouse activity and app usage are documented capabilities. “Engagement concern: 91%” and automatic termination from those traces are NARC fiction.
