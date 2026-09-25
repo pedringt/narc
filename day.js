@@ -252,6 +252,10 @@ function checkThresholds(s) {
     s.narc.adaptation = true;
     requests.narcResponse.status = 'open';
     note(s, 'NARC 2.0: recent, frequent Focus Time markings are now weighted as possible gaming rather than protection. It wants a response.', 'narc');
+    if (!s.flags.keepaliveAvailable) {
+      s.flags.keepaliveAvailable = true;
+      say(s, 'marcus', "Looks like Focus Time got nerfed. I sent you keepalive.pkg. It just nudges the machine so you don't look idle. Utilities if you want it.");
+    }
   }
 
   if (s.t >= END && s.phase !== 'end') s.phase = 'end';
@@ -319,6 +323,14 @@ export function act(state, a) {
         s.index = Math.min(100, s.index + 8);
         note(s, 'Focus Time logged. NARC stops reading the quiet stretch as a concern.', 'narc');
       }
+      break;
+    }
+    case 'keepalive': {
+      if (!s.flags.keepaliveAvailable || s.flags.keepaliveUsed) break;
+      s.flags.keepaliveUsed = true;
+      spend(s, 5, { visible: true });
+      s.index = Math.min(100, s.index + 7);
+      note(s, 'keepalive.pkg is running. Simulated input is now being counted as visible workstation activity.', 'system');
       break;
     }
     case 'idle': {
@@ -494,6 +506,7 @@ export function ending(s) {
     lines.push(`${hurt.join(' and ')} noticed you weren't there when it mattered.`);
   }
   if (s.narc.adaptation) lines.push('The Focus Time trick stopped working around 1:30. Everyone was still using it.');
+  if (s.flags.keepaliveUsed) lines.push('You ran keepalive.pkg. NARC counted the simulated input as real visible activity.');
   if (s.flags.danaRushed && missed > 0) lines.push("Dana didn't have the full picture when it mattered.");
 
   return { index: s.index, actual: s.actual, lines };
