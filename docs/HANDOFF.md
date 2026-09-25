@@ -1,41 +1,31 @@
 # NARC Handoff
 
-## Current status (2026-09-23)
+## Current status (2026-09-24)
 
-**Playable end to end and live in production at https://narc-opal.vercel.app** (`main` at `40b1ee2`, [PR #47](https://github.com/pedringt/narc/pull/47)). `prototype-v1` is the working branch and is level with `main`.
+**Playable end to end, live at https://narc-opal.vercel.app, `main` only** (single branch — every other branch was reconciled into `main` or deleted as fully absorbed; see "Branch history" below). `node test.mjs` and `node test-day.mjs` are both green.
 
-The premise, the desktop rework, the clarity pass, and a live-playtest bug-fix round (dead air, unclickable attachment, keepalive default, hint legibility — issues #36–39) are all **done** — do not redo them.
+Two independent things now live on `main`:
 
-The most recent pass shipped **#40 and #41** (dialogue-audit findings + giving Calendar/Files/Utilities distinct, actionable roles):
+1. **The original week** (`index.html`/`game.js`/`app.js`) — desktop-reworked since the last version of this doc: multiwindow desktop with a compact bottom dock, a Browser app, The Loop as the home surface, a peer-reporting/social-consequence system (reporting on coworkers has real weight — "Trusted Reviewer" status, a paranoia counter, collective-resistance and paranoid-collapse endings, a resignation beat), Culture Champion open to any coworker, an eyes mark for NARC's identity, and a richer visual pass throughout. A full GitHub issue audit (2026-09-24) closed 11 issues (#51–#56, #58, #59, #61–#65) confirmed already implemented — see their closing comments for exactly what to check if you want to verify any of them yourself.
+2. **A separate single-workday core-loop prototype** at `/day.html` (`day.js`/`day-app.js`/`day.css`, plus `test-day.mjs`) — issues #66–#69, testing whether NARC sustains a repeatable loop over one longer day instead of a compressed week. Does not touch the week's files at all.
 
-- Marcus's Wednesday now tells one coherent story (self-reported, same-day cover, not two competing explanations), and every branch shows an "Evidence source" metric so the player can see how NARC weighs self-reported vs. third-party vs. official-device evidence
-- Luis's Focus Time and Priya's in-person-sync are real Calendar actions the player performs, not dialogue chips that silently resolve the case
-- Luis's Tuesday output evidence and Priya's escalation ticket are both actionable during their incidents (sendable to Dana), not just read
-- Utilities has a second real function: a live "Signal Trust" diagnostics card reading off actual state (your activity signal, Luis's, your integrity record, badge/location trace) instead of static flavor
+**What's genuinely next, in order:**
 
-**#40's broader, systematic dialogue audit** (every sequence across the full week, not just the three pre-diagnosed findings) was explicitly **not** attempted — see the comment on #40 for the scope call. It's still open if wanted.
+- **#29** — a fresh-player release gate on the week. Per #51's own suggested order, this is the natural next step now that the UX pass is done; it needs an actual outside playtest, not more code.
+- **#70** — a fresh-player playtest of the `/day.html` core-loop prototype, specifically for whether "what should I do next?" stays interesting. Also needs a real playtester, not more code.
+- **#42** — Employee 4417's personal-stakes arc. Partially done already via Trusted Reviewer (a real reward path, and it changes a later decision — Marcus's e6 credibility). Still open: a visible risk-progression arc before the final review, and 2+ real help-vs-protect-yourself tensions.
+- **#57** — audit Messages so every line does a job, not just #40's earlier pass.
+- **#60** — cross-app evidence chains exist, but the "reconcile contradictory information" bar isn't met yet.
+- **#45** (promotion/replay/settings satire layer) stays explicitly parked — do not build without Paige asking.
+- **#48** (invasive personalization) stays explicitly deferred per its own scope.
 
-**#45 (promotion/replay/settings-tradeoff system) was explicitly parked** — do not build it without Paige asking first.
+Do not start more feature work on the week ahead of #29, or more on the day-prototype ahead of #70 — both are real playtest gates, not soft suggestions.
 
-Where the build stands:
+## Branch history (2026-09-24 reconciliation)
 
-- a brisk run is about **5.3 minutes**, reading every hint about **7.1**; exploring adds to that
-- after a case opens, the game points at something to do within **10 seconds** (asserted by tests)
-- every branch, including "let NARC handle it", ends in a visible assessment change
-- `node test.mjs` is green and covers all **4,680** routes (up from 2,400 as #38/#41 added new branches — see the route-count comment in `test.mjs` for the exact factors)
+`main`, `prototype-v1`, and 6 other feature branches had diverged in parallel without cross-merging for about a day. Investigation found: `prototype-v1`'s remaining unique work (#42 Trusted Reviewer, #30, #33, #34, #17) had already been copied onto `main` verbatim by an earlier `promote-narc-latest` merge and then built on further — so nothing was actually lost. `qa-feedback-sept24c` (reversible Focus Time, keepalive gating, browser polish, pacing) had real unmerged work and was merged cleanly. The day-prototype's 5 files were cherry-picked directly onto `main` rather than merging their whole branch, since that branch's `prototype-v1` base no longer matched `main`. All 9 stale branches were then deleted. `node test.mjs` was also fixed — it had been red since the desktop rework landed and nobody had run the full suite against the merged result (mostly stale assertions; two real, narrow pacing bugs were also caught and fixed).
 
-**Explicit instruction governing what comes next:** after #40 and #41, stop and do not start **#42** (player personal stakes/rewards) or **#43** (workplace texture) until Paige has played through this build and says to proceed. This is the single most important thing for the next session to respect.
-
-**What is genuinely open** is in GitHub, not here:
-
-- **#42, #43** — parked pending Paige's playtest of this build (see above)
-- **#44** — simplify desktop visual hierarchy under notification load
-- **#45** — promotion/replay/settings-tradeoff satire layer, explicitly parked, do not build unprompted
-- **#27, #28, #29, #30, #31, #33, #34, #35** — earlier AI-mechanics/clarity/QA issues, still open
-- **#13** stays open until Paige plays the new pacing. Two things to ask her about: whether the gap *between* incidents now feels like dead air (the pacing fix moved waiting there, `GAP` 14 → 24 s), and whether the notification rail should be reserved in the desktop layout (between 761 and 900px it still covers part of the case).
-- **#6** playtest plan, **#7** handoff upkeep, **#1–#5** older framing and spec work.
-
-Before starting anything, read `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`: it is the code-accurate description of the engine, the week, and the known limits.
+Before starting anything, read `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`: it is the code-accurate description of the engine, the week, and the known limits. It may itself be stale after the desktop rework — verify against actual `game.js`/`app.js` before trusting it over the code.
 
 ## Current premise
 
