@@ -312,7 +312,7 @@ function renderChrome() {
   els.trayText.querySelector('.full').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC ACTIVE';
   els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
 
-  const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && id !== 'narcResponse').length;
+  const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && REQUEST_THREAD[id]).length;
   const pendingTasks = Object.values(state.tasks).filter((t) => t.status === 'pending').length;
   const visibleApps = ui.oriented ? APPS : APPS.filter(([id]) => id === 'email' || id === 'intranet');
   els.dock.replaceChildren(...visibleApps.map(([id, label]) => {
@@ -368,7 +368,6 @@ function renderEmail() {
     ui.selectedThread = 'dana';
     render();
     showToast('Messages', 'Dana Whitfield sent you a message.', 'messages');
-    setTimeout(() => showToast('NARC', 'Monitoring active. Baseline Visible Activity Index: 61.', 'narc'), 1200);
   }));
   return windowShell('email', 'Email', h('div', 'body', list, detail));
 }
@@ -408,7 +407,7 @@ function threadMessages(thread) {
 function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
-    const active = requestForThread(id).length;
+    const active = requestForThread(id).length + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
     const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', active ? 'Needs your response' : t.role)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
     row.addEventListener('click', () => { ui.selectedThread = id; render(); }); list.append(row);
