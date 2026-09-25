@@ -121,7 +121,7 @@ let tutorialTimer = null;
 
 function freshUi() {
   return {
-    oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
+    oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialAdvancing: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
     selectedFile: null, selectedThread: null, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
   };
 }
@@ -170,25 +170,34 @@ els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }
 
 function restart() { state = newGame(); ui = freshUi(); render(); }
 
-function advanceTutorial() {
+function completeTutorialTarget(id) {
   const step = TUTORIAL_STEPS[ui.tutorialStep];
-  if (!step || ui.tutorialDone) return;
+  if (!step || ui.tutorialDone || ui.tutorialAdvancing || step.target !== id) return;
+
   ui.tutorialUnread = false;
+
   if (step.final) {
     ui.tutorialDone = true;
-    goApp(step.target);
     return;
   }
-  goApp(step.target);
+
+  ui.tutorialAdvancing = true;
   clearTimeout(tutorialTimer);
   tutorialTimer = setTimeout(() => {
     if (ui.tutorialDone) return;
     ui.tutorialStep += 1;
+    ui.tutorialAdvancing = false;
     ui.tutorialUnread = true;
     render();
     const nextStep = TUTORIAL_STEPS[ui.tutorialStep];
     showToast('Dana Whitfield', nextStep.text, 'messages', { thread: 'dana' });
   }, 900);
+}
+
+function advanceTutorial() {
+  const step = TUTORIAL_STEPS[ui.tutorialStep];
+  if (!step || ui.tutorialDone) return;
+  goApp(step.target);
 }
 
 function ensureWindow(id) {
@@ -207,6 +216,7 @@ function goApp(id) {
     if (!ui.selectedThread) ui.selectedThread = 'dana';
   }
   ensureWindow(id);
+  completeTutorialTarget(id);
   render();
 }
 
