@@ -210,9 +210,10 @@ function renderChrome() {
   els.trayText.querySelector('.full').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC ACTIVE';
   els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
 
-  const openReq = Object.values(state.requests).filter((r) => r.status === 'open').length;
+  const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && id !== 'narcResponse').length;
   const pendingTasks = Object.values(state.tasks).filter((t) => t.status === 'pending').length;
-  els.dock.replaceChildren(...APPS.map(([id, label]) => {
+  const visibleApps = ui.oriented ? APPS : APPS.filter(([id]) => id === 'email' || id === 'intranet');
+  els.dock.replaceChildren(...visibleApps.map(([id, label]) => {
     const b = h('button', `dock-app dock-app-${id}${id === 'narc' ? ' narc' : ''}`, h('span', 'dock-icon'), label);
     b.firstChild.innerHTML = ICON[id];
     b.type = 'button';
@@ -265,9 +266,9 @@ function renderLoop() {
   const taskBox = h('div', 'loop-card', h('div', 'loop-card-h', 'Today · your work'));
   Object.entries(state.tasks).filter(([, t]) => t.status !== 'hidden').forEach(([id, t]) => {
     const row = h('div', 'loop-task', h('div', null, h('b', null, t.label), h('p', 'loop-muted', `Due ${clock(t.deadline)} · ${t.status}`)));
-    if (t.status === 'pending') row.append(btn(id === 'project' ? 'Open Messages' : 'Open file', 'loop-link', () => {
-      if (id === 'project') { ui.selectedThread = 'marcus'; goApp('messages'); }
-      else { ui.selectedFile = id; goApp('files'); }
+    if (t.status === 'pending') row.append(btn('Open file', 'loop-link', () => {
+      ui.selectedFile = id;
+      goApp('files');
     }));
     taskBox.append(row);
   });
@@ -316,13 +317,6 @@ function renderMessages() {
       REQUEST_OPTIONS[reqId].forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
-    if (id === 'marcus' && state.tasks.project.status === 'pending') {
-      const p = state.tasks.project;
-      compose.append(h('div', 'message-work', h('b', null, p.label), h('p', 'note', p.detail)));
-      const chips = h('div', 'chips');
-      TASK_OPTIONS.project.forEach(([approach, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'task', id: 'project', approach }))));
-      compose.append(chips);
-    }
     if (!compose.childNodes.length) compose.append(h('div', 'compose-state', 'No reply needed right now.'));
     wrap.append(compose); detail.append(wrap);
   }
