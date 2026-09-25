@@ -224,6 +224,10 @@ function advanceTutorial() {
   // goApp()/completeTutorialTarget(), so dock, focus, and shortcut paths share
   // one code path and cannot double-advance.
   goApp(step.target);
+  // Re-assert focus after the tutorial button's click finishes. This makes the
+  // destination visibly frontmost even when the click originated inside an
+  // overlapping Messages window.
+  requestAnimationFrame(() => focusWindow(step.target));
 }
 
 function ensureWindow(id) {
