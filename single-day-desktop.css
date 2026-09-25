@@ -11,8 +11,37 @@
   border-top: 1px solid var(--app-line);
 }
 .loop-task:first-of-type { border-top: 0; }
-.loop-task > div { min-width: 0; flex: 1; }
-.loop-task .loop-link { flex: none; }
+.loop-task > div { min-width: 220px; flex: 1 1 auto; }
+.loop-task .loop-link { width: auto; flex: none; align-self: flex-start; white-space: nowrap; }
+
+.tutorial-guide {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px;
+  padding: 12px 14px;
+  border: 1px solid #b9cbc5;
+  border-left: 4px solid #3f675d;
+  border-radius: 8px;
+  background: #eef5f2;
+  color: var(--app-text);
+}
+.tutorial-avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #d8e7e1;
+  color: #244b43;
+  font-weight: 800;
+  font-size: 12px;
+}
+.tutorial-copy { flex: 1; min-width: 0; }
+.tutorial-copy p { margin: 2px 0 0; color: var(--app-muted); line-height: 1.4; }
+.tutorial-guide .btn { flex: none; }
 
 .file-actions {
   display: flex;
@@ -101,6 +130,14 @@
 .modal-card.end-day h2 { margin: 6px 0 14px; }
 .modal-card.end-day .btn { margin-top: 8px; }
 
+@media (max-width: 900px) {
+  .loop-task { flex-direction: column; }
+  .loop-task > div { min-width: 0; }
+  .loop-task .loop-link { width: auto; }
+  .tutorial-guide { align-items: flex-start; flex-wrap: wrap; }
+  .tutorial-guide .btn { margin-left: 46px; }
+}
+
 @media (max-width: 760px) {
   .quiet-card {
     bottom: 10px;
@@ -108,4 +145,6 @@
     align-items: stretch;
   }
   .quiet-card .btn { width: 100%; }
+  .tutorial-guide { margin: 8px; }
+  .tutorial-guide .btn { width: calc(100% - 46px); }
 }
