@@ -411,7 +411,10 @@ function deliver(s, d) {
       // Scheduled from this moment, not after the week's remaining chatter:
       // the cost has to land before the report does.
       if (s.you.predicted) {
-        push(s, { at: s.t + 8, k: 'score', delta: -10, title: 'Pending review', text: 'Visible Activity Index frozen: {from} → {to}.', quiet: true });
+        // Was +8: with the Sept 24 pacing pass shortening the remaining week,
+        // a fixed 8-second delay could land after the ending already fired,
+        // silently dropping the penalty. +3 keeps it safely ahead.
+        push(s, { at: s.t + 3, k: 'score', delta: -10, title: 'Pending review', text: 'Visible Activity Index frozen: {from} → {to}.', quiet: true });
       }
       break;
     }
@@ -646,7 +649,10 @@ function scan(s) {
   else notice(s, 3, 'Behavioral forecast', forecast, { quiet: true });
 
   // While NARC works, people react: something to read instead of waiting.
-  say(s, 6, 'priya', 'Did you read the NARC 2.0 email? It says it learns what is “normal” for each person. If changing our behavior is part of what it notices now, every workaround we tried this week might become evidence.');
+  // Delay is 12, not 6: it goes through messageDelay's post-onboarding 0.6x
+  // compression (-> 8 raw seconds), while the forecast push two lines above
+  // does not, so anything shorter risked landing within the same second.
+  say(s, 12, 'priya', 'Did you read the NARC 2.0 email? It says it learns what is “normal” for each person. If changing our behavior is part of what it notices now, every workaround we tried this week might become evidence.');
   if (caughtLuis) say(s, 12, 'luis', 'NARC 2.0 says my keyboard has a pattern. I am told the pattern is 59 seconds.');
   if (marcusOk) say(s, 18, 'marcus', 'NARC verified all three of my documents. I have never felt so seen.');
 }
