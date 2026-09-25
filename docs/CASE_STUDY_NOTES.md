@@ -3,7 +3,49 @@
 **Status:** Working source notes for a future portfolio case study. Not polished public copy.  
 **Project:** NARC — Networked Assessment & Risk Coordination  
 **Repo:** pedringt/narc  
-**Current product goal:** a short, funny 5–15 minute portfolio game that teaches AI/product ideas through play.
+**Current product goal:** a short, funny ~15-minute single-workday portfolio game that teaches AI/product ideas through play.
+
+## Current single-day update (2026-09-25)
+
+The original one-week prototype is now archived at `week.html`. The canonical product is one compressed 9:00–5:00 workday.
+
+Current target:
+- 1–2 minutes onboarding
+- 8–10 minutes of work decisions, interruptions, NARC reactions, and tradeoffs
+- 2–3 minutes escalation / payoff / ending
+- about 15 minutes total for a normal first run
+
+Current design emphasis:
+- the old fake-company desktop presentation
+- a denser single-day decision loop
+- actual work vs NARC-visible productivity vs coworker pressure
+- lightweight player standing (Standard / Trusted Operator / Review Open)
+- Focus Time as an early exploit
+- `keepalive.pkg` as a later workaround after NARC adapts
+- recoverable notification history
+- Messages that always teach, prompt, unlock, warn, or pay off something
+
+Current company name remains **Meridian Supply Co.** Paige is considering **GoodThink** as a future rename, but it is not final.
+
+### Current grounding boundary
+
+The single-day build intentionally separates documented monitoring capabilities from NARC's fictional institutional behavior.
+
+Current product documentation supports the realism of narrow traces such as:
+- application usage and active/passive activity reporting (ActivTrak)
+- screenshots under configured monitoring rules (ActivTrak)
+- website activity, idle-related alerts, and session monitoring (Teramind)
+
+NARC's **Visible Activity Index**, **Trusted Operator**, **Review Open**, and exact anti-gaming rules are authored satire, not claims about standard real-world employer products.
+
+Microsoft Viva Insights is also useful as a boundary case: Microsoft's current personal-insights documentation explicitly says that personal insights are not designed for employee evaluation, tracking, automated decision-making, profiling, or monitoring. That is a reminder not to treat the existence of work-pattern data as evidence that every product exposes or operationalizes it the same way.
+
+Current source links:
+- ActivTrak Application Usage: https://support.activtrak.com/hc/en-us/articles/35320836319643-Application-Usage
+- ActivTrak Screenshots Guide: https://support.activtrak.com/hc/en-us/articles/360032477212-ActivTrak-Screenshots-Guide
+- Teramind Website Monitoring: https://kb.teramind.co/en/articles/9223895-website-monitoring
+- Microsoft Viva Insights privacy guide: https://support.microsoft.com/en-us/viva/insights/privacy-guide-for-personal-insights
+- Microsoft Learn, Introduction to Viva Insights: https://learn.microsoft.com/en-us/viva/insights/use/team-experience
 
 ## One-sentence concept
 
