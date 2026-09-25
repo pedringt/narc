@@ -107,6 +107,23 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.ok(s.index <= before, 'the same move barely helps once NARC has adapted');
 }
 
+// --------------------------------------- keepalive arrives after NARC adapts
+{
+  let s = act(newGame(), { do: 'focus' });
+  s = act(s, { do: 'idle', minutes: 270 });
+  assert.equal(s.narc.adaptation, true);
+  assert.equal(s.flags.keepaliveAvailable, true, 'NARC adaptation unlocks the mouse-jiggler workaround');
+  assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/i.test(m.text)), 'Marcus sends the keepalive package after Focus Time gets nerfed');
+
+  const before = s.index;
+  s = act(s, { do: 'keepalive' });
+  assert.equal(s.flags.keepaliveUsed, true);
+  assert.ok(s.index > before, 'running keepalive improves the visible activity score');
+  const afterFirstRun = s.index;
+  s = act(s, { do: 'keepalive' });
+  assert.equal(s.index, afterFirstRun, 'keepalive is a one-time lightweight workaround, not a repeatable score button');
+}
+
 // --------------------------------------------------------------- the day ends
 {
   let s = newGame();
