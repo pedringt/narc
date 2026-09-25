@@ -47,7 +47,7 @@ function requestOptions(id) {
       ? [['context', 'Add context: careful file review (5 min)'], ['accept', 'Leave the assessment']]
       : [['context', 'Add context about the completed task (5 min)'], ['accept', 'Leave the assessment']];
   }
-  if (id === 'narcCheckpoint') return [['context', 'Explain the recent work pattern (8 min)'], ['ignore', 'Leave the automated read']];
+  if (id === 'narcCheckpoint') return [['context', "Add context to NARC's assessment (8 min)"], ['ignore', "Leave NARC's assessment unchanged"]];
   if (id === 'danaCheckin' && state.flags.trustedOperator) {
     return [
       ['trustNarc', "Use NARC's Trusted Operator summary (2 min)"],
@@ -122,7 +122,7 @@ let tutorialTimer = null;
 function freshUi() {
   return {
     oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialAdvancing: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
-    selectedFile: null, selectedThread: null, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
+    selectedFile: null, selectedThread: null, mobileDetail: { email: true, messages: false, files: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
   };
 }
 
@@ -194,9 +194,35 @@ function completeTutorialTarget(id) {
   }, 900);
 }
 
+function isMobile() {
+  return window.matchMedia('(max-width: 760px)').matches;
+}
+
+function setMobileDetail(id, shown) {
+  if (!ui.mobileDetail || !(id in ui.mobileDetail)) return;
+  ui.mobileDetail[id] = shown;
+}
+
+function markNotificationsRead(app, thread = null) {
+  let changed = false;
+  ui.notifications.forEach((item) => {
+    const match = thread
+      ? item.app === app && item.thread === thread
+      : item.app === app && !item.thread;
+    if (match && !item.read) {
+      item.read = true;
+      changed = true;
+    }
+  });
+  if (changed) renderNotificationCenter();
+}
+
 function advanceTutorial() {
   const step = TUTORIAL_STEPS[ui.tutorialStep];
   if (!step || ui.tutorialDone) return;
+  // The tutorial shortcut is only navigation. Progression is still owned by
+  // goApp()/completeTutorialTarget(), so dock, focus, and shortcut paths share
+  // one code path and cannot double-advance.
   goApp(step.target);
 }
 
@@ -217,6 +243,17 @@ function goApp(id) {
   }
   ensureWindow(id);
   completeTutorialTarget(id);
+
+  // Opening content directly should reconcile the notification center with
+  // what the player has actually seen. On mobile, Messages stays a list until
+  // a thread is opened, so do not mark a thread read merely by visiting the app.
+  if (id === 'messages') {
+    if (ui.selectedThread && (!isMobile() || ui.mobileDetail.messages)) {
+      markNotificationsRead('messages', ui.selectedThread);
+    }
+  } else {
+    markNotificationsRead(id);
+  }
   render();
 }
 
@@ -265,7 +302,10 @@ function announceChanges(before, after) {
 function openNotification(item) {
   item.read = true;
   ui.notificationCenterOpen = false;
-  if (item.thread) ui.selectedThread = item.thread;
+  if (item.thread) {
+    ui.selectedThread = item.thread;
+    setMobileDetail('messages', true);
+  }
   if (item.app) goApp(item.app);
   else render();
 }
@@ -319,7 +359,11 @@ function windowShell(id, title, ...body) {
   const bar = h('div', 'titlebar');
   const icon = h('span', `title-icon title-icon-${id}`);
   icon.innerHTML = ICON[id] || '';
-  bar.append(icon, h('span', 'window-title', title), btn('×', 'win-close', () => closeWindow(id), { 'aria-label': `Hide ${title}` }));
+  const back = btn('‹ Back', 'back', () => {
+    setMobileDetail(id, false);
+    render();
+  }, { 'aria-label': `Back to ${title} list` });
+  bar.append(back, icon, h('span', 'window-title', title), btn('×', 'win-close', () => closeWindow(id), { 'aria-label': `Hide ${title}` }));
   return [bar, ...body];
 }
 
@@ -397,7 +441,8 @@ function renderWindows() {
   const narrow = window.matchMedia('(max-width: 760px)').matches;
   const ids = narrow ? (ui.app ? [ui.app] : []) : ui.openApps;
   const nodes = ids.map((id, index) => {
-    const win = h('section', `window app-${id}${id === 'narc' ? ' narc' : ''}${ui.app === id ? ' active-window' : ''}`);
+    const showDetail = isMobile() && Boolean(ui.mobileDetail?.[id]);
+    const win = h('section', `window app-${id}${id === 'narc' ? ' narc' : ''}${ui.app === id ? ' active-window' : ''}${showDetail ? ' show-detail' : ''}`);
     win.dataset.app = id;
     win.style.zIndex = String(ui.app === id ? 20 : 5 + index);
     const pos = ui.positions[id] || { x: (index - 1) * 38, y: (index - 1) * 24 };
@@ -419,9 +464,13 @@ function renderEmail() {
   EMAILS.forEach((m) => {
     const row = h('button', 'row mail-row', h('span', 'mail-row-icon', '✉'), h('div', 'mail-row-copy', h('div', 'top', h('span', 'name', m.from)), h('div', 'sub sub-b', m.subject)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedEmail === m.id));
-    row.addEventListener('click', () => { ui.selectedEmail = m.id; render(); }); list.append(row);
+    row.addEventListener('click', () => {
+      ui.selectedEmail = m.id;
+      setMobileDetail('email', true);
+      render();
+    }); list.append(row);
   });
-  const m = EMAILS.find((x) => x.id === ui.selectedEmail);
+  const m = EMAILS.find((x) => x.id === ui.selectedEmail) || EMAILS[0];
   const detail = h('div', 'detail mail', h('h2', null, m.subject), h('div', 'from', `From: ${m.from}`));
   m.body.forEach((p) => detail.append(h('p', null, p)));
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
@@ -444,6 +493,7 @@ function renderLoop() {
     const row = h('div', 'loop-task', h('div', null, h('b', null, t.label), h('p', 'loop-muted', `Due ${clock(t.deadline)} · ${t.status}`)));
     if (t.status === 'pending') row.append(btn('Open file', 'loop-link', () => {
       ui.selectedFile = id;
+      setMobileDetail('files', true);
       goApp('files');
     }));
     taskBox.append(row);
@@ -485,6 +535,8 @@ function renderMessages() {
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
     row.addEventListener('click', () => {
       ui.selectedThread = id;
+      setMobileDetail('messages', true);
+      markNotificationsRead('messages', id);
       if (id === 'dana') ui.tutorialUnread = false;
       render();
     }); list.append(row);
@@ -545,8 +597,7 @@ function renderCalendar() {
 }
 
 function visibleFiles() {
-  const ids = ['vendor', 'client'];
-  if (state.tasks.project.status === 'pending') ids.push('project');
+  const ids = ['vendor', 'client', 'project'];
   if (state.tasks.rework.status !== 'hidden') ids.push('rework');
   return ids;
 }
@@ -557,7 +608,11 @@ function renderFiles() {
     const f = FILES[id]; const t = state.tasks[id];
     const row = h('button', 'row file-row', h('span', 'file-type', f.name.split('.').pop().slice(0, 4).toUpperCase()), h('div', 'file-row-copy', h('div', 'name', f.name), h('div', 'sub', `${f.meta} · ${t.status}`)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedFile === id));
-    row.addEventListener('click', () => { ui.selectedFile = id; render(); }); list.append(row);
+    row.addEventListener('click', () => {
+      ui.selectedFile = id;
+      setMobileDetail('files', true);
+      render();
+    }); list.append(row);
   });
   const detail = h('div', 'detail file-body');
   const id = ui.selectedFile;
@@ -606,13 +661,21 @@ function renderNarc() {
   const body = h('div', 'body');
   const panel = h('div', 'narc-summary');
   const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
-  panel.append(h('div', 'narc-kicker', 'NETWORKED ASSESSMENT & RISK COORDINATION'), h('h2', null, `VISIBLE ACTIVITY INDEX ${state.index}`), h('p', 'narc-copy', state.index >= 75 ? 'Exemplary engagement.' : state.index >= 50 ? 'Within normal range.' : 'Flagged for review.'));
+  panel.append(
+    h('div', 'narc-kicker', 'NETWORKED ASSESSMENT & RISK COORDINATION'),
+    h('h2', null, `VISIBLE ACTIVITY INDEX ${state.index}`),
+    h('p', 'narc-copy', state.index >= 75 ? 'Exemplary engagement.' : state.index >= 50 ? 'Within normal range.' : 'Flagged for review.'),
+    h('p', 'narc-explainer', 'Measures what NARC can observe, not the quality or value of your work.')
+  );
   panel.append(h('div', `narc-standing narc-standing-${state.standing.status}`, h('span', null, 'EMPLOYEE STANDING'), h('b', null, standingLabel), h('p', null, state.standing.note)));
   panel.append(h('div', 'narc-rule', h('b', null, 'Current interpretation'), h('p', null, state.narc.adaptation ? 'Repeated recent Focus Time is now weighted as possible gaming.' : 'Quiet work may be read as inactivity unless other visible context is present.')));
   ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
     if (state.requests[reqId]?.status !== 'open') return;
-    const title = reqId === 'narcCheckpoint' ? 'Midmorning review' : 'Response requested';
+    const title = reqId === 'narcCheckpoint' ? 'Midmorning assessment' : 'Response requested';
     const action = h('div', 'narc-action', h('b', null, title));
+    if (reqId === 'narcCheckpoint') {
+      action.append(h('p', 'narc-action-copy', "NARC has formed a midmorning assessment of your activity. Add context or leave its interpretation unchanged."));
+    }
     requestOptions(reqId).forEach(([choice, label]) => action.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
     panel.append(action);
   });
@@ -638,7 +701,8 @@ function renderEnd() {
   const e = ending(state);
   const shade = h('div', 'modal-shade');
   const box = h('div', 'modal-card end-day');
-  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, 'You made it to 5:00.'));
+  const endTitle = state.flags.loggedOffEarly ? `You logged off at ${clock(state.t)}.` : 'You made it to 5:00.';
+  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, endTitle));
   e.lines.forEach((line) => box.append(h('p', null, line)));
   box.append(btn('Play again', 'btn primary', restart));
   shade.append(box); els.modal.replaceChildren(shade);
