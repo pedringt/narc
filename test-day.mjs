@@ -178,6 +178,9 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.equal(s.phase, 'end');
   assert.equal(s.t, START, 'logging off early preserves the actual time');
   assert.equal(s.flags.loggedOffEarly, true, 'early logoff is distinguishable from reaching 5:00');
+  const earlyEnding = ending(s);
+  assert.match(earlyEnding.lines[0], /logoff summary/i, 'early logoff does not claim to be an end-of-day summary');
+  assert.ok(earlyEnding.lines.some((line) => /still pending when you logged off/i.test(line)), 'early logoff names unfinished responsibilities');
 
   let finished = act(newGame(), { do: 'idle', minutes: 999 });
   assert.equal(finished.flags.loggedOffEarly, undefined, 'normal 5:00 completion is not marked as an early logoff');
