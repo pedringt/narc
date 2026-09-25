@@ -224,6 +224,7 @@ function focusWindow(id) {
   if (!ui.openApps.includes(id)) return;
   ui.app = id;
   ui.openApps = [...ui.openApps.filter((x) => x !== id), id];
+  completeTutorialTarget(id);
   document.querySelectorAll('.window[data-app]').forEach((w) => {
     const active = w.dataset.app === id;
     w.classList.toggle('active-window', active);
