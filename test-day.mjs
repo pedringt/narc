@@ -107,6 +107,28 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.ok(s.index <= before, 'the same move barely helps once NARC has adapted');
 }
 
+// ---------------------------------- NARC standing creates real self-interest
+{
+  let visible = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  visible = act(visible, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  assert.equal(visible.standing.status, 'trusted');
+  assert.equal(visible.flags.trustedOperator, true, 'accepting a flattering visible-activity read earns a system reward');
+
+  visible = act(visible, { do: 'idle', minutes: (12 * 60 + 15) - visible.t });
+  assert.equal(visible.requests.danaCheckin.status, 'open');
+  const before = visible.t;
+  visible = act(visible, { do: 'respond', id: 'danaCheckin', choice: 'trustNarc' });
+  assert.equal(visible.t, before + 2, 'trusted standing unlocks the faster NARC-summary check-in');
+  assert.equal(visible.flags.danaReliedOnNarc, true);
+
+  let careful = act(newGame(), { do: 'task', id: 'vendor', approach: 'thorough' });
+  careful = act(careful, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  assert.equal(careful.standing.status, 'review', 'leaving a low-activity read standing opens a review');
+  careful = act(careful, { do: 'idle', minutes: (11 * 60 + 20) - careful.t });
+  careful = act(careful, { do: 'respond', id: 'narcCheckpoint', choice: 'context' });
+  assert.equal(careful.standing.status, 'standard', 'adding later context can close the review');
+}
+
 // --------------------------------------- keepalive arrives after NARC adapts
 {
   let s = act(newGame(), { do: 'focus' });
