@@ -25,10 +25,11 @@ const THREADS = {
 };
 
 const REQUEST_THREAD = {
-  luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus', narcResponse: 'narc',
+  danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus', narcResponse: 'narc',
 };
 
 const REQUEST_OPTIONS = {
+  danaMorning: [['context', 'Send Dana the missing context (5 min)'], ['skip', 'Leave it alone']],
   luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']],
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
@@ -84,13 +85,21 @@ const NEWS = [
   ['Model Behavior', 'The anti-idle arms race gets an anti-anti-idle layer', 'Monitoring tools now look for repeating input patterns after workers learned to spoof activity.'],
 ];
 
+const TUTORIAL_STEPS = [
+  { app: 'messages', text: 'Hi, Dana here — your manager. Before NARC starts judging anything, I want you to know what this laptop actually records. We can do the whole tour in about a minute. Start with The Loop, our company home screen.', label: 'Open The Loop' },
+  { app: 'intranet', text: 'The Loop is your normal home base. Your actual responsibilities live here. NARC does not see the quality of this work directly — mostly the traces around it.', label: 'Open Files' },
+  { app: 'files', text: 'Files are where the substance is. Reading carefully can take real time while producing very little visible activity. That difference matters.', label: 'Open Calendar' },
+  { app: 'calendar', text: 'Calendar is one of the signals NARC trusts. Focus Time can explain a quiet stretch, at least until the system decides people are gaming it.', label: 'Open NARC' },
+  { app: 'narc', text: 'This is NARC’s version of your day. Compare it with what actually happened in the other apps whenever something looks wrong. That is the job.', label: 'Start working' },
+];
+
 let state = newGame();
 let ui = freshUi();
 let toastTimer = null;
 
 function freshUi() {
   return {
-    oriented: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
+    oriented: false, tutorialStep: -1, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
     selectedFile: null, selectedThread: null, positions: {},
   };
 }
@@ -134,6 +143,25 @@ els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }
 
 function restart() { state = newGame(); ui = freshUi(); render(); }
 
+function tutorialGuide(app) {
+  const step = TUTORIAL_STEPS[ui.tutorialStep];
+  if (!step || step.app !== app || app === 'messages') return null;
+  const guide = h('div', 'tutorial-guide',
+    h('div', 'tutorial-avatar', 'DW'),
+    h('div', 'tutorial-copy', h('b', null, 'Dana Whitfield'), h('p', null, step.text))
+  );
+  guide.append(btn(step.label, 'btn primary', () => {
+    ui.tutorialStep += 1;
+    if (ui.tutorialStep >= TUTORIAL_STEPS.length) {
+      ui.tutorialStep = -1;
+      goApp('intranet');
+      return;
+    }
+    goApp(TUTORIAL_STEPS[ui.tutorialStep].app);
+  }));
+  return guide;
+}
+
 function ensureWindow(id) {
   if (!ui.openApps.includes(id)) {
     if (ui.openApps.length >= 3) ui.openApps.shift();
@@ -145,6 +173,19 @@ function ensureWindow(id) {
 }
 
 function goApp(id) { ensureWindow(id); render(); }
+
+function focusWindow(id) {
+  if (!ui.openApps.includes(id)) return;
+  ui.app = id;
+  ui.openApps = [...ui.openApps.filter((x) => x !== id), id];
+  document.querySelectorAll('.window[data-app]').forEach((w) => {
+    const active = w.dataset.app === id;
+    w.classList.toggle('active-window', active);
+    w.style.zIndex = active ? '20' : String(5 + ui.openApps.indexOf(w.dataset.app));
+  });
+  renderChrome();
+}
+
 function closeWindow(id) {
   ui.openApps = ui.openApps.filter((x) => x !== id);
   if (ui.app === id) ui.app = ui.openApps[ui.openApps.length - 1] || null;
@@ -162,15 +203,23 @@ function announceChanges(before, after) {
   const newlyOpen = Object.entries(after.requests).find(([id, r]) => r.status === 'open' && before.requests[id]?.status !== 'open');
   if (newlyOpen) {
     const [id] = newlyOpen;
-    showToast(id === 'narcResponse' ? 'NARC wants a response.' : `${THREADS[REQUEST_THREAD[id]].name} sent you something.`);
+    if (id === 'narcResponse') showToast('NARC', 'NARC wants a response.');
+    else showToast('Messages', `${THREADS[REQUEST_THREAD[id]].name} sent you a message.`);
   }
-  if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') showToast('A morning shortcut just came back as a new file.');
-  if (after.narc.adaptation && !before.narc.adaptation) showToast('NARC 2.0 changed how it reads Focus Time.');
+  if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
+    showToast('Files', 'A morning shortcut just came back as a new file.');
+  }
+  if (after.narc.adaptation && !before.narc.adaptation) {
+    showToast('NARC', 'NARC 2.0 changed how it reads Focus Time.');
+  } else {
+    const newNarc = after.log.slice(before.log.length).find((e) => e.kind === 'narc');
+    if (newNarc) showToast('NARC', newNarc.text);
+  }
 }
 
-function showToast(text) {
+function showToast(source, text) {
   clearTimeout(toastTimer);
-  const toast = h('button', 'toast', h('span', 'toast-title', 'Meridian'), h('span', 'toast-copy', text));
+  const toast = h('button', 'toast', h('span', 'app', source), h('span', 'text', text));
   toast.type = 'button';
   toast.addEventListener('click', () => els.toasts.replaceChildren());
   els.toasts.replaceChildren(toast);
@@ -185,21 +234,48 @@ function windowShell(id, title, ...body) {
   return [bar, ...body];
 }
 
+function clampWindowPosition(win, id) {
+  if (window.matchMedia('(max-width: 760px)').matches) return;
+  const area = els.windows.getBoundingClientRect();
+  const rect = win.getBoundingClientRect();
+  const margin = 10;
+  const maxX = Math.max(0, (area.width - rect.width) / 2 - margin);
+  const maxY = Math.max(0, (area.height - rect.height) / 2 - margin);
+  const pos = ui.positions[id] || { x: 0, y: 0 };
+  const x = Math.max(-maxX, Math.min(maxX, pos.x));
+  const y = Math.max(-maxY, Math.min(maxY, pos.y));
+  ui.positions[id] = { x, y };
+  win.style.setProperty('--dx', `${x}px`);
+  win.style.setProperty('--dy', `${y}px`);
+}
+
 function installDrag(win, id) {
   const bar = win.querySelector('.titlebar');
   if (!bar || window.matchMedia('(max-width: 760px)').matches) return;
   bar.addEventListener('pointerdown', (event) => {
     if (event.target.closest('button')) return;
+    focusWindow(id);
     const start = ui.positions[id] || { x: 0, y: 0 };
     const sx = event.clientX; const sy = event.clientY;
     bar.setPointerCapture(event.pointerId);
     const move = (e) => {
-      const x = start.x + e.clientX - sx; const y = start.y + e.clientY - sy;
+      const area = els.windows.getBoundingClientRect();
+      const rect = win.getBoundingClientRect();
+      const maxX = Math.max(0, (area.width - rect.width) / 2 - 10);
+      const maxY = Math.max(0, (area.height - rect.height) / 2 - 10);
+      const x = Math.max(-maxX, Math.min(maxX, start.x + e.clientX - sx));
+      const y = Math.max(-maxY, Math.min(maxY, start.y + e.clientY - sy));
       ui.positions[id] = { x, y };
       win.style.setProperty('--dx', `${x}px`); win.style.setProperty('--dy', `${y}px`);
     };
-    const up = () => { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); };
-    bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', up);
+    const up = () => {
+      bar.removeEventListener('pointermove', move);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+    };
+    bar.addEventListener('pointermove', move);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
   });
 }
 
@@ -238,11 +314,14 @@ function renderWindows() {
     ui.positions[id] = pos;
     win.style.setProperty('--dx', `${pos.x}px`); win.style.setProperty('--dy', `${pos.y}px`);
     win.replaceChildren(...views[id]());
-    win.addEventListener('pointerdown', () => { ui.app = id; ui.openApps = [...ui.openApps.filter((x) => x !== id), id]; renderChrome(); }, { capture: true });
+    win.addEventListener('pointerdown', () => focusWindow(id), { capture: true });
     return win;
   });
   els.windows.replaceChildren(...nodes);
-  els.windows.querySelectorAll('.window').forEach((w) => installDrag(w, w.dataset.app));
+  els.windows.querySelectorAll('.window').forEach((w) => {
+    clampWindowPosition(w, w.dataset.app);
+    installDrag(w, w.dataset.app);
+  });
 }
 
 function renderEmail() {
@@ -255,13 +334,21 @@ function renderEmail() {
   const m = EMAILS.find((x) => x.id === ui.selectedEmail);
   const detail = h('div', 'detail mail', h('h2', null, m.subject), h('div', 'from', `From: ${m.from}`));
   m.body.forEach((p) => detail.append(h('p', null, p)));
-  if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => { ui.oriented = true; goApp('intranet'); }));
+  if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
+    ui.oriented = true;
+    ui.tutorialStep = 0;
+    ui.selectedThread = 'dana';
+    goApp('messages');
+  }));
   return windowShell('email', 'Email', h('div', 'body', list, detail));
 }
 
 function renderLoop() {
   const main = h('div', 'intranet-list');
   main.append(h('div', 'loop-welcome', h('div', 'loop-kicker', 'MERIDIAN SUPPLY CO. · EMPLOYEE HOME'), h('h2', null, 'The Loop'), h('p', null, 'Good morning, Employee 4417. Three things need your attention today. NARC is watching the work traces it can see, not the work itself.')));
+
+  const loopGuide = tutorialGuide('intranet');
+  if (loopGuide) main.append(loopGuide);
 
   const taskBox = h('div', 'loop-card', h('div', 'loop-card-h', 'Today · your work'));
   Object.entries(state.tasks).filter(([, t]) => t.status !== 'hidden').forEach(([id, t]) => {
@@ -308,10 +395,22 @@ function renderMessages() {
     const wrap = h('div', 'thread', h('header', null, h('b', null, t.name), h('span', null, t.role)));
     const scroll = h('div', 'scroll');
     const msgs = threadMessages(id);
-    if (!msgs.length) scroll.append(h('div', 'empty', 'No new messages.'));
+    const tutorial = TUTORIAL_STEPS[ui.tutorialStep];
+    if (id === 'dana' && tutorial?.app === 'messages') {
+      scroll.append(h('div', 'bubble', tutorial.text));
+    }
+    if (!msgs.length && !(id === 'dana' && tutorial?.app === 'messages')) scroll.append(h('div', 'empty', 'No new messages.'));
     msgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
     wrap.append(scroll);
     const compose = h('div', 'compose');
+    if (id === 'dana' && tutorial?.app === 'messages') {
+      const chips = h('div', 'chips');
+      chips.append(btn(tutorial.label, 'chip', () => {
+        ui.tutorialStep += 1;
+        goApp(TUTORIAL_STEPS[ui.tutorialStep].app);
+      }));
+      compose.append(chips);
+    }
     requestForThread(id).forEach(([reqId]) => {
       const chips = h('div', 'chips');
       REQUEST_OPTIONS[reqId].forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
@@ -332,7 +431,7 @@ function renderCalendar() {
   card.append(btn(state.narc.adaptation ? 'Use Focus Time anyway (5 min)' : 'Mark next block as Focus Time (5 min)', state.narc.adaptation ? 'btn' : 'btn primary', () => dispatch({ do: 'focus' })));
   state.calendar.forEach((c) => card.append(h('div', 'line', h('span', null, clock(c.at)), h('span', null, c.label))));
   pane.append(card);
-  return windowShell('calendar', 'Calendar', h('div', 'body', pane));
+  return windowShell('calendar', 'Calendar', tutorialGuide('calendar'), h('div', 'body', pane));
 }
 
 function visibleFiles() {
@@ -365,7 +464,7 @@ function renderFiles() {
       detail.append(actions);
     }
   }
-  return windowShell('files', 'Files', h('div', 'body', list, detail));
+  return windowShell('files', 'Files', tutorialGuide('files'), h('div', 'body', list, detail));
 }
 
 function renderUtilities() {
@@ -396,7 +495,7 @@ function renderNarc() {
   state.log.filter((e) => e.kind === 'narc' || e.kind === 'consequence').slice().reverse().slice(0, 8).forEach((e) => log.append(h('div', 'narc-log-row', h('span', null, clock(e.t)), h('span', null, e.text))));
   if (log.childNodes.length === 1) log.append(h('p', 'narc-copy', 'No interventions yet.'));
   body.append(panel, log);
-  return windowShell('narc', 'NARC', body);
+  return windowShell('narc', 'NARC', tutorialGuide('narc'), body);
 }
 
 function renderQuietAction() {
