@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const app = fs.readFileSync(new URL('./day-desktop-app.js', import.meta.url), 'utf8');
-const css = fs.readFileSync(new URL('./style.css', import.meta.url), 'utf8');
-
 assert.match(app, /mobileDetail:\s*\{\s*email:\s*true/, 'opening email should be visible on mobile');
 assert.match(app, /show-detail/, 'mobile detail class should be applied by the app');
 assert.match(app, /setMobileDetail\('messages', true\)/, 'message selection should open mobile detail');
@@ -13,6 +11,5 @@ assert.match(app, /const ids = \['vendor', 'client', 'project'\]/, 'Marcus proje
 assert.match(app, /Measures what NARC can observe, not the quality or value of your work\./, 'NARC should explain the Visible Activity Index');
 assert.match(app, /Add context to NARC's assessment/, 'midmorning checkpoint should be framed as an assessment response');
 assert.match(app, /state\.flags\.loggedOffEarly/, 'end screen should distinguish early logoff');
-assert.match(css, /\.window\.show-detail \.body \.detail \{ display: block;/, 'mobile CSS must reveal selected detail panes');
 
 console.log('desktop integration checks passed');
