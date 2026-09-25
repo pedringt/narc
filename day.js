@@ -100,6 +100,7 @@ export function newGame() {
     calendar: [],
     narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
     trust: { luis: 0, marcus: 0, priya: 0 },
+    standing: { status: 'standard', note: 'No active recognition or review.' },
     threads: { luis: [], marcus: [], priya: [], dana: [] },
   };
 }
@@ -229,7 +230,13 @@ function checkThresholds(s) {
   }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
     requests.danaCheckin.status = 'open';
-    say(s, 'dana', 'Quick check-in: where are we with everything on your plate?');
+    if (s.flags.trustedOperator) {
+      say(s, 'dana', "Quick check-in. NARC has you marked as a Trusted Operator, so I can use its summary if you want to keep this short. Or give me the real picture.");
+    } else if (s.flags.formalReview) {
+      say(s, 'dana', "Quick check-in. NARC still has a review open on you. Give me the real picture, or keep it brief and get back to work.");
+    } else {
+      say(s, 'dana', 'Quick check-in: where are we with everything on your plate?');
+    }
   }
   if (requests.marcusFallout.status === 'pending' && s.t >= requests.marcusFallout.at && s.flags.cutWithoutMarcus) {
     requests.marcusFallout.status = 'open';
@@ -307,6 +314,33 @@ export function act(state, a) {
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
+
+      if (a.id === 'narcFirstReview' && a.choice === 'accept') {
+        if (s.flags.firstNarcReadType === 'visible') {
+          s.flags.trustedOperator = true;
+          s.flags.formalReview = false;
+          s.standing.status = 'trusted';
+          s.standing.note = 'Trusted Operator: NARC considers your visible work pattern a model adoption signal.';
+          note(s, 'Recognition issued: Trusted Operator. Your visible work pattern is now considered a healthy NARC-adoption example.', 'narc');
+        } else {
+          s.flags.formalReview = true;
+          s.flags.trustedOperator = false;
+          s.standing.status = 'review';
+          s.standing.note = 'Review open: NARC retained the low-activity interpretation without added context.';
+          note(s, 'Standing updated: review opened after the low-activity interpretation was left unchallenged.', 'narc');
+        }
+      }
+      if (a.id === 'narcFirstReview' && a.choice === 'context' && s.flags.firstNarcReadType === 'low') {
+        s.flags.formalReview = false;
+        s.standing.status = 'standard';
+        s.standing.note = 'Context added. No active review.';
+      }
+      if (a.id === 'narcCheckpoint' && a.choice === 'context' && s.flags.formalReview) {
+        s.flags.formalReview = false;
+        s.standing.status = 'standard';
+        s.standing.note = 'Midmorning context accepted. Review closed.';
+        note(s, 'Review closed after additional context was added to the activity record.', 'narc');
+      }
       break;
     }
     case 'focus': {
@@ -462,6 +496,10 @@ const REQUEST_OPTIONS = {
       minutes: 5, visible: false, flag: 'danaRushed',
       result: "You gave her the two-line version and got back to it. Faster, but she doesn't have the full picture.",
     },
+    trustNarc: {
+      minutes: 2, visible: true, flag: 'danaReliedOnNarc',
+      result: "You let NARC's Trusted Operator summary stand in for a real status update. Efficient, flattering, and not necessarily accurate.",
+    },
   },
   marcusFallout: {
     apologize: {
@@ -507,6 +545,9 @@ export function ending(s) {
   }
   if (s.narc.adaptation) lines.push('The Focus Time trick stopped working around 1:30. Everyone was still using it.');
   if (s.flags.keepaliveUsed) lines.push('You ran keepalive.pkg. NARC counted the simulated input as real visible activity.');
+  if (s.flags.trustedOperator) lines.push("NARC marked you as a Trusted Operator because your visible pattern matched what it wanted to see.");
+  if (s.flags.formalReview) lines.push("NARC ended the day with an employee review still open on you.");
+  if (s.flags.danaReliedOnNarc && (missed > 0 || rushed > 0)) lines.push("Dana relied on NARC's flattering summary and missed problems the score did not show.");
   if (s.flags.danaRushed && missed > 0) lines.push("Dana didn't have the full picture when it mattered.");
 
   return { index: s.index, actual: s.actual, lines };
