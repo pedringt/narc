@@ -1,0 +1,111 @@
+
+/* Thin integration layer for the canonical single-day engine inside the
+   existing Meridian desktop shell. The visual system still lives in style.css. */
+
+.loop-task {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid var(--app-line);
+}
+.loop-task:first-of-type { border-top: 0; }
+.loop-task > div { min-width: 0; flex: 1; }
+.loop-task .loop-link { flex: none; }
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.message-work {
+  padding: 10px 12px;
+  border: 1px solid var(--app-line);
+  background: var(--app-panel);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.quiet-card {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 60;
+  min-width: min(560px, calc(100vw - 32px));
+  max-width: 720px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 12px;
+  background: rgba(21, 34, 45, .96);
+  color: var(--bar-text);
+  box-shadow: 0 12px 32px rgba(0,0,0,.24);
+}
+.quiet-card div { display: flex; flex-direction: column; gap: 2px; }
+.quiet-card span { color: var(--bar-muted); font-size: 12px; }
+
+.narc-summary,
+.narc-log {
+  border: 1px solid var(--n-line);
+  background: var(--n-panel);
+  color: var(--n-text);
+  padding: 18px;
+  margin: 12px;
+  border-radius: 8px;
+  font-family: var(--mono);
+}
+.narc-kicker { color: var(--n-accent); font-size: 11px; letter-spacing: .08em; }
+.narc-summary h2 { margin: 8px 0; font-size: 22px; }
+.narc-copy { color: var(--n-muted); }
+.narc-rule, .narc-action {
+  border-top: 1px solid var(--n-line);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.narc-action .btn { margin: 10px 8px 0 0; }
+.narc-log-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--n-line);
+  color: var(--n-muted);
+}
+.narc-log-row:first-of-type { border-top: 0; }
+
+.modal-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 15, 21, .7);
+}
+.modal-card.end-day {
+  width: min(560px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--app-panel);
+  color: var(--app-text);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.32);
+}
+.modal-card.end-day h2 { margin: 6px 0 14px; }
+.modal-card.end-day .btn { margin-top: 8px; }
+
+@media (max-width: 760px) {
+  .quiet-card {
+    bottom: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .quiet-card .btn { width: 100%; }
+}
