@@ -1,6 +1,14 @@
 # NARC Core Game Spec
 
-**Status:** Working source of truth for the next prototype pass  
+> **ARCHIVED (2026-09-25, #74).** This spec describes the original one-week
+> NARC build (`game.js`/`app.js`, now at `week.html` only). The canonical
+> product is the single-workday core loop (`day.js`/`day-app.js`, served at
+> `index.html`/`day.html`) — issues #66–#69. For that build's premise, loop,
+> and design rationale, read `day.js`'s own header comment and
+> `docs/HANDOFF.md`'s current-status section, not this file. Kept below for
+> historical/reference value only.
+
+**Status:** Archived — describes the superseded one-week build, not the current canonical product  
 **Project:** NARC — Networked Assessment & Risk Coordination
 
 ## Purpose

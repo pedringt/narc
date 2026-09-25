@@ -1,10 +1,11 @@
-// NARC — "one long workday" core-loop prototype (#66-#70).
+// NARC — the canonical "one long workday" experience (#66-#70, made the
+// default entrypoint at index.html/day.html by #74).
 //
 // Deliberately a separate, small engine rather than surgery on game.js: the
-// existing week (game.js/app.js, 4,680 tested routes) is a finished,
-// carefully-paced artifact and this is a different experiment about whether
-// a single deeper day sustains a repeatable loop. Nothing here touches
-// game.js, index.html, or test.mjs.
+// original week (game.js/app.js, week.html, 4,680 tested routes) is a
+// finished, carefully-paced artifact, kept only as an archived reference
+// build now that this loop is the intended product. Nothing here touches
+// game.js or test.mjs.
 //
 // Design choice: time is spent, not ticked. The existing week runs on a real
 // (accelerated) wall clock so scripted beats land with pacing; that is right

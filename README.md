@@ -4,6 +4,8 @@
 
 NARC is a short satirical workplace-surveillance game for Paige Edrington's AI product portfolio.
 
+> **Status (2026-09-25):** the canonical build is a single-workday core loop, served at `index.html`/`day.html` (`day.js`/`day-app.js`). The rest of this README describes the original one-week prototype, now archived at `week.html` for reference — see `docs/HANDOFF.md` for the current build's status.
+
 ## Current direction
 
 The player is a **human employee** inside a workplace monitored by NARC, an AI system that watches work traces and turns them into scores, classifications, and interventions.

@@ -1,31 +1,34 @@
 # NARC Handoff
 
-## Current status (2026-09-24)
+## Current status (2026-09-25)
 
-**Playable end to end, live at https://narc-opal.vercel.app, `main` only** (single branch — every other branch was reconciled into `main` or deleted as fully absorbed; see "Branch history" below). `node test.mjs` and `node test-day.mjs` are both green.
+**The single-workday build is now the canonical NARC experience (#74).** `index.html` and `day.html` both open it (same content, `day.js`/`day-app.js`/`day.css`). The original one-week prototype (`game.js`/`app.js`) is archived at `week.html` only — not linked from the canonical build, kept for reference. `main` is the only branch. `node test.mjs` and `node test-day.mjs` are both green.
 
-Two independent things now live on `main`:
+**What ships and what's archived:**
 
-1. **The original week** (`index.html`/`game.js`/`app.js`) — desktop-reworked since the last version of this doc: multiwindow desktop with a compact bottom dock, a Browser app, The Loop as the home surface, a peer-reporting/social-consequence system (reporting on coworkers has real weight — "Trusted Reviewer" status, a paranoia counter, collective-resistance and paranoid-collapse endings, a resignation beat), Culture Champion open to any coworker, an eyes mark for NARC's identity, and a richer visual pass throughout. A full GitHub issue audit (2026-09-24) closed 11 issues (#51–#56, #58, #59, #61–#65) confirmed already implemented — see their closing comments for exactly what to check if you want to verify any of them yourself.
-2. **A separate single-workday core-loop prototype** at `/day.html` (`day.js`/`day-app.js`/`day.css`, plus `test-day.mjs`) — issues #66–#69, testing whether NARC sustains a repeatable loop over one longer day instead of a compressed week. Does not touch the week's files at all.
+- **Canonical (`/`, `/day.html`)**: the single-workday core loop — issues #66–#69. Time is spent, not ticked; 3 real-work tasks with a visible-vs-actual tension; a Focus Time exploit that NARC adapts to mid-afternoon; afternoon obligations gated on morning choices (rushed calls come back due); a single contextual "Work until..." action replacing repeated filler clicks. See `day.js`'s own header comment for the full design rationale.
+- **Archived (`week.html` only)**: the original one-week build. Desktop-reworked before being superseded: multiwindow desktop with a compact bottom dock, a Browser app, The Loop as home, a peer-reporting/social-consequence system (Trusted Reviewer status, a paranoia counter, collective-resistance/paranoid-collapse endings, a resignation beat), Culture Champion, an eyes mark. A GitHub issue audit (2026-09-24) closed 11 issues confirmed already implemented there (#51–#56, #58, #59, #61–#65) before it was archived — see their closing comments if you need to verify any of it. It is not being developed further; treat it as reference only.
 
 **What's genuinely next, in order:**
 
-- **#29** — a fresh-player release gate on the week. Per #51's own suggested order, this is the natural next step now that the UX pass is done; it needs an actual outside playtest, not more code.
-- **#70** — a fresh-player playtest of the `/day.html` core-loop prototype, specifically for whether "what should I do next?" stays interesting. Also needs a real playtester, not more code.
-- **#42** — Employee 4417's personal-stakes arc. Partially done already via Trusted Reviewer (a real reward path, and it changes a later decision — Marcus's e6 credibility). Still open: a visible risk-progression arc before the final review, and 2+ real help-vs-protect-yourself tensions.
-- **#57** — audit Messages so every line does a job, not just #40's earlier pass.
-- **#60** — cross-app evidence chains exist, but the "reconcile contradictory information" bar isn't met yet.
-- **#45** (promotion/replay/settings satire layer) stays explicitly parked — do not build without Paige asking.
-- **#48** (invasive personalization) stays explicitly deferred per its own scope.
+- **#75** — pre-deploy regression/smoke gate for the canonical build, now that #74's integration is done.
+- **#70** — a fresh-player playtest of the canonical experience, specifically for whether "what should I do next?" stays interesting. Needs a real playtester, not more code.
+- **#42** — Employee 4417's personal-stakes arc (was scoped to the old week; needs re-scoping to the day build if pursued). Not a deploy blocker.
+- **#57** — Messages/dialogue audit (was scoped to the old week, now archived — lower priority than before). Not a deploy blocker.
+- **#60** — cross-app evidence chains (same caveat as #42/#57 — scoped to the archived week).
+- **#45** (promotion/replay/settings satire layer) and **#48** (invasive personalization) stay explicitly parked/deferred — do not build without Paige asking.
 
-Do not start more feature work on the week ahead of #29, or more on the day-prototype ahead of #70 — both are real playtest gates, not soft suggestions.
+Do not start more feature work on the canonical build ahead of #70 or #75 — both are real gates, not soft suggestions. Per Paige's own sequencing: #75 verify → deploy to a named preview/staging environment → #70 playtest.
 
 ## Branch history (2026-09-24 reconciliation)
 
-`main`, `prototype-v1`, and 6 other feature branches had diverged in parallel without cross-merging for about a day. Investigation found: `prototype-v1`'s remaining unique work (#42 Trusted Reviewer, #30, #33, #34, #17) had already been copied onto `main` verbatim by an earlier `promote-narc-latest` merge and then built on further — so nothing was actually lost. `qa-feedback-sept24c` (reversible Focus Time, keepalive gating, browser polish, pacing) had real unmerged work and was merged cleanly. The day-prototype's 5 files were cherry-picked directly onto `main` rather than merging their whole branch, since that branch's `prototype-v1` base no longer matched `main`. All 9 stale branches were then deleted. `node test.mjs` was also fixed — it had been red since the desktop rework landed and nobody had run the full suite against the merged result (mostly stale assertions; two real, narrow pacing bugs were also caught and fixed).
+`main`, `prototype-v1`, and 6 other feature branches had diverged in parallel without cross-merging for about a day. Investigation found: `prototype-v1`'s remaining unique work (#42 Trusted Reviewer, #30, #33, #34, #17) had already been copied onto `main` verbatim by an earlier `promote-narc-latest` merge and then built on further — so nothing was actually lost. `qa-feedback-sept24c` (reversible Focus Time, keepalive gating, browser polish, pacing) had real unmerged work and was merged cleanly. The day-prototype's 5 files were cherry-picked directly onto `main` rather than merging their whole branch, since that branch's `prototype-v1` base no longer matched `main`. All 9 stale branches were then deleted. `node test.mjs` was also fixed — it had been red since the desktop rework landed and nobody had run the full suite against the merged result (mostly stale assertions; two real, narrow pacing bugs were also caught and fixed). The next day (2026-09-25), #74 made the single-workday build canonical: `index.html`/`day.html` now serve it, and the original week moved to `week.html` as an archived reference build.
 
-Before starting anything, read `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`: it is the code-accurate description of the engine, the week, and the known limits. It may itself be stale after the desktop rework — verify against actual `game.js`/`app.js` before trusting it over the code.
+Before starting anything, read `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`: it is a code-accurate description of the **original week's** engine (`game.js`/`app.js`) — now archived. It does not describe the canonical single-workday build; read `day.js`'s own header comment for that instead.
+
+## Archived: original one-week build (superseded 2026-09-25, #74)
+
+Everything below this point (Current premise, Scope, Cast, Design principles, etc.) describes the **original one-week prototype**, now archived at `week.html` and not under active development. It's kept for historical/reference value, not as a description of the current product. Do not treat anything below as current without checking the status line above first.
 
 ## Current premise
 
