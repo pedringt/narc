@@ -39,6 +39,28 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.equal(s2.trust.priya, 2, 'real help builds it');
 }
 
+
+// ----------------------------------------- NARC reacts to the first real task
+{
+  let careful = act(newGame(), { do: 'task', id: 'vendor', approach: 'thorough' });
+  assert.equal(careful.flags.firstNarcRead, true);
+  assert.ok(careful.log.some((e) => e.kind === 'narc' && /low-input/i.test(e.text)), 'careful work gets an immediate proxy-based NARC read');
+
+  let quick = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  assert.ok(quick.log.some((e) => e.kind === 'narc' && /rapid visible activity/i.test(e.text)), 'visible work also gets an immediate NARC interpretation');
+}
+
+// ----------------------------------------- midmorning no longer goes dead
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: 72 }); // 10:12
+  assert.equal(nextEvent(s).t, 10 * 60 + 15, 'at 10:12 the next meaningful beat is only three minutes away');
+  s = act(s, { do: 'workUntil' });
+  assert.equal(s.requests.danaMorning.status, 'open');
+  s = act(s, { do: 'respond', id: 'danaMorning', choice: 'context' });
+  assert.equal(s.flags.morningContext, true);
+}
+
 // -------------------------------------------------------- competing requests
 {
   let s = newGame();
@@ -147,7 +169,9 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   consulted = act(consulted, { do: 'task', id: 'vendor', approach: 'thorough' });
   consulted = act(consulted, { do: 'task', id: 'client', approach: 'investigate' });
   consulted = act(consulted, { do: 'respond', id: 'luisTip', choice: 'thank' });
-  consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 12:10
+  consulted = act(consulted, { do: 'workUntil' }); // -> Dana's first-hour check at 10:15
+  consulted = act(consulted, { do: 'respond', id: 'danaMorning', choice: 'skip' });
+  consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 11:05
   consulted = act(consulted, { do: 'respond', id: 'marcusFavor', choice: 'decline' });
   consulted = act(consulted, { do: 'workUntil' }); // -> Dana's check-in at 1:30
   consulted = act(consulted, { do: 'respond', id: 'danaCheckin', choice: 'brief' });
@@ -180,17 +204,17 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   s = act(s, { do: 'task', id: 'vendor', approach: 'quick' });
   s = act(s, { do: 'task', id: 'client', approach: 'canned' });
   s = act(s, { do: 'task', id: 'project', approach: 'cut' });
-  // The three tasks land exactly on 9:20, the same minute Luis's tip opens,
-  // so it's already open -- the next thing worth jumping to is Marcus's
-  // favor at 12:10.
+  // The three tasks land exactly on 9:20, the same minute Luis's tip opens.
+  // The next stop is now Dana's first-hour check at 10:15, which prevents
+  // the old 10-ish-to-noon dead stretch.
   assert.equal(s.requests.luisTip.status, 'open');
-  assert.equal(nextEvent(s).t, 12 * 60 + 10);
+  assert.equal(nextEvent(s).t, 10 * 60 + 15);
   s = act(s, { do: 'respond', id: 'luisTip', choice: 'thank' });
 
   const before = { index: s.index, focusUses: s.narc.focusUses, actual: s.actual };
   s = act(s, { do: 'workUntil' });
-  assert.equal(s.t, 12 * 60 + 10, 'jumps exactly to the next thing, not a fixed step');
-  assert.equal(s.requests.marcusFavor.status, 'open', 'and that thing actually opened');
+  assert.equal(s.t, 10 * 60 + 15, 'jumps exactly to the next meaningful beat, not a fixed step');
+  assert.equal(s.requests.danaMorning.status, 'open', 'Dana checks in before the long midmorning gap');
   assert.equal(s.index, before.index, 'the jump itself changes nothing');
   assert.equal(s.narc.focusUses, before.focusUses);
   assert.equal(s.actual, before.actual);
@@ -198,7 +222,7 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   // Chained the rest of the way -- resolving whatever opens with its
   // cheapest option -- it reaches end of day on a small, bounded number of
   // contextual jumps rather than a click-to-burn-time loop.
-  const cheapest = { marcusFavor: 'decline', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
+  const cheapest = { danaMorning: 'skip', marcusFavor: 'decline', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
   let hops = 0;
   while (s.phase !== 'end' && hops < 40) {
     const openReq = Object.entries(s.requests).find(([, r]) => r.status === 'open');
