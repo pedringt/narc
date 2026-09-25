@@ -100,11 +100,11 @@ const NEWS = [
 ];
 
 const TUTORIAL_STEPS = [
-  { target: 'intranet', text: 'Hi, Dana here — your manager. Before NARC starts judging anything, I want you to know what this laptop actually records. Start with The Loop, our company home screen.', label: 'Open The Loop' },
-  { target: 'files', text: 'The Loop is your home base. Your real responsibilities live there, but NARC mostly sees the traces around the work. Next, open Files.', label: 'Open Files' },
-  { target: 'calendar', text: 'Files are where the substance is. Careful reading can take real time while producing very little visible activity. Now check Calendar.', label: 'Open Calendar' },
-  { target: 'narc', text: 'Calendar is one of the signals NARC trusts. Focus Time can explain a quiet stretch, at least until the system decides people are gaming it. Open NARC next.', label: 'Open NARC' },
-  { target: 'intranet', text: 'That is NARC’s version of your day. Compare it with what actually happened in the other apps whenever something looks wrong. You can start with the work on The Loop.', label: 'Start working', final: true },
+  { target: 'intranet', text: 'Hi, Dana here — your manager. Start with The Loop. That is where your three real responsibilities live. NARC does not judge the quality of that work directly; it mostly sees the traces around it.', label: 'Open The Loop' },
+  { target: 'files', text: 'Next, open Files. That is where the substance of the work lives. Careful reading can take real time while producing very little visible activity, which matters to NARC.', label: 'Open Files' },
+  { target: 'calendar', text: 'Next, check Calendar. NARC treats calendar status as evidence, so the same quiet work block can look different depending on how it is labeled.', label: 'Open Calendar' },
+  { target: 'narc', text: 'Now open NARC itself. This is the system’s version of your day: what it saw, what it inferred, and what it thinks your activity means.', label: 'Open NARC' },
+  { target: 'intranet', text: 'That is the tour. You have three responsibilities waiting in The Loop. Pick one, open its file, and start working. Then watch how NARC reacts to what you actually do.', label: 'Go to The Loop', final: true },
 ];
 
 let state = newGame();
@@ -115,7 +115,7 @@ let tutorialTimer = null;
 function freshUi() {
   return {
     oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
-    selectedFile: null, selectedThread: null, positions: {},
+    selectedFile: null, selectedThread: null, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
   };
 }
 
@@ -141,19 +141,24 @@ const root = document.getElementById('desk');
 root.innerHTML = `
   <header class="menubar">
     <div class="left"><span class="company">MERIDIAN<span class="co-rest"> SUPPLY CO.</span></span><span class="who">Employee 4417 · Operations Associate</span></div>
-    <div class="right"><span class="clock" id="clock"></span><button class="logoff" id="logoff" type="button">Log off</button><button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full">NARC ACTIVE</span><span class="short">NARC</span></span></button></div>
+    <div class="right"><span class="clock" id="clock"></span><button class="notifications-button" id="notificationsBtn" type="button">Notifications<span class="notifications-count" id="notificationsCount"></span></button><button class="logoff" id="logoff" type="button">Log off</button><button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full">NARC ACTIVE</span><span class="short">NARC</span></span></button></div>
   </header>
   <div class="wallpaper-art" aria-hidden="true"><span class="wall-ring ring-a"></span><span class="wall-ring ring-b"></span><span class="wall-ribbon ribbon-a"></span><span class="wall-ribbon ribbon-b"></span><span class="wall-brand">MERIDIAN / FIELD SYSTEMS</span></div>
   <div class="stage"><nav class="dock" id="dock" aria-label="Apps"></nav><main class="workarea"><div class="window-stack" id="windows"></div></main></div>
-  <div class="toasts" id="toasts" aria-live="polite"></div><div id="modal"></div>`;
+  <div class="toasts" id="toasts" aria-live="polite"></div><aside class="notification-center" id="notificationCenter" hidden></aside><div id="modal"></div>`;
 
 const els = {
   clock: root.querySelector('#clock'), logoff: root.querySelector('#logoff'), tray: root.querySelector('#tray'),
+  notificationsBtn: root.querySelector('#notificationsBtn'), notificationsCount: root.querySelector('#notificationsCount'), notificationCenter: root.querySelector('#notificationCenter'),
   trayText: root.querySelector('#trayText'), dock: root.querySelector('#dock'), windows: root.querySelector('#windows'),
   toasts: root.querySelector('#toasts'), modal: root.querySelector('#modal'),
 };
 
 els.tray.addEventListener('click', () => goApp('narc'));
+els.notificationsBtn.addEventListener('click', () => {
+  ui.notificationCenterOpen = !ui.notificationCenterOpen;
+  renderNotificationCenter();
+});
 els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }); render(); });
 
 function restart() { state = newGame(); ui = freshUi(); render(); }
@@ -174,7 +179,8 @@ function advanceTutorial() {
     ui.tutorialStep += 1;
     ui.tutorialUnread = true;
     render();
-    showToast('Messages', 'Dana Whitfield sent you a message.', 'messages');
+    const nextStep = TUTORIAL_STEPS[ui.tutorialStep];
+    showToast('Dana Whitfield', nextStep.text, 'messages', { thread: 'dana' });
   }, 900);
 }
 
@@ -223,33 +229,72 @@ function dispatch(action) {
 }
 
 function announceChanges(before, after) {
-  const newlyOpen = Object.entries(after.requests).find(([id, r]) => r.status === 'open' && before.requests[id]?.status !== 'open');
-  if (newlyOpen) {
-    const [id] = newlyOpen;
-    if (id.startsWith('narc')) showToast('NARC', id === 'narcCheckpoint' ? 'Midmorning pattern check requires your attention.' : 'NARC wants context for its first read.', 'narc');
-    else showToast('Messages', `${THREADS[REQUEST_THREAD[id]].name} sent you a message.`, 'messages');
-  }
+  const newEntries = after.log.slice(before.log.length);
+  newEntries.filter((e) => e.kind === 'message').forEach((e) => {
+    showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
+  });
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.narc.adaptation && !before.narc.adaptation) {
     showToast('NARC', 'NARC 2.0 changed how it reads Focus Time.', 'narc');
   } else {
-    const newNarc = after.log.slice(before.log.length).find((e) => e.kind === 'narc');
+    const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) showToast('NARC', newNarc.text, 'narc');
   }
 }
 
-function showToast(source, text, app = null) {
+function openNotification(item) {
+  item.read = true;
+  ui.notificationCenterOpen = false;
+  if (item.thread) ui.selectedThread = item.thread;
+  if (item.app) goApp(item.app);
+  else render();
+}
+
+function renderNotificationCenter() {
+  const unread = ui.notifications.filter((n) => !n.read).length;
+  els.notificationsCount.textContent = unread ? String(unread) : '';
+  els.notificationsBtn.classList.toggle('has-unread', unread > 0);
+  els.notificationCenter.hidden = !ui.notificationCenterOpen;
+  if (!ui.notificationCenterOpen) return;
+
+  const header = h('div', 'notification-center-head', h('b', null, 'Notifications'), btn('×', 'notification-close', () => {
+    ui.notificationCenterOpen = false;
+    renderNotificationCenter();
+  }, { 'aria-label': 'Close notifications' }));
+  const list = h('div', 'notification-list');
+  if (!ui.notifications.length) list.append(h('div', 'notification-empty', 'No notifications yet.'));
+  ui.notifications.slice().reverse().forEach((item) => {
+    const row = btn('', `notification-item${item.read ? '' : ' unread'}`, () => openNotification(item));
+    row.append(h('div', 'notification-meta', h('b', null, item.source), h('span', null, clock(item.t))), h('div', 'notification-preview', item.text));
+    list.append(row);
+  });
+  els.notificationCenter.replaceChildren(header, list);
+}
+
+function showToast(source, text, app = null, meta = {}) {
   clearTimeout(toastTimer);
+  const item = {
+    id: ui.nextNotificationId++,
+    source,
+    text,
+    app,
+    thread: meta.thread || null,
+    t: state.t,
+    read: false,
+  };
+  ui.notifications.push(item);
+  renderNotificationCenter();
+
   const toast = h('button', 'toast', h('span', 'app', source), h('span', 'text', text));
   toast.type = 'button';
   toast.addEventListener('click', () => {
     els.toasts.replaceChildren();
-    if (app) goApp(app);
+    openNotification(item);
   });
   els.toasts.replaceChildren(toast);
-  toastTimer = setTimeout(() => els.toasts.replaceChildren(), 5000);
+  toastTimer = setTimeout(() => els.toasts.replaceChildren(), 6000);
 }
 
 function windowShell(id, title, ...body) {
@@ -367,7 +412,7 @@ function renderEmail() {
     ui.tutorialUnread = true;
     ui.selectedThread = 'dana';
     render();
-    showToast('Messages', 'Dana Whitfield sent you a message.', 'messages');
+    showToast('Dana Whitfield', TUTORIAL_STEPS[0].text, 'messages', { thread: 'dana' });
   }));
   return windowShell('email', 'Email', h('div', 'body', list, detail));
 }
@@ -404,13 +449,26 @@ function threadMessages(thread) {
   return state.log.filter((e) => e.kind === 'message' && e.who === thread).map((e) => ({ text: e.text, t: e.t }));
 }
 
+function latestThreadPreview(thread) {
+  const actual = threadMessages(thread).at(-1);
+  if (thread === 'dana' && ui.tutorialStep >= 0 && (!ui.tutorialDone || !actual)) {
+    return TUTORIAL_STEPS[Math.min(ui.tutorialStep, TUTORIAL_STEPS.length - 1)].text;
+  }
+  return actual?.text || THREADS[thread].role;
+}
+
 function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
     const active = requestForThread(id).length + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
-    const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', active ? 'Needs your response' : t.role)));
+    const preview = latestThreadPreview(id);
+    const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', preview)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
-    row.addEventListener('click', () => { ui.selectedThread = id; render(); }); list.append(row);
+    row.addEventListener('click', () => {
+      ui.selectedThread = id;
+      if (id === 'dana') ui.tutorialUnread = false;
+      render();
+    }); list.append(row);
   });
 
   const detail = h('div', 'detail flush');
@@ -497,7 +555,18 @@ function renderFiles() {
 function renderUtilities() {
   const cards = h('div', 'cards');
   cards.append(h('div', 'card', h('h3', null, 'Signal Trust'), h('p', null, state.narc.adaptation ? 'Focus Time · downgraded: repeated use now looks like possible gaming.' : 'Focus Time · currently trusted as context for quiet work.'), h('p', null, 'Visible activity · trusted as a proxy signal, not a direct measure of work quality.')));
-  cards.append(h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOLS'), h('h3', null, 'No utilities installed'), h('p', null, 'Nothing from coworkers has been installed on this workstation today.')));
+
+  if (state.flags.keepaliveAvailable) {
+    const keepalive = h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOL'), h('h3', null, 'keepalive.pkg'));
+    if (state.flags.keepaliveUsed) {
+      keepalive.append(h('p', null, 'Running. Simulated input is being counted as visible workstation activity.'), h('div', 'status-on', 'ACTIVE'));
+    } else {
+      keepalive.append(h('p', null, 'Sent by Marcus. Simulates small input events so the workstation does not appear idle.'), btn('Install and run (5 min)', 'btn', () => dispatch({ do: 'keepalive' })));
+    }
+    cards.append(keepalive);
+  } else {
+    cards.append(h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOLS'), h('h3', null, 'No utilities installed'), h('p', null, 'Nothing from coworkers has been installed on this workstation today.')));
+  }
   return windowShell('utilities', 'Utilities', h('div', 'body', cards));
 }
 
@@ -549,7 +618,7 @@ function renderEnd() {
 }
 
 function render() {
-  renderChrome(); renderWindows(); renderEnd(); renderQuietAction();
+  renderChrome(); renderWindows(); renderEnd(); renderQuietAction(); renderNotificationCenter();
 }
 
 render();
