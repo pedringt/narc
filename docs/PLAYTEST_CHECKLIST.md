@@ -1,6 +1,13 @@
 # NARC Live Playtest / Pre-Merge Checklist
 
-**Purpose:** Manual QA checklist for the current `prototype-v1` branch before merging to `main`.
+> **ARCHIVED (2026-09-26).** This checklist is written for the original
+> one-week build (Luis/Marcus/Priya/Dana incidents, NARC 2.0 escalation,
+> "Replay this week", the long-deleted `prototype-v1` branch) — now archived
+> at `week.html`. It does not apply to the canonical single-workday build.
+> The current playtest checklist lives in issue **#70**'s own body; use that
+> instead. Kept below for historical/reference value only.
+
+**Purpose:** Manual QA checklist for the archived one-week build, prior to its `prototype-v1` -> `main` merges.
 
 This complements `node test.mjs`. The deterministic suite verifies state logic; this checklist verifies that the experience actually feels clear, funny, and intentional.
 

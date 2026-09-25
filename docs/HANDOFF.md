@@ -1,69 +1,22 @@
 # NARC Handoff
 
-## Current status (2026-09-25)
+## Current status (2026-09-26)
 
-The canonical experience is the **single-workday desktop build** at `/` and `/day.html`.
+The canonical experience is the **single-workday desktop build** at `/` and `/day.html` (`day.js`/`day-desktop-app.js`/`single-day-desktop.css`).
 
-The archived one-week prototype remains at `/week.html` for reference only.
+The archived one-week prototype remains at `/week.html` for reference only (`game.js`/`app.js`/`style.css`).
 
 ### Branch / PR state
 
-- `main` is the last promoted canonical build at commit `00de4abc23449bed421b7d137cdf437100595f01`
-- active branch: `tutorial-progress-by-app-open`
-- active draft PR: **#86 — Advance tutorial from normal app navigation**
-- PR #86 has a READY Vercel preview:
-  - `https://narc-ap82m72ce-cairn10.vercel.app`
-- do **not** merge to `main` or promote production without Paige explicitly naming that destination
+- `main` is the only branch, at whatever commit `git log -1` shows — this file is not kept in sync with the exact SHA, don't trust a hardcoded commit hash here over `git log`
+- **#86 and #87 are both done and merged** — PR #86 (tutorial advances via any real app-navigation path, verified live in browser before merging) and #87 (Dana's opening line now establishes the situation before app mechanics) are closed/merged, not pending work
+- no open branches or PRs as of this writing
 
 ## Immediate work order for Claude Code
 
 Work in this order. Do not jump to backlog features.
 
-### 1. Verify PR #86 in the browser
-
-PR #86 fixes a tutorial bug where Dana's sequence only advanced if the player clicked the shortcut button inside her message.
-
-Expected behavior now:
-
-- opening the expected app from the dock advances the tutorial
-- focusing an already-open expected app advances the tutorial
-- Dana's shortcut button still works
-- the same step never advances twice
-- The Loop, Files, Calendar, NARC, and the final return to The Loop all work through normal navigation
-
-If browser verification finds a regression, fix it on the active branch and document it in PR #86.
-
-### 2. Implement #87 — strengthen opening context
-
-Current first Dana message is too mechanics-first.
-
-The opening should establish this mental model before teaching specific apps:
-
-> I work here -> a new workplace AI is being piloted -> it is monitoring me -> I still have a normal job -> Dana is helping me get situated.
-
-Required context, kept concise:
-
-- Dana is the player's manager
-- Employee 4417 is an Operations Associate
-- Meridian is piloting NARC internally
-- NARC is an AI workplace-monitoring / assessment system
-- it watches observable work traces and converts them into employee assessments
-- the player still has three normal work responsibilities today
-- Dana is helping the player get oriented
-
-The People Operations email can reinforce this, but Dana's first message should stand on its own.
-
-A useful copy direction is:
-
-> Hi, Dana here — your manager. Meridian is piloting NARC, a new AI system that watches how work gets done and turns those signals into employee assessments.
->
-> You've still got your normal job today: three things need your attention, and I'll get you oriented before NARC starts making too many assumptions. Start with The Loop.
-
-Exact wording can change if a shorter version reads better.
-
-**Do not rename Meridian.** GoodThink is only a candidate and has not been approved.
-
-### 3. Run #70 as the single browser-validation gate
+### 1. Run #70 as the single browser-validation gate
 
 #70 is now the consolidated human/browser gate for the current game.
 
@@ -98,7 +51,7 @@ Be ruthless about filler. A beat should generally do at least one of:
 
 If the playtest exposes problems, create focused issues rather than reopening broad old implementation issues.
 
-### 4. Only after #70 stabilizes the loop, consider #88
+### 2. Only after #70 stabilizes the loop, consider #88
 
 #88 tracks lightweight Vercel Web Analytics custom events.
 
@@ -134,13 +87,14 @@ Closed as implementation-complete:
 - #80 Repair single-day opening, desktop window behavior, and midmorning pacing
 - #82 Refine onboarding, NARC presence, and quiet-time flow
 - #84 Polish notifications, tutorial handoff, NARC actions, and keepalive
+- #86 Advance tutorial from normal app navigation (merged to `main`, browser-verified)
+- #87 Strengthen opening context (merged to `main`, browser-verified)
 
-Their remaining browser verification is consolidated into #70.
+Their remaining browser verification (plus #86/#87's own) is consolidated into #70.
 
 Current active issues that matter now:
 
-- **#70** Playtest the ~15-minute core loop
-- **#87** Strengthen opening context
+- **#70** Playtest the ~15-minute core loop — the only real gate left before more code work
 - **#88** Add lightweight Vercel gameplay analytics after the core loop stabilizes
 
 Deferred backlog:
