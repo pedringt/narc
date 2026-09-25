@@ -203,25 +203,28 @@ function announceChanges(before, after) {
   const newlyOpen = Object.entries(after.requests).find(([id, r]) => r.status === 'open' && before.requests[id]?.status !== 'open');
   if (newlyOpen) {
     const [id] = newlyOpen;
-    if (id === 'narcResponse') showToast('NARC', 'NARC wants a response.');
-    else showToast('Messages', `${THREADS[REQUEST_THREAD[id]].name} sent you a message.`);
+    if (id === 'narcResponse') showToast('NARC', 'NARC wants a response.', 'narc');
+    else showToast('Messages', `${THREADS[REQUEST_THREAD[id]].name} sent you a message.`, 'messages');
   }
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
-    showToast('Files', 'A morning shortcut just came back as a new file.');
+    showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.narc.adaptation && !before.narc.adaptation) {
-    showToast('NARC', 'NARC 2.0 changed how it reads Focus Time.');
+    showToast('NARC', 'NARC 2.0 changed how it reads Focus Time.', 'narc');
   } else {
     const newNarc = after.log.slice(before.log.length).find((e) => e.kind === 'narc');
-    if (newNarc) showToast('NARC', newNarc.text);
+    if (newNarc) showToast('NARC', newNarc.text, 'narc');
   }
 }
 
-function showToast(source, text) {
+function showToast(source, text, app = null) {
   clearTimeout(toastTimer);
   const toast = h('button', 'toast', h('span', 'app', source), h('span', 'text', text));
   toast.type = 'button';
-  toast.addEventListener('click', () => els.toasts.replaceChildren());
+  toast.addEventListener('click', () => {
+    els.toasts.replaceChildren();
+    if (app) goApp(app);
+  });
   els.toasts.replaceChildren(toast);
   toastTimer = setTimeout(() => els.toasts.replaceChildren(), 5000);
 }
