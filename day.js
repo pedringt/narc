@@ -48,7 +48,10 @@ export function newGame() {
     index: 61, // NARC's Visible Activity Index -- a proxy, and known to the player
     actual: 0, // real contribution, hidden as a number; only ever shown as narrative
     flags: {}, // small named facts consequences key off later
-    log: [{ t: START, kind: 'system', text: 'You log in. Three things are already on your plate.' }],
+    log: [
+      { t: START, kind: 'system', text: 'You log in. Three things are already on your plate.' },
+      { t: START, kind: 'narc', text: 'Monitoring active. Baseline Visible Activity Index: 61. Workstation signals are being assessed.' },
+    ],
     tasks: {
       vendor: {
         label: 'Recommend: renew or drop the Halcyon vendor contract',
@@ -82,7 +85,8 @@ export function newGame() {
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
       danaMorning: { status: 'pending', at: 10 * 60 + 15 },
-      marcusFavor: { status: 'pending', at: 11 * 60 + 5 },
+      marcusFavor: { status: 'pending', at: 10 * 60 + 45 },
+      narcCheckpoint: { status: 'pending', at: 11 * 60 + 20 },
       danaCheckin: { status: 'pending', at: 12 * 60 + 15 },
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
@@ -90,6 +94,7 @@ export function newGame() {
       // Opened programmatically the moment NARC adapts, not on a timer --
       // this is what makes the adaptation an actual decision rather than a
       // line of text the player just reads.
+      narcFirstReview: { status: 'pending', at: null },
       narcResponse: { status: 'pending', at: null },
     },
     calendar: [],
@@ -130,6 +135,7 @@ function nextEvent(s) {
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
+  if (requests.narcCheckpoint.status === 'pending') candidates.push({ t: requests.narcCheckpoint.at, label: "NARC's midmorning check" });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
   if (requests.marcusFallout.status === 'pending' && flags.cutWithoutMarcus) {
     candidates.push({ t: requests.marcusFallout.at, label: 'Marcus finding out' });
@@ -205,11 +211,21 @@ function checkThresholds(s) {
   }
   if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
     requests.danaMorning.status = 'open';
-    say(s, 'dana', "NARC's first-hour read is live. If it looks off, send me the context it cannot see. Otherwise keep moving.");
+    if (s.flags.firstNarcReadType === 'low') {
+      say(s, 'dana', "NARC marked your first work block as low activity even though you completed the task. If that was careful file review, tell me that directly; otherwise leave the read as-is.");
+    } else if (s.flags.firstNarcReadType === 'visible') {
+      say(s, 'dana', "NARC rewarded the visible activity from your first task. If that score is hiding rushed work, tell me that directly; otherwise leave the read as-is.");
+    } else {
+      say(s, 'dana', "NARC's first-hour read is live. Check what it actually recorded before deciding whether it needs context.");
+    }
   }
   if (requests.marcusFavor.status === 'pending' && s.t >= requests.marcusFavor.at) {
     requests.marcusFavor.status = 'open';
     say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
+  }
+  if (requests.narcCheckpoint.status === 'pending' && s.t >= requests.narcCheckpoint.at) {
+    requests.narcCheckpoint.status = 'open';
+    note(s, 'Midmorning pattern check: mixed work signals detected. Add context to the record or leave the automated interpretation standing.', 'narc');
   }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
     requests.danaCheckin.status = 'open';
@@ -255,11 +271,13 @@ export function act(state, a) {
       spend(s, opt.minutes, { visible: opt.visible });
       if (!s.flags.firstNarcRead) {
         s.flags.firstNarcRead = true;
+        s.flags.firstNarcReadType = opt.visible === false ? 'low' : 'visible';
+        s.requests.narcFirstReview.status = 'open';
         note(
           s,
           opt.visible === false
-            ? 'NARC first-hour read: sustained low-input activity detected during document work. Visible Activity Index adjusted despite completed work.'
-            : 'NARC first-hour read: rapid visible activity registered. Visible Activity Index improved.',
+            ? 'NARC first-hour read: sustained low-input activity detected during document work. Visible Activity Index adjusted despite completed work. Context requested.'
+            : 'NARC first-hour read: rapid visible activity registered. Visible Activity Index improved. Confirmation requested.',
           'narc'
         );
       }
@@ -379,14 +397,34 @@ const TASK_OPTIONS = {
 };
 
 const REQUEST_OPTIONS = {
+  narcFirstReview: {
+    context: {
+      minutes: 5, visible: true, flag: 'firstNarcContext',
+      result: "You add context to NARC's first read. The correction becomes visible activity too.",
+    },
+    accept: {
+      minutes: 0, visible: false,
+      result: "You leave NARC's first automated read standing.",
+    },
+  },
+  narcCheckpoint: {
+    context: {
+      minutes: 8, visible: true, flag: 'midmorningContext',
+      result: 'You spend eight minutes explaining what the activity pattern missed. NARC records the explanation as another visible signal.',
+    },
+    ignore: {
+      minutes: 0, visible: false, flag: 'narcCheckpointIgnored',
+      result: 'You leave the midmorning interpretation standing without context.',
+    },
+  },
   danaMorning: {
     context: {
       minutes: 5, visible: true, flag: 'morningContext',
-      result: "You sent Dana the context NARC could not see. The message itself counts as visible activity; the model's first read stays on the record.",
+      result: "You tell Dana exactly what NARC's score missed. The message itself counts as visible activity; the model's first read stays on the record.",
     },
     skip: {
       minutes: 0,
-      result: 'You left the first-hour assessment alone and kept moving.',
+      result: "You leave NARC's first-hour read as-is.",
     },
   },
   luisTip: {

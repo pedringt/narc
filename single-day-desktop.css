@@ -71,7 +71,7 @@
 .quiet-card {
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  bottom: 96px;
   transform: translateX(-50%);
   z-index: 60;
   min-width: min(560px, calc(100vw - 32px));
@@ -151,7 +151,7 @@
 
 @media (max-width: 760px) {
   .quiet-card {
-    bottom: 10px;
+    bottom: 84px;
     flex-direction: column;
     align-items: stretch;
   }

@@ -44,7 +44,10 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
 {
   let careful = act(newGame(), { do: 'task', id: 'vendor', approach: 'thorough' });
   assert.equal(careful.flags.firstNarcRead, true);
+  assert.equal(careful.requests.narcFirstReview.status, 'open', 'NARC asks the player to deal with its first read instead of only logging it');
   assert.ok(careful.log.some((e) => e.kind === 'narc' && /low-input/i.test(e.text)), 'careful work gets an immediate proxy-based NARC read');
+  careful = act(careful, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
+  assert.equal(careful.requests.narcFirstReview.status, 'handled');
 
   let quick = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
   assert.ok(quick.log.some((e) => e.kind === 'narc' && /rapid visible activity/i.test(e.text)), 'visible work also gets an immediate NARC interpretation');
@@ -59,6 +62,16 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.equal(s.requests.danaMorning.status, 'open');
   s = act(s, { do: 'respond', id: 'danaMorning', choice: 'context' });
   assert.equal(s.flags.morningContext, true);
+}
+
+// ----------------------------------------- NARC has a midmorning decision
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: 140 }); // 11:20
+  assert.equal(s.requests.narcCheckpoint.status, 'open');
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /midmorning pattern check/i.test(e.text)));
+  s = act(s, { do: 'respond', id: 'narcCheckpoint', choice: 'context' });
+  assert.equal(s.requests.narcCheckpoint.status, 'handled');
 }
 
 // -------------------------------------------------------- competing requests
@@ -168,11 +181,14 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   let consulted = act(newGame(), { do: 'task', id: 'project', approach: 'consult' });
   consulted = act(consulted, { do: 'task', id: 'vendor', approach: 'thorough' });
   consulted = act(consulted, { do: 'task', id: 'client', approach: 'investigate' });
+  consulted = act(consulted, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
   consulted = act(consulted, { do: 'respond', id: 'luisTip', choice: 'thank' });
   consulted = act(consulted, { do: 'workUntil' }); // -> Dana's first-hour check at 10:15
   consulted = act(consulted, { do: 'respond', id: 'danaMorning', choice: 'skip' });
-  consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 11:05
+  consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 10:45
   consulted = act(consulted, { do: 'respond', id: 'marcusFavor', choice: 'decline' });
+  consulted = act(consulted, { do: 'workUntil' }); // -> NARC's midmorning check at 11:20
+  consulted = act(consulted, { do: 'respond', id: 'narcCheckpoint', choice: 'ignore' });
   consulted = act(consulted, { do: 'workUntil' }); // -> Dana's check-in at 12:15
   consulted = act(consulted, { do: 'respond', id: 'danaCheckin', choice: 'brief' });
   consulted = act(consulted, { do: 'workUntil' }); // -> 1:30 Focus Time spread / system update
@@ -223,7 +239,7 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   // Chained the rest of the way -- resolving whatever opens with its
   // cheapest option -- it reaches end of day on a small, bounded number of
   // contextual jumps rather than a click-to-burn-time loop.
-  const cheapest = { danaMorning: 'skip', marcusFavor: 'decline', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
+  const cheapest = { narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
   let hops = 0;
   while (s.phase !== 'end' && hops < 40) {
     const openReq = Object.entries(s.requests).find(([, r]) => r.status === 'open');
@@ -233,7 +249,7 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
     else { s = act(s, { do: 'workUntil' }); hops += 1; }
   }
   assert.equal(s.phase, 'end');
-  assert.ok(hops <= 6, `expected a handful of contextual jumps, got ${hops}`);
+  assert.ok(hops <= 7, `expected a handful of contextual jumps, got ${hops}`);
 }
 
 // nextEvent must never point backwards or at the current instant.

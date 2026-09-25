@@ -25,17 +25,31 @@ const THREADS = {
 };
 
 const REQUEST_THREAD = {
-  danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus', narcResponse: 'narc',
+  danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
-  danaMorning: [['context', 'Send Dana the missing context (5 min)'], ['skip', 'Leave it alone']],
   luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']],
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
   marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
   narcResponse: [['explain', 'Explain the pattern (10 min)'], ['ignore', 'Leave the flag unanswered']],
 };
+
+function requestOptions(id) {
+  if (id === 'danaMorning') {
+    if (state.flags.firstNarcReadType === 'low') return [['context', 'Tell Dana I was carefully reviewing the file (5 min)'], ['skip', "Leave NARC's read as-is"]];
+    if (state.flags.firstNarcReadType === 'visible') return [['context', 'Tell Dana the fast result hid rushed work (5 min)'], ['skip', "Leave NARC's read as-is"]];
+    return [['context', 'Tell Dana what the score missed (5 min)'], ['skip', "Leave NARC's read as-is"]];
+  }
+  if (id === 'narcFirstReview') {
+    return state.flags.firstNarcReadType === 'low'
+      ? [['context', 'Add context: careful file review (5 min)'], ['accept', 'Leave the assessment']]
+      : [['context', 'Add context about the completed task (5 min)'], ['accept', 'Leave the assessment']];
+  }
+  if (id === 'narcCheckpoint') return [['context', 'Explain the recent work pattern (8 min)'], ['ignore', 'Leave the automated read']];
+  return REQUEST_OPTIONS[id] || [];
+}
 
 const TASK_OPTIONS = {
   vendor: [['quick', 'Skim it, approve it (5 min)'], ['thorough', 'Actually read it (25 min)']],
@@ -86,20 +100,21 @@ const NEWS = [
 ];
 
 const TUTORIAL_STEPS = [
-  { app: 'messages', text: 'Hi, Dana here — your manager. Before NARC starts judging anything, I want you to know what this laptop actually records. We can do the whole tour in about a minute. Start with The Loop, our company home screen.', label: 'Open The Loop' },
-  { app: 'intranet', text: 'The Loop is your normal home base. Your actual responsibilities live here. NARC does not see the quality of this work directly — mostly the traces around it.', label: 'Open Files' },
-  { app: 'files', text: 'Files are where the substance is. Reading carefully can take real time while producing very little visible activity. That difference matters.', label: 'Open Calendar' },
-  { app: 'calendar', text: 'Calendar is one of the signals NARC trusts. Focus Time can explain a quiet stretch, at least until the system decides people are gaming it.', label: 'Open NARC' },
-  { app: 'narc', text: 'This is NARC’s version of your day. Compare it with what actually happened in the other apps whenever something looks wrong. That is the job.', label: 'Start working' },
+  { target: 'intranet', text: 'Hi, Dana here — your manager. Before NARC starts judging anything, I want you to know what this laptop actually records. Start with The Loop, our company home screen.', label: 'Open The Loop' },
+  { target: 'files', text: 'The Loop is your home base. Your real responsibilities live there, but NARC mostly sees the traces around the work. Next, open Files.', label: 'Open Files' },
+  { target: 'calendar', text: 'Files are where the substance is. Careful reading can take real time while producing very little visible activity. Now check Calendar.', label: 'Open Calendar' },
+  { target: 'narc', text: 'Calendar is one of the signals NARC trusts. Focus Time can explain a quiet stretch, at least until the system decides people are gaming it. Open NARC next.', label: 'Open NARC' },
+  { target: 'intranet', text: 'That is NARC’s version of your day. Compare it with what actually happened in the other apps whenever something looks wrong. You can start with the work on The Loop.', label: 'Start working', final: true },
 ];
 
 let state = newGame();
 let ui = freshUi();
 let toastTimer = null;
+let tutorialTimer = null;
 
 function freshUi() {
   return {
-    oriented: false, tutorialStep: -1, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
+    oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
     selectedFile: null, selectedThread: null, positions: {},
   };
 }
@@ -143,23 +158,24 @@ els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }
 
 function restart() { state = newGame(); ui = freshUi(); render(); }
 
-function tutorialGuide(app) {
+function advanceTutorial() {
   const step = TUTORIAL_STEPS[ui.tutorialStep];
-  if (!step || step.app !== app || app === 'messages') return null;
-  const guide = h('div', 'tutorial-guide',
-    h('div', 'tutorial-avatar', 'DW'),
-    h('div', 'tutorial-copy', h('b', null, 'Dana Whitfield'), h('p', null, step.text))
-  );
-  guide.append(btn(step.label, 'btn primary', () => {
+  if (!step || ui.tutorialDone) return;
+  ui.tutorialUnread = false;
+  if (step.final) {
+    ui.tutorialDone = true;
+    goApp(step.target);
+    return;
+  }
+  goApp(step.target);
+  clearTimeout(tutorialTimer);
+  tutorialTimer = setTimeout(() => {
+    if (ui.tutorialDone) return;
     ui.tutorialStep += 1;
-    if (ui.tutorialStep >= TUTORIAL_STEPS.length) {
-      ui.tutorialStep = -1;
-      goApp('intranet');
-      return;
-    }
-    goApp(TUTORIAL_STEPS[ui.tutorialStep].app);
-  }));
-  return guide;
+    ui.tutorialUnread = true;
+    render();
+    showToast('Messages', 'Dana Whitfield sent you a message.', 'messages');
+  }, 900);
 }
 
 function ensureWindow(id) {
@@ -172,7 +188,14 @@ function ensureWindow(id) {
   ui.app = id;
 }
 
-function goApp(id) { ensureWindow(id); render(); }
+function goApp(id) {
+  if (id === 'messages' && ui.tutorialStep >= 0) {
+    ui.tutorialUnread = false;
+    if (!ui.selectedThread) ui.selectedThread = 'dana';
+  }
+  ensureWindow(id);
+  render();
+}
 
 function focusWindow(id) {
   if (!ui.openApps.includes(id)) return;
@@ -203,7 +226,7 @@ function announceChanges(before, after) {
   const newlyOpen = Object.entries(after.requests).find(([id, r]) => r.status === 'open' && before.requests[id]?.status !== 'open');
   if (newlyOpen) {
     const [id] = newlyOpen;
-    if (id === 'narcResponse') showToast('NARC', 'NARC wants a response.', 'narc');
+    if (id.startsWith('narc')) showToast('NARC', id === 'narcCheckpoint' ? 'Midmorning pattern check requires your attention.' : 'NARC wants context for its first read.', 'narc');
     else showToast('Messages', `${THREADS[REQUEST_THREAD[id]].name} sent you a message.`, 'messages');
   }
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
@@ -289,7 +312,7 @@ function renderChrome() {
   els.trayText.querySelector('.full').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC ACTIVE';
   els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
 
-  const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && id !== 'narcResponse').length;
+  const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && REQUEST_THREAD[id]).length;
   const pendingTasks = Object.values(state.tasks).filter((t) => t.status === 'pending').length;
   const visibleApps = ui.oriented ? APPS : APPS.filter(([id]) => id === 'email' || id === 'intranet');
   els.dock.replaceChildren(...visibleApps.map(([id, label]) => {
@@ -298,7 +321,8 @@ function renderChrome() {
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
-    const count = id === 'messages' ? openReq : id === 'files' ? pendingTasks : id === 'narc' && state.requests.narcResponse.status === 'open' ? 1 : 0;
+    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
+    const count = id === 'messages' ? openReq + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
     return b;
@@ -340,8 +364,10 @@ function renderEmail() {
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
     ui.tutorialStep = 0;
+    ui.tutorialUnread = true;
     ui.selectedThread = 'dana';
-    goApp('messages');
+    render();
+    showToast('Messages', 'Dana Whitfield sent you a message.', 'messages');
   }));
   return windowShell('email', 'Email', h('div', 'body', list, detail));
 }
@@ -349,9 +375,6 @@ function renderEmail() {
 function renderLoop() {
   const main = h('div', 'intranet-list');
   main.append(h('div', 'loop-welcome', h('div', 'loop-kicker', 'MERIDIAN SUPPLY CO. · EMPLOYEE HOME'), h('h2', null, 'The Loop'), h('p', null, 'Good morning, Employee 4417. Three things need your attention today. NARC is watching the work traces it can see, not the work itself.')));
-
-  const loopGuide = tutorialGuide('intranet');
-  if (loopGuide) main.append(loopGuide);
 
   const taskBox = h('div', 'loop-card', h('div', 'loop-card-h', 'Today · your work'));
   Object.entries(state.tasks).filter(([, t]) => t.status !== 'hidden').forEach(([id, t]) => {
@@ -384,7 +407,7 @@ function threadMessages(thread) {
 function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
-    const active = requestForThread(id).length;
+    const active = requestForThread(id).length + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
     const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', active ? 'Needs your response' : t.role)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
     row.addEventListener('click', () => { ui.selectedThread = id; render(); }); list.append(row);
@@ -398,28 +421,29 @@ function renderMessages() {
     const wrap = h('div', 'thread', h('header', null, h('b', null, t.name), h('span', null, t.role)));
     const scroll = h('div', 'scroll');
     const msgs = threadMessages(id);
-    const tutorial = TUTORIAL_STEPS[ui.tutorialStep];
-    if (id === 'dana' && tutorial?.app === 'messages') {
-      scroll.append(h('div', 'bubble', tutorial.text));
-    }
-    if (!msgs.length && !(id === 'dana' && tutorial?.app === 'messages')) scroll.append(h('div', 'empty', 'No new messages.'));
+    const tutorialMsgs = id === 'dana' && ui.tutorialStep >= 0 ? TUTORIAL_STEPS.slice(0, ui.tutorialStep + 1) : [];
+    if (!msgs.length && !tutorialMsgs.length) scroll.append(h('div', 'empty', 'No new messages.'));
+    tutorialMsgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
     msgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
+    if (id === 'dana' && state.requests.danaMorning.status === 'handled') {
+      scroll.append(h('div', 'bubble me', state.flags.morningContext
+        ? (state.flags.firstNarcReadType === 'low' ? 'I was carefully reviewing the file. That is what the low-activity read missed.' : 'The visible activity came from moving fast. It did not mean the work was careful.')
+        : "I left NARC's first-hour read as-is."));
+    }
     wrap.append(scroll);
     const compose = h('div', 'compose');
-    if (id === 'dana' && tutorial?.app === 'messages') {
+    if (id === 'dana' && ui.tutorialStep >= 0 && !ui.tutorialDone) {
+      const tutorial = TUTORIAL_STEPS[ui.tutorialStep];
       const chips = h('div', 'chips');
-      chips.append(btn(tutorial.label, 'chip', () => {
-        ui.tutorialStep += 1;
-        goApp(TUTORIAL_STEPS[ui.tutorialStep].app);
-      }));
+      chips.append(btn(tutorial.label, 'chip', advanceTutorial));
       compose.append(chips);
     }
     requestForThread(id).forEach(([reqId]) => {
       const chips = h('div', 'chips');
-      REQUEST_OPTIONS[reqId].forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
+      requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
-    if (!compose.childNodes.length) compose.append(h('div', 'compose-state', 'No reply needed right now.'));
+    if (!compose.childNodes.length) compose.append(h('div', 'compose-state', 'Nothing else needs a reply right now.'));
     wrap.append(compose); detail.append(wrap);
   }
   return windowShell('messages', 'Messages', h('div', 'body', list, detail));
@@ -434,7 +458,7 @@ function renderCalendar() {
   card.append(btn(state.narc.adaptation ? 'Use Focus Time anyway (5 min)' : 'Mark next block as Focus Time (5 min)', state.narc.adaptation ? 'btn' : 'btn primary', () => dispatch({ do: 'focus' })));
   state.calendar.forEach((c) => card.append(h('div', 'line', h('span', null, clock(c.at)), h('span', null, c.label))));
   pane.append(card);
-  return windowShell('calendar', 'Calendar', tutorialGuide('calendar'), h('div', 'body', pane));
+  return windowShell('calendar', 'Calendar', h('div', 'body', pane));
 }
 
 function visibleFiles() {
@@ -467,7 +491,7 @@ function renderFiles() {
       detail.append(actions);
     }
   }
-  return windowShell('files', 'Files', tutorialGuide('files'), h('div', 'body', list, detail));
+  return windowShell('files', 'Files', h('div', 'body', list, detail));
 }
 
 function renderUtilities() {
@@ -489,16 +513,18 @@ function renderNarc() {
   const panel = h('div', 'narc-summary');
   panel.append(h('div', 'narc-kicker', 'NETWORKED ASSESSMENT & RISK COORDINATION'), h('h2', null, `VISIBLE ACTIVITY INDEX ${state.index}`), h('p', 'narc-copy', state.index >= 75 ? 'Exemplary engagement.' : state.index >= 50 ? 'Within normal range.' : 'Flagged for review.'));
   panel.append(h('div', 'narc-rule', h('b', null, 'Current interpretation'), h('p', null, state.narc.adaptation ? 'Repeated recent Focus Time is now weighted as possible gaming.' : 'Quiet work may be read as inactivity unless other visible context is present.')));
-  if (state.requests.narcResponse.status === 'open') {
-    const action = h('div', 'narc-action', h('b', null, 'Response requested'));
-    REQUEST_OPTIONS.narcResponse.forEach(([choice, label]) => action.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: 'narcResponse', choice }))));
+  ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
+    if (state.requests[reqId]?.status !== 'open') return;
+    const title = reqId === 'narcCheckpoint' ? 'Midmorning review' : 'Response requested';
+    const action = h('div', 'narc-action', h('b', null, title));
+    requestOptions(reqId).forEach(([choice, label]) => action.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
     panel.append(action);
-  }
+  });
   const log = h('div', 'narc-log', h('h3', null, 'Recent NARC reads'));
   state.log.filter((e) => e.kind === 'narc' || e.kind === 'consequence').slice().reverse().slice(0, 8).forEach((e) => log.append(h('div', 'narc-log-row', h('span', null, clock(e.t)), h('span', null, e.text))));
   if (log.childNodes.length === 1) log.append(h('p', 'narc-copy', 'No interventions yet.'));
   body.append(panel, log);
-  return windowShell('narc', 'NARC', tutorialGuide('narc'), body);
+  return windowShell('narc', 'NARC', body);
 }
 
 function renderQuietAction() {
