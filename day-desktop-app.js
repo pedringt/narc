@@ -48,6 +48,13 @@ function requestOptions(id) {
       : [['context', 'Add context about the completed task (5 min)'], ['accept', 'Leave the assessment']];
   }
   if (id === 'narcCheckpoint') return [['context', 'Explain the recent work pattern (8 min)'], ['ignore', 'Leave the automated read']];
+  if (id === 'danaCheckin' && state.flags.trustedOperator) {
+    return [
+      ['trustNarc', "Use NARC's Trusted Operator summary (2 min)"],
+      ['update', 'Give Dana the real picture (15 min)'],
+      ['brief', 'Give her the short version (5 min)'],
+    ];
+  }
   return REQUEST_OPTIONS[id] || [];
 }
 
@@ -433,7 +440,8 @@ function renderLoop() {
   main.append(taskBox);
 
   const side = h('aside', 'loop-side');
-  const profile = h('div', 'loop-card', h('div', 'loop-card-h', 'Employee 4417'), h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', 'loop-muted', `Visible Activity Index: ${state.index}`))));
+  const standing = state.standing.status === 'trusted' ? 'Trusted Operator' : state.standing.status === 'review' ? 'Review open' : 'Standard standing';
+  const profile = h('div', 'loop-card', h('div', 'loop-card-h', 'Employee 4417'), h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', 'loop-muted', `Visible Activity Index: ${state.index}`), h('p', `standing standing-${state.standing.status}`, standing))));
   const quick = h('div', 'loop-card', h('div', 'loop-card-h', 'Quick links'));
   [['Messages', 'messages'], ['Calendar', 'calendar'], ['Files', 'files'], ['NARC', 'narc']].forEach(([label, id]) => quick.append(btn(label, 'loop-link', () => goApp(id))));
   const note = h('div', 'loop-card nonsense', h('div', 'loop-card-h', 'Required reminder'), h('p', null, state.narc.adaptation ? 'NARC 2.0: repeated Focus Time is now considered possible gaming.' : 'NARC interprets visible activity. Quiet work can look like inactivity.'));
@@ -586,7 +594,9 @@ function renderBrowser() {
 function renderNarc() {
   const body = h('div', 'body');
   const panel = h('div', 'narc-summary');
+  const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
   panel.append(h('div', 'narc-kicker', 'NETWORKED ASSESSMENT & RISK COORDINATION'), h('h2', null, `VISIBLE ACTIVITY INDEX ${state.index}`), h('p', 'narc-copy', state.index >= 75 ? 'Exemplary engagement.' : state.index >= 50 ? 'Within normal range.' : 'Flagged for review.'));
+  panel.append(h('div', `narc-standing narc-standing-${state.standing.status}`, h('span', null, 'EMPLOYEE STANDING'), h('b', null, standingLabel), h('p', null, state.standing.note)));
   panel.append(h('div', 'narc-rule', h('b', null, 'Current interpretation'), h('p', null, state.narc.adaptation ? 'Repeated recent Focus Time is now weighted as possible gaming.' : 'Quiet work may be read as inactivity unless other visible context is present.')));
   ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
     if (state.requests[reqId]?.status !== 'open') return;
