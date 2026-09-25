@@ -865,7 +865,6 @@ const INCIDENTS = {
               : 'After Luis yesterday, I started checking what NARC thinks counts as proof.';
       say(s, 4, 'marcus', 'NARC flagged me for attendance again, so before you hear it from HR: a raccoon got on the 8:14 bus.');
       say(s, 7, 'marcus', tuesdayCallback, { when: 'e3' });
-      say(s, 12, 'marcus', 'The driver said we had to wait for a professional.');
       say(s, 8, 'marcus', 'NARC says I have no corroborating records. My Wednesday calendar is completely empty btw. Just saying.', { when: 'e3' });
       mark(s, 8, 'calendar', { when: 'e3', hint: 'Wednesday has no entry for Marcus.' });
       say(s, 16, 'marcus', 'If anyone doubts the raccoon, the city posts transit delays in Utilities. Also I would take advice. Any advice.', { when: 'e3', prompt: 'marcus-e3' });
@@ -1002,7 +1001,7 @@ const INCIDENTS = {
         p.champion = true;
         p.status = 'promoted';
         react(s, 1, { incident: 'e4', where: 'narc', label: 'Communication Load: exempt', conf: 100, metrics: { 'Company response': 'None. Flag cleared' }, tone: 'good', toast: !!s.earlyMove, text: 'Culture Champion: nomination cites Collaboration Index 97. Exempt from Communication Load monitoring. Flag cleared.' });
-        say(s, 14, 'priya', 'I have a badge. I can now talk to people officially.');
+        say(s, 14, 'priya', 'I have a Culture Champion badge now. I can talk to people officially.');
         cal(s, 24, { who: 'team', day: 'Fri', start: '10:00', end: '16:00', title: 'Connection Circle ×6 (Culture Champion)', where: 'Five required per week' });
         catchUp(s, 14, 'priya');
       },
