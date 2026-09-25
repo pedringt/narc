@@ -159,3 +159,113 @@
   .tutorial-guide { margin: 8px; }
   .tutorial-guide .btn { width: calc(100% - 46px); }
 }
+
+
+/* Follow-up QA: notifications should be recoverable without becoming another app. */
+.notifications-button {
+  position: relative;
+  border: 1px solid #33413a;
+  background: transparent;
+  color: var(--bar-muted);
+  border-radius: 4px;
+  padding: 2px 9px;
+  font-size: 12px;
+}
+.notifications-button:hover,
+.notifications-button.has-unread { color: var(--bar-text); border-color: var(--bar-muted); }
+.notifications-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #d64545;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.notifications-count:empty { display: none; }
+
+.notification-center {
+  position: fixed;
+  top: 44px;
+  right: 12px;
+  z-index: 90;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - 64px));
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 10px;
+  background: #f7f9fb;
+  color: var(--app-text);
+  box-shadow: 0 18px 48px rgba(0,0,0,.32);
+}
+.notification-center[hidden] { display: none; }
+.notification-center-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--app-line);
+  background: #fff;
+}
+.notification-close {
+  border: 0;
+  background: transparent;
+  color: var(--app-muted);
+  font-size: 18px;
+}
+.notification-list { max-height: 500px; overflow-y: auto; }
+.notification-item {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--app-line);
+  background: transparent;
+  text-align: left;
+}
+.notification-item:hover { background: #edf3f8; }
+.notification-item.unread { background: #eef5fb; }
+.notification-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+.notification-meta span { color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.notification-preview {
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.notification-empty { padding: 18px 12px; color: var(--app-muted); }
+
+/* NARC actions should read like system controls, not default browser buttons. */
+.narc-action .btn {
+  margin: 10px 8px 0 0;
+  border: 1px solid #4a5647;
+  border-radius: 3px;
+  background: #171b17;
+  color: var(--n-text);
+  padding: 7px 11px;
+  font: 600 12px/1.3 var(--mono);
+}
+.narc-action .btn:first-of-type {
+  border-color: var(--n-accent);
+  color: var(--n-accent);
+  background: #1b2118;
+}
+.narc-action .btn:hover {
+  border-color: var(--n-accent);
+  color: var(--n-accent);
+  background: #20271d;
+}
+
+@media (max-width: 760px) {
+  .notifications-button { padding: 2px 6px; font-size: 11px; }
+  .notification-center { top: 42px; right: 8px; width: calc(100vw - 16px); }
+}
