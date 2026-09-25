@@ -43,6 +43,17 @@
 .tutorial-copy p { margin: 2px 0 0; color: var(--app-muted); line-height: 1.4; }
 .tutorial-guide .btn { flex: none; }
 
+.window.narc .tutorial-guide {
+  background: #151a15;
+  border-color: #3b4734;
+  border-left-color: var(--n-accent);
+  color: var(--n-text);
+  font-family: var(--sans);
+}
+.window.narc .tutorial-avatar { background: #273125; color: var(--n-accent); }
+.window.narc .tutorial-copy p { color: var(--n-muted); }
+
+
 .file-actions {
   display: flex;
   gap: 8px;
