@@ -230,9 +230,6 @@ function dispatch(action) {
 
 function announceChanges(before, after) {
   const newEntries = after.log.slice(before.log.length);
-  newEntries.filter((e) => e.kind === 'message').forEach((e) => {
-    showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
-  });
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
@@ -242,6 +239,9 @@ function announceChanges(before, after) {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) showToast('NARC', newNarc.text, 'narc');
   }
+  newEntries.filter((e) => e.kind === 'message').forEach((e) => {
+    showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
+  });
 }
 
 function openNotification(item) {
@@ -482,7 +482,13 @@ function renderMessages() {
     const tutorialMsgs = id === 'dana' && ui.tutorialStep >= 0 ? TUTORIAL_STEPS.slice(0, ui.tutorialStep + 1) : [];
     if (!msgs.length && !tutorialMsgs.length) scroll.append(h('div', 'empty', 'No new messages.'));
     tutorialMsgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
-    msgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
+    msgs.forEach((m) => {
+      const bubble = h('div', 'bubble', m.text);
+      if (id === 'marcus' && state.flags.keepaliveAvailable && /keepalive\.pkg/i.test(m.text)) {
+        bubble.append(btn('keepalive.pkg · Open in Utilities', 'attach clickable', () => goApp('utilities')));
+      }
+      scroll.append(bubble);
+    });
     if (id === 'dana' && state.requests.danaMorning.status === 'handled') {
       scroll.append(h('div', 'bubble me', state.flags.morningContext
         ? (state.flags.firstNarcReadType === 'low' ? 'I was carefully reviewing the file. That is what the low-activity read missed.' : 'The visible activity came from moving fast. It did not mean the work was careful.')
