@@ -145,6 +145,7 @@ function freshUi() {
     narcPerson: 'me',
     positions: {},
     toastHistoryOpen: false,
+    browserScroll: 0,
     draft: { note: '', title: '', attribute: '', nominee: '' },
     lastHint: {}, // the reason a dock dot appeared, kept for one visit after it's cleared (#39)
   };
@@ -408,7 +409,7 @@ let renderingApp = 'email';
 
 function windowShell(title, ...body) {
   const app = renderingApp;
-  const bar = h('div', 'titlebar', h('span', 'lights', h('i'), h('i'), h('i')));
+  const bar = h('div', 'titlebar');
   const back = btn('‹ Back', 'back', () => { ui.detail[app] = false; render(); });
   const icon = h('span', `title-icon title-icon-${app}`);
   icon.innerHTML = ICON[app] || '';
@@ -662,10 +663,11 @@ function eventRow(e, team) {
   // appears only for the one block that's actually actionable right now --
   // marking it is the intervention itself, not a reply chip doing it for you.
   const mine = !team && e.who === 'me';
-  const actionable = team && e.who !== 'me' && !e.focus && e.id === 'c-luis1' && state.incident?.id === 'e2';
+  const actionable = team && e.who !== 'me' && e.id === 'c-luis1' && state.incident?.id === 'e2';
   if (mine || actionable) {
     const shown = h('span', `showas${e.focus ? ' is-focus' : ''}`, e.focus ? 'Focus time' : 'Busy');
-    const toggle = e.focus ? null : btn('Show as Focus time', 'showbtn', () => dispatch({ do: 'markFocus', event: e.id }));
+    const toggle = btn(e.focus ? 'Show as Busy' : 'Show as Focus time', 'showbtn',
+      () => dispatch({ do: 'setFocus', event: e.id, focus: !e.focus }));
     body.append(h('div', 'showrow', h('span', 'small', 'Show as: '), shown, toggle));
   }
   const note = narcNote(team && /^Added by/.test(e.where) ? 'calendar:team' : `calendar:${e.id}`);
@@ -822,32 +824,34 @@ function renderUtilities() {
   const cards = h('div', 'cards');
   const hp = state.helper;
 
-  const helper = h('div', 'card sketchy');
-  helper.append(
-    h('div', 'utility-kicker', hp.installed ? 'UNVERIFIED TOOL · INSTALLED' : 'UNVERIFIED DOWNLOAD'),
-    h('h3', null, 'keepalive.pkg'),
-    h('p', null, hp.installed ? 'Simulates workstation activity. Source: Messages.' : 'Shared by Marcus in Messages. Publisher unknown.')
-  );
-  if (!hp.installed) {
-    helper.append(btn('Install anyway', 'btn primary', () => dispatch({ do: 'helper', op: 'install' })));
-  } else {
-    const sw = h('button', 'switch');
-    sw.type = 'button';
-    sw.setAttribute('role', 'switch');
-    sw.setAttribute('aria-checked', String(hp.on));
-    sw.setAttribute('aria-label', 'Keepalive on or off');
-    sw.addEventListener('click', () => dispatch({ do: 'helper', op: 'toggle' }));
-    helper.append(h('div', 'line', h('span', null, 'This workstation'), h('span', hp.on ? 'status-on' : '', hp.on ? 'Simulating activity' : 'Stopped'), sw));
-    if (hp.luis) {
-      const r = hp.luis;
-      const rowL = h('div', 'line', h('span', null, 'Luis Perez · ', r.randomized ? 'interval: random' : 'interval: fixed (59 s)'));
-      if (state.level >= 2 && !r.randomized) rowL.append(btn('Randomize interval', 'btn', () => dispatch({ do: 'helper', op: 'randomize', copy: 'luis' })));
-      helper.append(rowL);
+  if (hp.discovered) {
+    const helper = h('div', 'card sketchy');
+    helper.append(
+      h('div', 'utility-kicker', hp.installed ? 'UNVERIFIED TOOL · INSTALLED' : 'UNVERIFIED DOWNLOAD'),
+      h('h3', null, 'keepalive.pkg'),
+      h('p', null, hp.installed ? 'Simulates workstation activity. Source: Messages.' : 'Shared by Marcus in Messages. Publisher unknown.')
+    );
+    if (!hp.installed) {
+      helper.append(btn('Install anyway', 'btn primary', () => dispatch({ do: 'helper', op: 'install' })));
+    } else {
+      const sw = h('button', 'switch');
+      sw.type = 'button';
+      sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-checked', String(hp.on));
+      sw.setAttribute('aria-label', 'Keepalive on or off');
+      sw.addEventListener('click', () => dispatch({ do: 'helper', op: 'toggle' }));
+      helper.append(h('div', 'line', h('span', null, 'This workstation'), h('span', hp.on ? 'status-on' : '', hp.on ? 'Simulating activity' : 'Stopped'), sw));
+      if (hp.luis) {
+        const r = hp.luis;
+        const rowL = h('div', 'line', h('span', null, 'Luis Perez · ', r.randomized ? 'interval: random' : 'interval: fixed (59 s)'));
+        if (state.level >= 2 && !r.randomized) rowL.append(btn('Randomize interval', 'btn', () => dispatch({ do: 'helper', op: 'randomize', copy: 'luis' })));
+        helper.append(rowL);
+      }
     }
+    const utilNote = narcNote('utilities');
+    if (utilNote) helper.append(utilNote);
+    cards.append(helper);
   }
-  const utilNote = narcNote('utilities');
-  if (utilNote) helper.append(utilNote);
-  cards.append(helper);
 
   const feed = h('div', 'card feed');
   feed.append(h('h3', null, 'Transit Alerts'), h('p', null, 'City transit feed, this week.'));
@@ -872,16 +876,37 @@ function renderUtilities() {
 // ------------------------------------------------------------------ browser
 
 function renderBrowser() {
+  const story = BROWSER_STORIES.find((item) => item.id === ui.sel.browser);
+  const address = story ? `meridian.start/news/${story.id}` : 'meridian.start/';
+  const toolbar = h('div', 'browser-toolbar',
+    btn('‹', 'browser-nav', () => {
+      ui.sel.browser = null;
+      ui.detail.browser = false;
+      render();
+    }, { 'aria-label': 'Back to browser home' }),
+    btn('⌂', 'browser-nav', () => {
+      ui.sel.browser = null;
+      ui.detail.browser = false;
+      render();
+    }, { 'aria-label': 'Browser home' }),
+    btn('↻', 'browser-nav', () => render(), { 'aria-label': 'Refresh page' }),
+    h('div', 'browser-address', h('span', 'browser-lock', '▣'), address)
+  );
+
   const list = h('div', 'list browser-list');
-  BROWSER_STORIES.forEach((story) => {
+  list.dataset.scroll = 'browser-list';
+  list.scrollTop = ui.browserScroll || 0;
+  list.addEventListener('scroll', () => { ui.browserScroll = list.scrollTop; });
+  BROWSER_STORIES.forEach((item) => {
     const row = h('button', 'row',
-      h('div', 'browser-source', story.source),
-      h('div', 'name', story.title),
-      h('div', 'sub browser-dek', story.dek));
+      h('div', 'browser-source', item.source),
+      h('div', 'name', item.title),
+      h('div', 'sub browser-dek', item.dek));
     row.type = 'button';
-    row.setAttribute('aria-current', String(ui.sel.browser === story.id));
+    row.setAttribute('aria-current', String(ui.sel.browser === item.id));
     row.addEventListener('click', () => {
-      ui.sel.browser = story.id;
+      ui.browserScroll = list.scrollTop;
+      ui.sel.browser = item.id;
       ui.detail.browser = true;
       render();
     });
@@ -889,7 +914,6 @@ function renderBrowser() {
   });
 
   const detail = h('div', 'detail browser-page');
-  const story = BROWSER_STORIES.find((item) => item.id === ui.sel.browser);
   if (!story) {
     detail.append(
       h('div', 'browser-home-kicker', 'MERIDIAN START'),
@@ -899,7 +923,11 @@ function renderBrowser() {
         h('div', 'browser-source', BROWSER_STORIES[0].source),
         h('h3', null, BROWSER_STORIES[0].title),
         h('p', null, BROWSER_STORIES[0].dek),
-        btn('Read story', 'btn primary', () => { ui.sel.browser = BROWSER_STORIES[0].id; ui.detail.browser = true; render(); }))
+        btn('Read story', 'btn primary', () => {
+          ui.sel.browser = BROWSER_STORIES[0].id;
+          ui.detail.browser = true;
+          render();
+        }))
     );
   } else {
     detail.append(
@@ -908,7 +936,7 @@ function renderBrowser() {
       h('p', 'browser-lede', story.dek));
     story.body.forEach((p) => detail.append(h('p', null, p)));
   }
-  return windowShell('Browser · Meridian Start', h('div', 'body', list, detail));
+  return windowShell('Browser', h('div', 'browser-shell', toolbar, h('div', 'body browser-body', list, detail)));
 }
 
 // -------------------------------------------------------------------- NARC

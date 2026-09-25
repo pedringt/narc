@@ -23,8 +23,8 @@
 // it. Everything is plain data and pure: the same actions always give the same
 // week, which is what the tests rely on.
 
-const GAP = 24; // seconds between the last consequence and the next problem
-const ORIENT_LEAD = 10; // seconds between finishing orientation and the first NARC case
+const GAP = 12; // keep the week moving once a consequence has landed
+const ORIENT_LEAD = 8; // enough breathing room after onboarding without a dead patch
 const ORDER = ['e1', 'e2', 'e3', 'update', 'e4', 'e5', 'e6'];
 
 export const PEOPLE = {
@@ -162,7 +162,8 @@ const later = (s, n) => (s.base ?? s.t) + n;
 // make the player wait: only things they would have to read do.
 const isNoisy = (p) => !p.when && !p.awaiting && !p.awaitingAlert && !['mark', 'shown', 'react', 'cal'].includes(p.k) && !p.quiet;
 const settledAt = (s) => Math.max(s.t, ...s.pending.filter(isNoisy).map((p) => p.at));
-const say = (s, n, thread, text, extra = {}) => push(s, { at: later(s, n), k: 'msg', thread, text, ...extra });
+const messageDelay = (s, n) => s.oriented ? Math.max(1, Math.ceil(n * 0.6)) : n;
+const say = (s, n, thread, text, extra = {}) => push(s, { at: later(s, messageDelay(s, n)), k: 'msg', thread, text, ...extra });
 const notice = (s, n, title, text, extra = {}) => push(s, { at: later(s, n), k: 'notice', title, text, ...extra });
 const mail = (s, n, m) => push(s, { at: later(s, n), k: 'mail', mail: m });
 const score = (s, n, delta, title, text, extra = {}) => push(s, { at: later(s, n), k: 'score', delta, title, text, ...extra });
@@ -203,7 +204,7 @@ function tutorialAdvance(s) {
     s.orient.calendar = true;
     changed = true;
     next(
-      'There it is. Calendar is part of the evidence trail: time, location, and how work is labeled. “Busy” and “Focus time” do not mean the same thing to NARC. Next, open Utilities.',
+      'There it is. Calendar is part of the evidence trail. Busy only says the time is occupied, so NARC can still treat low keyboard or mouse activity as inactivity. Focus Time tells NARC the low-input period is intentional work, so it weighs that time differently. You can switch the label either way. Next, open Utilities.',
       'utilities',
       'Dana asked you to look at what the workstation can record.'
     );
@@ -291,6 +292,10 @@ function deliver(s, d) {
   switch (d.k) {
     case 'msg':
       s.threads[d.thread].push({ id: `m${++s.uid}`, from: 'them', text: d.text, unread: true, attach: d.attach, prompt: d.prompt, doneAt: s.done.length });
+      if (d.attach === 'keepalive.pkg') {
+        s.helper.discovered = true;
+        s.marks.utilities = 'Marcus sent you keepalive.pkg. It is available to inspect here.';
+      }
       // A quiet message still lands in the thread (unread badge and all); it
       // just does not interrupt with a toast, the same way a quiet notice or
       // reaction does not.
@@ -689,8 +694,8 @@ const INCIDENTS = {
       });
       say(s, 5, 'dana', 'NARC flagged you for low activity this morning. If you’re working off-screen, let me know.', { when: 'e1', prompt: 'dana-e1' });
       mark(s, 8, 'calendar', { when: 'e1', hint: 'A calendar event can be relabeled.' });
-      say(s, 11, 'marcus', 'You got the low-activity flag? Someone passed me this little keepalive tool. Definitely not an IT thing. Use at your own risk.', { when: 'e1', attach: 'keepalive.pkg' });
-      mark(s, 11, 'utilities', { discoverHelper: true, hint: 'Something Marcus mentioned showed up here.' });
+      // Marcus shares keepalive independently after onboarding, so this case
+      // does not own discovery of the tool.
     },
     branches: {
       wait(s) {
@@ -783,7 +788,7 @@ const INCIDENTS = {
         say(s, 3, 'dana', 'Thanks. I’ll pass that along to NARC.');
         react(s, 5, { incident: 'e2', where: 'thread:dana', label: 'Time-on-task concern: high', conf: 88, tone: 'bad', text: 'Peer confirmation received. Confidence 71% → 88%. Luis Perez’s inactivity threshold: 18 min → 5 min.' });
         score(s, 4, 4, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 16, 'luis', 'A peer. A PEER confirmed a bathroom.');
+        say(s, 8, 'luis', 'Wait. Someone actually confirmed my bathroom flag to NARC?');
       },
       ignore(s) {
         const p = s.people.luis;
@@ -1119,7 +1124,7 @@ const INCIDENTS = {
         say(s, 3, 'dana', 'Understood. I’ll let NARC know.');
         react(s, 5, { incident: 'e5', where: 'thread:dana', label: 'Automated presence: source identified', conf: 100, tone: 'bad', text: 'Synthetic Activity Policy §4: employees are responsible for their own input. Luis Perez: terminated. Nomination withdrawn.' });
         score(s, 4, 6, 'Constructive feedback', 'Visible Activity Index: {from} → {to}.', { quiet: true });
-        say(s, 18, 'luis', 'A peer. Again.');
+        say(s, 8, 'luis', 'A peer reported me to NARC again. Great.');
         goOffline(s, 30, 'luis');
         teamUpdate(s, 30, 'luis');
         catchUp(s, 30, 'luis');
@@ -1585,7 +1590,8 @@ export function act(state, a) {
         s.oriented = true;
         ['intranet', 'files', 'calendar', 'utilities', 'narc', 'browser'].forEach((app) => { delete s.marks[app]; });
         s.marks.intranet = 'Setup complete. The Loop is your normal company home screen.';
-        say(s, 3, 'dana', 'Exactly. Compare NARC’s judgment with the other apps whenever something looks off. NARC is live.');
+        say(s, 2, 'dana', 'Exactly. Compare NARC’s judgment with the other apps whenever something looks off. NARC is live.');
+        say(s, 4, 'marcus', 'Unrelated onboarding gift: someone sent me keepalive.pkg. It simulates workstation activity. Definitely not an IT tool. Sending it in case you ever need it.', { attach: 'keepalive.pkg' });
         push(s, { at: later(s, ORIENT_LEAD), k: 'arm', id: 'e1' });
       } else {
         if (spec.prompt) s.answered[spec.prompt] = true;
@@ -1616,10 +1622,22 @@ export function act(state, a) {
       }
       break;
     }
+    case 'setFocus': {
+      // Calendar labels are reversible. Switching to Focus Time can be the
+      // intervention during an active case; switching back to Busy only
+      // changes the record and never rewrites an already-finished outcome.
+      const ev = s.calendar.find((e) => e.id === a.event);
+      if (ev && ev.focus !== !!a.focus) {
+        ev.focus = !!a.focus;
+        if (!ev.focus) delete s.reactions[`calendar:${ev.id}`];
+        if (ev.focus && ev.id === 'c1' && s.incident?.id === 'e1') resolve(s, 'focus');
+        if (ev.focus && ev.id === 'c-luis1' && s.incident?.id === 'e2') resolve(s, 'focus');
+        changed = true;
+      }
+      break;
+    }
     case 'markFocus': {
-      // Showing a calendar event as Focus time. On Monday, NARC counts your
-      // own block; on Tuesday, marking Luis's is the actual intervention --
-      // not a reply chip that does it for you.
+      // Backward-compatible action used by existing tests/helpers.
       const ev = s.calendar.find((e) => e.id === a.event);
       if (ev && !ev.focus) {
         ev.focus = true;

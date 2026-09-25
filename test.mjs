@@ -201,6 +201,8 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   s = act(s, { do: 'view', app: 'calendar' });
   assert.equal(s.orient.calendar, true);
   assert.equal(s.marks.utilities, 'Dana asked you to look at what the workstation can record.');
+  s = until(s, (x) => texts(x, 'dana').some((t) => /Busy only says the time is occupied/i.test(t)));
+  assert.ok(has(texts(s, 'dana'), /Focus Time tells NARC.*intentional work/i), 'tutorial explains what Busy and Focus Time actually mean');
 
   // Utilities teaches traces; NARC teaches the AI judgment; Browser teaches
   // that ordinary browsing can also become a signal.
@@ -472,8 +474,15 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(s.picked.e1, 'focus');
   assert.equal(s.calendar.find((e) => e.id === 'c1').focus, true, 'the event now shows as Focus time');
   assert.equal(act(s, { do: 'markFocus', event: 'c1' }).rev, s.rev, 'no second time');
+  let relabeled = act(s, { do: 'setFocus', event: 'c1', focus: false });
+  assert.equal(relabeled.calendar.find((e) => e.id === 'c1').focus, false, 'Focus Time can be switched back to Busy');
+  relabeled = act(relabeled, { do: 'setFocus', event: 'c1', focus: true });
+  assert.equal(relabeled.calendar.find((e) => e.id === 'c1').focus, true, 'Busy can be switched to Focus Time again');
   s = until(s, (x) => has(noticeTexts(x), /Focus time recognized/));
   assert.equal(s.score, before + 11, 'smaller than the jiggler’s +14, but honest');
+  assert.ok(s.reactions['calendar:c1'], 'the Focus Time reaction is visible on the calendar');
+  const backToBusy = act(s, { do: 'setFocus', event: 'c1', focus: false });
+  assert.equal(backToBusy.reactions['calendar:c1'], undefined, 'switching back to Busy clears stale inline Focus Time feedback');
   s = until(s, (x) => has(texts(x, 'dana'), /Calendar label changed the assessment/));
 
   // The difference from the jiggler: NARC 2.0 does not see through it.
@@ -486,21 +495,34 @@ const HONEST = { e1: 'explain', e2: 'ignore', e3: 'stay', e4: 'leave', e5: 'labe
   assert.equal(act(play({}, { stopAt: 'e1' }), { do: 'markFocus', event: 'nope' }).rev, play({}, { stopAt: 'e1' }).rev);
 }
 
-// ------------------- the helper is knowledge you acquire before you can share it
+// ------------------- Marcus shares keepalive on every route, then Utilities can install it
 
 {
-  let monday = play({}, { stopAt: 'e1' });
-  assert.equal(monday.helper.discovered, false);
-  assert.equal(act(monday, { do: 'helper', op: 'install' }).helper.installed, false, 'the exploit cannot be installed before Marcus shares it');
-  monday = until(monday, (x) => x.helper.discovered);
-  assert.match(texts(monday, 'marcus').join(' '), /keepalive tool/);
-  assert.ok(monday.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')), 'Marcus shares the unverified package');
+  let s = oriented();
+  assert.equal(s.helper.discovered, false, 'keepalive does not exist before Marcus sends the attachment');
+  assert.equal(act(s, { do: 'helper', op: 'install' }).helper.installed, false, 'the tool cannot be installed before it is sent');
 
-  let s = play({ e1: 'explain' }, { stopAt: 'e2' });
-  assert.equal(canAttachHelper(s), false, 'you still have to install the discovered tool before sharing it');
+  s = until(s, (x) => x.helper.discovered);
+  assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')), 'Marcus sends keepalive regardless of Monday outcome');
+  assert.match(texts(s, 'marcus').join(' '), /simulates workstation activity/i);
+
   s = act(s, { do: 'helper', op: 'install' });
-  assert.equal(canAttachHelper(s), true, 'once installed you can pass it to Luis');
-  const sent = act(s, { do: 'attach', thread: 'luis', item: 'helper' });
+  assert.equal(s.helper.installed, true, 'the received package is installable');
+  s = act(s, { do: 'helper', op: 'toggle' });
+  assert.equal(s.helper.on, true, 'the installed package can be used on Employee 4417’s own machine');
+
+  // The independent send also happens on the Focus Time route, so choosing
+  // the legitimate Calendar label does not hide the workaround from the run.
+  let focusRoute = oriented();
+  focusRoute = act(focusRoute, { do: 'setFocus', event: 'c1', focus: true });
+  focusRoute = until(focusRoute, (x) => x.helper.discovered);
+  assert.ok(focusRoute.threads.marcus.some((m) => /keepalive\.pkg/.test(m.attach || '')));
+
+  let tuesday = play({ e1: 'explain' }, { stopAt: 'e2' });
+  assert.equal(canAttachHelper(tuesday), false, 'you still have to install the discovered tool before sharing it');
+  tuesday = act(tuesday, { do: 'helper', op: 'install' });
+  assert.equal(canAttachHelper(tuesday), true, 'once installed you can pass it to Luis');
+  const sent = act(tuesday, { do: 'attach', thread: 'luis', item: 'helper' });
   assert.ok(sent.threads.luis.some((m) => m.from === 'me' && /keepalive\.pkg/.test(m.attach)));
   assert.equal(sent.picked.e2, 'script');
 }

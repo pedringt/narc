@@ -337,3 +337,61 @@ Verification caveat: this environment can inspect/write the GitHub repository bu
 - Run the full automated suite and desktop/narrow browser smoke test in an environment that can execute the repo.
 - Do #29 with at least one genuinely uncoached fresh player.
 - Keep #45 (later replay/authority/settings) and #48 (later benign personalization) deferred unless a future playtest identifies a concrete first-run need.
+
+
+## Sept 24 QA feedback pass C
+
+Active implementation branch: `qa-feedback-sept24c`.
+
+Live playtest feedback after the previous main promotion produced a focused usability/pacing pass:
+
+- Dana now explicitly explains the Calendar rule: **Busy** only records occupied time, while **Focus Time** tells NARC that low-input time is intentional work and should be weighed differently.
+- Calendar labels are reversible. The player can switch **Busy ↔ Focus Time** instead of Focus Time being a one-way action.
+- `keepalive.pkg` is absent from Utilities until Marcus actually sends the attachment.
+- Marcus sends `keepalive.pkg` after onboarding on every route, independent of whether Employee 4417 receives the Monday inactivity flag.
+- Receiving the attachment is what marks the helper as discovered; it is then installable in Utilities and can be run on Employee 4417's own workstation.
+- Luis's peer-report reactions have been rewritten so the player can understand what happened without decoding the joke.
+- Browser keeps its article-list scroll position and now has a lightweight browser toolbar with home/back, refresh, and a fake Meridian address bar.
+- Decorative three-dot window controls were removed. The single functional X remains the only window-close affordance.
+- Pacing is tighter after onboarding: routine message delays are compressed and the gap between completed consequences and the next problem is shorter.
+- The intent is **fewer dead patches, not more content**. The player should spend more of the run discovering, deciding, or seeing consequences.
+
+Verification limitation: this environment still cannot clone the repo because GitHub DNS resolution fails, and the current Vercel preview is blocked by the shared build-rate limit. Automated/browser verification remains pending. Do not promote this branch to `main` without Paige explicitly authorizing `main`.
+
+
+## Handoff checkpoint after Sept 24 QA pass C
+
+Current working branch: `qa-feedback-sept24c`  
+Branch head: `7b7150b536fe48408f057618aba5b9b59b0ee293`  
+Current `main`: `3cf89374995089d1e588ca71db89677ad508a048`
+
+The working branch is 8 commits ahead of `main` and 0 behind. `main` has **not** been changed by this pass.
+
+### What the next session should do first
+
+1. Treat `qa-feedback-sept24c` as the current source of truth for the latest playtest fixes.
+2. Do not add more product scope before verifying this pass unless Paige supplies new feedback.
+3. Run `node test.mjs` in an environment that can execute the repo.
+4. Smoke-test the actual browser build, especially:
+   - Busy ↔ Focus Time in both directions
+   - Focus Time before Monday's inactivity check
+   - Marcus sending keepalive on both flagged and unflagged Monday routes
+   - keepalive absent before delivery, then installable/toggleable after delivery
+   - Browser article-list scroll persistence
+   - Browser toolbar layout and narrow-screen behavior
+   - no decorative three-dot window controls
+   - mid/late-game pacing and whether any dead stretches remain
+5. If verification exposes regressions, fix only those regressions on this branch.
+6. Do **not** merge or push to `main` until Paige explicitly says to push/merge to main.
+
+### Current verification state
+
+- GitHub branch/compare state verified: 8 ahead, 0 behind.
+- Automated test suite was not executable from the prior environment.
+- Vercel status for the branch is currently a build-rate-limit failure, not an application/build-code failure:
+  `https://vercel.com/cairn10?upgradeToPro=build-rate-limit`
+- A real browser smoke test of pass C is still required.
+
+### Product judgment to preserve
+
+The newest playtest did **not** suggest the game needs more raw content. The main issue was momentum. Preserve the current direction: reduce dead time, make causality legible, and give Employee 4417 enough self-directed interaction without turning NARC into a larger management sim.

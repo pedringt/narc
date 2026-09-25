@@ -772,3 +772,28 @@ Observed friction included:
 ### Attribution
 
 These product decisions came from Paige's live playtesting and direction. AI tools assisted with repository inspection, implementation, regression-test updates, and documentation.
+
+
+## Live playtest finding: momentum matters more than content volume (2026-09-24)
+
+A later self-play pass found that NARC no longer lacked content at the beginning. The problem was the **shape of the run**: the opening felt reasonably dense, then momentum dropped as messages and reactions arrived in a slow drip.
+
+That led to a different product decision from “add more things”:
+
+> compress the distance between meaningful actions instead of expanding the game.
+
+The follow-up pass shortens routine post-onboarding message delays and reduces the gap between one incident's consequence and the next problem. The goal is for most moments to be one of:
+- discovering useful context
+- making a decision
+- seeing NARC/company/coworker consequences
+
+The same playtest also exposed several affordance/causality problems:
+- Busy vs Focus Time was mentioned without explaining the actual system rule
+- Focus Time could not be switched back to Busy
+- keepalive appeared in Utilities before anyone had sent it
+- keepalive discovery depended on receiving the Monday inactivity flag
+- the Browser behaved like a split-pane app instead of a browser and lost list position
+- decorative window dots competed with the real close button
+- a Luis peer-report joke obscured the event it was supposed to communicate
+
+These findings reinforce a useful design rule for the portfolio case study: **satirical UI can still be funny, but state changes and causality have to be immediately legible.**
