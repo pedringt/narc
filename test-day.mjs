@@ -173,8 +173,9 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   consulted = act(consulted, { do: 'respond', id: 'danaMorning', choice: 'skip' });
   consulted = act(consulted, { do: 'workUntil' }); // -> Marcus's favor at 11:05
   consulted = act(consulted, { do: 'respond', id: 'marcusFavor', choice: 'decline' });
-  consulted = act(consulted, { do: 'workUntil' }); // -> Dana's check-in at 1:30
+  consulted = act(consulted, { do: 'workUntil' }); // -> Dana's check-in at 12:15
   consulted = act(consulted, { do: 'respond', id: 'danaCheckin', choice: 'brief' });
+  consulted = act(consulted, { do: 'workUntil' }); // -> 1:30 Focus Time spread / system update
   // Everything clock-based and flag-free is now resolved; with no flag ever
   // earned, Marcus's fallout (2:30) must not be the next stop -- it should
   // skip straight to end of day.
