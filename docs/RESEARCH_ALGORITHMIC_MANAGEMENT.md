@@ -388,3 +388,69 @@ Public case-study language should continue to separate:
 3. **fictional satirical escalation**
 
 For example, keyboard/mouse activity and app usage are documented capabilities. “Engagement concern: 91%” and automatic termination from those traces are NARC fiction.
+
+
+## Product-documentation spot check (2026-09-25)
+
+A fresh product-documentation pass supports the narrow monitoring foundation used in the current single-day build.
+
+### ActivTrak
+
+Current ActivTrak documentation describes:
+
+- application-usage reporting by team and individual
+- duration and active/passive breakdowns
+- productivity classifications for applications
+- user-specific activity logs
+- screenshots triggered by configured alarms
+
+Sources:
+- ActivTrak, *Application Usage*: https://support.activtrak.com/hc/en-us/articles/35320836319643-Application-Usage
+- ActivTrak, *Screenshots Guide*: https://support.activtrak.com/hc/en-us/articles/360032477212-ActivTrak-Screenshots-Guide
+
+This supports NARC's grounded use of visible workstation/app activity as an observable trace. It does **not** validate NARC's fictional employee-standing labels or its institutional decision rules.
+
+### Teramind
+
+Current Teramind documentation describes website monitoring that can include:
+
+- browsing history and page activity
+- department/team/individual usage breakdowns
+- session playback
+- alerts tied to behaviors such as excessive idle time
+- file-upload/download monitoring
+
+Source:
+- Teramind, *Website Monitoring*: https://kb.teramind.co/en/articles/9223895-website-monitoring
+
+This supports the realism of a workplace system observing narrow digital traces and reacting to activity patterns. NARC's exact scoring and interpretation remain fiction.
+
+### Microsoft Viva Insights boundary
+
+Microsoft's current personal-insights documentation is useful as an explicit counterexample to overclaiming. Microsoft states that Viva Insights personal insights are not designed for employee evaluation, tracking, automated decision-making, profiling, or monitoring, and that personal insights are private to the individual user.
+
+Sources:
+- Microsoft, *Privacy guide for Personal Insights*: https://support.microsoft.com/en-us/viva/insights/privacy-guide-for-personal-insights
+- Microsoft Learn, *Introduction to Viva Insights*: https://learn.microsoft.com/en-us/viva/insights/use/team-experience
+
+Design implication:
+
+> Work-pattern and collaboration data can exist without implying that every product exposes it to managers or uses it for punitive individual scoring.
+
+That distinction should remain explicit in any public NARC case study.
+
+## Current-build realism map
+
+| Current mechanic | Grounding level | Boundary |
+|---|---|---|
+| visible workstation activity | grounded | real products can track activity; NARC's score is fictional |
+| app / browsing traces | grounded | product capabilities vary by vendor/configuration |
+| quiet work being mistaken for low activity | plausible inference | NARC's exact interpretation is authored satire |
+| Focus Time changing the system's read | fictional product rule built on plausible metadata use | not a claim about a specific real vendor |
+| `keepalive.pkg` creating synthetic activity | grounded worker-countermeasure concept | exact NARC reaction is fictional |
+| Trusted Operator / Review Open | satirical institutional extrapolation | not presented as a standard real-world feature |
+| NARC 2.0 anti-gaming adaptation | plausible speculative escalation | not claimed as a common current employer system |
+
+The current build therefore stays inside the intended design ladder:
+
+**real trace → plausible interpretation → institutional overreach → exploitable weakness**

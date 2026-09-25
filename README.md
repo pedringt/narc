@@ -4,86 +4,132 @@
 
 NARC is a short satirical workplace-surveillance game for Paige Edrington's AI product portfolio.
 
-> **Status (2026-09-25):** the canonical build is a single-workday core loop, served at `index.html`/`day.html` (`day.js`/`day-app.js`). The rest of this README describes the original one-week prototype, now archived at `week.html` for reference — see `docs/HANDOFF.md` for the current build's status.
+## Current product
 
-## Current direction
+The canonical build is a **single 9:00–5:00 workday compressed into about 15 minutes of real playtime**.
 
-The player is a **human employee** inside a workplace monitored by NARC, an AI system that watches work traces and turns them into scores, classifications, and interventions.
+The player is Employee 4417, working on a fictional company laptop while NARC turns visible work traces into productivity judgments.
 
-The player gradually learns what NARC can actually observe, what it merely infers, and how to exploit the gap.
+The game is deterministic/authored-first. It does not require a live LLM.
 
-Core loop:
+## Premise
 
-**NARC flags something → infer what it measures → respond or game the metric → observe the consequence → learn more about the model.**
+> A human learns to game an AI workplace-monitoring system by understanding the difference between what the system sees and what is actually true.
+
+The core tension is between:
+
+- doing the real work well
+- looking productive to NARC
+- helping or preserving trust with coworkers
+
+## Core loop
+
+**notice competing priorities → decide → act → spend time → receive work/NARC/social feedback → reprioritize**
+
+NARC should be learnable and gameable.
+
+The player should discover through play that:
+
+- proxies are not the real goal
+- missing context changes interpretation
+- people optimize what gets measured
+- anti-gaming systems create an arms race
+- institutional trust can make a bad inference consequential
+
+## Workstation
+
+The game uses a fictional corporate desktop with:
+
+- The Loop
+- Messages
+- Email
+- Calendar
+- Files
+- Utilities
+- Browser
+- NARC
+
+The archived one-week prototype remains available at `week.html` for historical reference only.
+
+## Current single-day mechanics
+
+Three starting responsibilities create visible-vs-substantive work tradeoffs:
+
+- Halcyon vendor renewal
+- Priya client escalation
+- Marcus project scope decision
+
+NARC reacts to the player's work with a Visible Activity Index and explicit interpretations.
+
+Current counterplay includes:
+
+- Focus Time, which initially protects quiet work
+- NARC 2.0 adapting after Focus Time spreads
+- `keepalive.pkg`, a mouse-jiggler-style workaround Marcus sends after the adaptation
+
+Player standing is deliberately lightweight:
+
+- Standard
+- Trusted Operator
+- Review Open
+
+A flattering NARC read can benefit the player personally, even if the work behind it was weak.
 
 ## Portfolio target
 
-The first real version should stay small:
+A healthy first run should be roughly:
 
-- roughly 5–15 minutes for a first run
-- one short authored work week
-- three current recurring coworkers (Luis, Marcus, Priya)
-- six main incidents plus a mid-week NARC 2.0 escalation
-- repeated characters so earlier choices matter
-- progressive disclosure: apps appear when the player has a reason to understand them
-- choices expressed through normal workstation actions instead of story-menu buttons
-- branching coworker and player outcomes
-- final roster/outcome recap
-- seven achievements
-- replayable alternate/extreme routes
+- **1–2 minutes:** onboarding
+- **8–10 minutes:** work decisions, interruptions, NARC reactions, tradeoffs
+- **2–3 minutes:** escalation and ending
 
-## Cast
-
-- **Luis Perez** — restroom time becomes a productivity anomaly
-- **Priya Shah** — too chatty in person and in Messages
-- **Marcus Reed** — frequent lateness and increasingly ridiculous excuses
-- **Nina Brooks** — future scenario-bank character: refuses to take vacation
-- **Maya Chen** — future scenario-bank character: sarcastic high performer who resists performative AI adoption
+Do not add content just to make the simulated workday longer.
 
 ## Realism + satire
 
-NARC should start from recognizable workplace-monitoring ideas such as activity/idle signals, communication volume, app/tool usage, after-hours work, location/device traces, AI adoption, and behavioral anomalies.
-
-The escalation should follow:
+Design rule:
 
 **real capability → plausible inference → ridiculous institutional response → exploitable weakness**
 
-The company should sound completely sincere even when the system becomes absurd.
+The early game draws from recognizable monitoring concepts such as workstation activity, application/website usage, idle/activity signals, and work-pattern metadata.
 
-## AI stance
+NARC's classifications, rewards, and institutional responses are fictional satirical extrapolations.
 
-The game is **about AI**, but the first version does not need live generative AI.
+The game should not imply that every employer uses every capability or that real monitoring products make NARC's exact judgments.
 
-The current product judgment is to keep gameplay deterministic unless a future AI mechanic clearly improves the experience. Authored comedy, testable state, reliable branching, and fast portfolio play matter more than adding an LLM for its own sake.
+Research notes live in `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`.
 
-## Current implementation status
+## Current development
 
-`prototype-v1` is a human-vs-NARC vertical slice played on a fictional work laptop. You are Employee 4417. NARC is monitoring software on that laptop, and it watches you and three coworkers (Luis, Marcus, Priya) across one work week.
+The active implementation branch is:
 
-- you start with a short orientation: the People Operations email introducing NARC, then your manager Dana asking you to check your Calendar
-- there are no scenario cards: problems arrive as NARC notifications, messages, email and calendar changes, and consequences arrive the same way
-- NARC is the pressure (persistent, increasingly pushy notifications); coworkers and the other apps are the counterplay
-- NARC's window shows what it *observed* and what it *inferred*; the real human context is in Calendar, Files, Messages and Utilities
-- six incidents plus a mid-week NARC 2.0 update; Luis and Marcus each return, and what you did before decides what comes back
-- nothing is decided by a hidden timer: dismiss an alert, or log off and NARC processes it (the game tells you first)
-- 7 achievements and an end-of-week report
-- deterministic, no live AI, no backend
+`notification-tutorial-keepalive-polish`
 
-NARC shows everyone's alerts to everyone, "for transparency", but you can only act directly on your own cases. You help or hurt coworkers through natural-language Messages replies, Dana, and ordinary actions in Calendar, Files and Utilities. The branch structure stays hidden even when the available affordances are visible.
+It includes the latest notification, tutorial, keepalive, player-standing, and short-game polish.
 
-| Situation | Things you can actually do |
-|---|---|
-| Your own low activity | dismiss the alert · type a note in NARC · install the Mouse Activity Helper and switch it on · show your contract block as Focus time in Calendar |
-| Luis | suggest Focus time · suggest explaining it to NARC · attach the helper (once installed) · confirm or decline Dana's question · later: attribute the script or randomize his copy · relabel his time via Dana · send Dana his ticket output |
-| Marcus | suggest adding a calendar entry now or later · add the calendar entry yourself · tell Dana the trace conflicts with his story, add missing context, or decline to confirm · later: endorse/report his documents · send Dana the sanctuary slip · backdate an entry |
-| Priya | suggest an in-person sync · suggest posting less · nominate her from the Culture email; following the wrong metric can eventually get her fired |
-| Doing nothing | log off for the day: NARC processes what is still open, and the game tells you first |
+Do not merge to `main` or deploy without Paige explicitly naming the destination.
 
-Run the tests with `node test.mjs`. Serve the folder statically to play it (ES modules need http, not file://). Add `?tick=150` to the URL to speed up the game clock for QA.
+Human/browser validation is still required for:
 
-For a code-accurate picture of the build (architecture, the week's routes, decisions, known gaps), see `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md`.
+- browser smoke of the latest desktop flow
+- at least one uncoached ~15-minute playtest
+- dead-air / overload notes
+- actual observed completion time
 
-Nina and Maya are not in this slice and remain future scenario-bank ideas. See `docs/handoffs/claude-rework/IMPLEMENTATION_STATE.md` for the code-accurate current build, and `docs/CASE_STUDY_NOTES.md` for the living portfolio/case-study record.
+See:
+
+- `docs/HANDOFF.md`
+- `docs/CORE_GAME_SPEC.md`
+- GitHub issue #70 for the playtest gate
+
+## Deferred
+
+Do not automatically add:
+
+- promotion/replay authority and NARC settings
+- invasive personalization
+- a large employee simulation
+- live AI just for portfolio signaling
 
 ## Project rule
 
