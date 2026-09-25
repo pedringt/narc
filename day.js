@@ -83,7 +83,7 @@ export function newGame() {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
       danaMorning: { status: 'pending', at: 10 * 60 + 15 },
       marcusFavor: { status: 'pending', at: 11 * 60 + 5 },
-      danaCheckin: { status: 'pending', at: 13 * 60 + 30 },
+      danaCheckin: { status: 'pending', at: 12 * 60 + 15 },
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
       marcusFallout: { status: 'pending', at: 14 * 60 + 30 },
