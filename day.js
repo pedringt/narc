@@ -81,8 +81,9 @@ export function newGame() {
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
-      marcusFavor: { status: 'pending', at: 12 * 60 + 10 },
-      danaCheckin: { status: 'pending', at: 13 * 60 + 30 },
+      danaMorning: { status: 'pending', at: 10 * 60 + 15 },
+      marcusFavor: { status: 'pending', at: 11 * 60 + 5 },
+      danaCheckin: { status: 'pending', at: 12 * 60 + 15 },
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
       marcusFallout: { status: 'pending', at: 14 * 60 + 30 },
@@ -127,6 +128,7 @@ function nextEvent(s) {
     candidates.push({ t: 13 * 60, label: 'this morning catching up with you' });
   }
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
+  if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
   if (requests.marcusFallout.status === 'pending' && flags.cutWithoutMarcus) {
@@ -201,6 +203,10 @@ function checkThresholds(s) {
     requests.luisTip.status = 'open';
     say(s, 'luis', "Hey -- if NARC flags you for going quiet, block the time as Focus Time on Calendar first. Worked for me.");
   }
+  if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
+    requests.danaMorning.status = 'open';
+    say(s, 'dana', "NARC's first-hour read is live. If it looks off, send me the context it cannot see. Otherwise keep moving.");
+  }
   if (requests.marcusFavor.status === 'pending' && s.t >= requests.marcusFavor.at) {
     requests.marcusFavor.status = 'open';
     say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
@@ -247,6 +253,16 @@ export function act(state, a) {
       task.status = 'done';
       s.actual += opt.actual;
       spend(s, opt.minutes, { visible: opt.visible });
+      if (!s.flags.firstNarcRead) {
+        s.flags.firstNarcRead = true;
+        note(
+          s,
+          opt.visible === false
+            ? 'NARC first-hour read: sustained low-input activity detected during document work. Visible Activity Index adjusted despite completed work.'
+            : 'NARC first-hour read: rapid visible activity registered. Visible Activity Index improved.',
+          'narc'
+        );
+      }
       note(s, typeof opt.result === 'function' ? opt.result(task) : opt.result, 'task');
       if (opt.flag) s.flags[opt.flag] = true;
       if (a.id === 'rework') {
@@ -363,6 +379,16 @@ const TASK_OPTIONS = {
 };
 
 const REQUEST_OPTIONS = {
+  danaMorning: {
+    context: {
+      minutes: 5, visible: true, flag: 'morningContext',
+      result: "You sent Dana the context NARC could not see. The message itself counts as visible activity; the model's first read stays on the record.",
+    },
+    skip: {
+      minutes: 0,
+      result: 'You left the first-hour assessment alone and kept moving.',
+    },
+  },
   luisTip: {
     thank: { minutes: 3, visible: false, result: 'You thanked Luis for the tip. No cost, no upside yet.' },
     ignore: { minutes: 0, visible: false, result: "You didn't reply. Luis notices eventually." , trust: { luis: -1 } },
