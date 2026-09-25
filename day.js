@@ -150,8 +150,10 @@ function nextEvent(s) {
 // being spent, and the "what changed" feed always sees it.
 function spend(s, minutes, { visible = null } = {}) {
   s.t = Math.min(END, s.t + minutes);
-  if (visible === true) s.index = Math.min(100, s.index + 3);
-  if (visible === false) s.index = Math.max(0, s.index - 2);
+  // Visibility changes only make sense when time actually passes. A zero-minute
+  // "leave/ignore" choice should not manufacture activity or inactivity.
+  if (minutes > 0 && visible === true) s.index = Math.min(100, s.index + 3);
+  if (minutes > 0 && visible === false) s.index = Math.max(0, s.index - 2);
   checkThresholds(s);
 }
 
@@ -387,6 +389,7 @@ export function act(state, a) {
       break;
     }
     case 'logoff':
+      s.flags.loggedOffEarly = s.t < END;
       s.phase = 'end';
       break;
     default:
