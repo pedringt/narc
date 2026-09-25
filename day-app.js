@@ -15,6 +15,11 @@ function dispatch(a) {
   render();
 }
 
+function restart() {
+  state = newGame();
+  render();
+}
+
 function btn(label, cls, onClick, disabled = false) {
   const b = h('button', cls);
   b.textContent = label;
@@ -91,8 +96,10 @@ function render() {
   bar.append(
     h('span', 'clockread', clock(state.t)),
     h('span', null, `Visible Activity Index ${state.index}`),
-    btn('Log off', 'btn ghost', () => dispatch({ do: 'logoff' })),
   );
+  if (state.phase !== 'end') {
+    bar.append(btn('Log off', 'btn ghost', () => dispatch({ do: 'logoff' })));
+  }
   root.append(bar);
 
   if (state.phase === 'end') {
@@ -100,6 +107,7 @@ function render() {
     const box = h('div', 'card end');
     box.append(h('h2', null, 'End of day'));
     e.lines.forEach((l) => box.append(h('p', null, l)));
+    box.append(btn('Play again', 'btn', restart));
     root.append(box);
     return;
   }
@@ -122,14 +130,19 @@ function render() {
     const next = nextEvent(state);
     const wait = h('div', 'card');
     wait.append(h('h3', null, 'Nothing urgent right now'));
-    wait.append(btn(`Work until ${clock(next.t)} (${next.label})`, 'btn ghost dark', () => dispatch({ do: 'workUntil' })));
+    wait.append(btn(`Work until ${clock(next.t)} (${next.label})`, 'btn', () => dispatch({ do: 'workUntil' })));
     left.append(wait);
   }
 
   const focusCard = h('div', 'card');
   focusCard.append(h('h3', null, 'Calendar'));
-  focusCard.append(h('p', 'muted', 'Block the next stretch as Focus Time if NARC is reading a quiet patch as a problem.'));
-  focusCard.append(btn('Mark next block as Focus Time (5 min)', 'btn', () => dispatch({ do: 'focus' })));
+  if (state.narc.adaptation) {
+    focusCard.append(h('p', 'muted', 'NARC 2.0 now treats repeated Focus Time as possible gaming. You can still use it if you want to test the signal.'));
+    focusCard.append(btn('Use Focus Time anyway (5 min)', 'btn ghost dark', () => dispatch({ do: 'focus' })));
+  } else {
+    focusCard.append(h('p', 'muted', 'Block the next stretch as Focus Time if NARC is reading a quiet patch as a problem.'));
+    focusCard.append(btn('Mark next block as Focus Time (5 min)', 'btn', () => dispatch({ do: 'focus' })));
+  }
   state.calendar.forEach((c) => focusCard.append(h('p', 'meta', `${clock(c.at)} — ${c.label}`)));
   mid.append(focusCard);
 
