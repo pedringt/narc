@@ -107,7 +107,7 @@ const NEWS = [
 ];
 
 const TUTORIAL_STEPS = [
-  { target: 'intranet', text: 'Hi, Dana here — your manager. Start with The Loop. That is where your three real responsibilities live. NARC does not judge the quality of that work directly; it mostly sees the traces around it.', label: 'Open The Loop' },
+  { target: 'intranet', text: 'Hi, Dana here — your manager. Meridian is piloting NARC, a new AI system that watches how work gets done and turns those signals into employee assessments. You have still got your normal job today: three things need your attention, and I will get you oriented before NARC starts making too many assumptions. Start with The Loop.', label: 'Open The Loop' },
   { target: 'files', text: 'Next, open Files. That is where the substance of the work lives. Careful reading can take real time while producing very little visible activity, which matters to NARC.', label: 'Open Files' },
   { target: 'calendar', text: 'Next, check Calendar. NARC treats calendar status as evidence, so the same quiet work block can look different depending on how it is labeled.', label: 'Open Calendar' },
   { target: 'narc', text: 'Now open NARC itself. This is the system’s version of your day: what it saw, what it inferred, and what it thinks your activity means.', label: 'Open NARC' },
