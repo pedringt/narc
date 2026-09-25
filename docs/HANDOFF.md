@@ -2,50 +2,165 @@
 
 ## Current status (2026-09-25)
 
-The canonical NARC experience is the **single-workday desktop build** served at `/` and `/day.html`.
+The canonical experience is the **single-workday desktop build** at `/` and `/day.html`.
 
 The archived one-week prototype remains at `/week.html` for reference only.
 
-### Current working branch
+### Branch / PR state
 
-- `main`: last promoted canonical build
-- `notification-tutorial-keepalive-polish`: current implementation branch
-- do not merge or deploy this branch without Paige explicitly naming the destination
+- `main` is the last promoted canonical build at commit `00de4abc23449bed421b7d137cdf437100595f01`
+- active branch: `tutorial-progress-by-app-open`
+- active draft PR: **#86 — Advance tutorial from normal app navigation**
+- PR #86 has a READY Vercel preview:
+  - `https://narc-ap82m72ce-cairn10.vercel.app`
+- do **not** merge to `main` or promote production without Paige explicitly naming that destination
 
-## Product target
+## Immediate work order for Claude Code
 
-NARC is a short portfolio game, not a long simulation.
+Work in this order. Do not jump to backlog features.
 
-**Target real-world playtime: about 15 minutes.**
+### 1. Verify PR #86 in the browser
 
-Rough pacing target:
+PR #86 fixes a tutorial bug where Dana's sequence only advanced if the player clicked the shortcut button inside her message.
 
-- 1–2 minutes onboarding
-- 8–10 minutes of decisions, coworker interruptions, NARC reactions, and tradeoffs
-- 2–3 minutes escalation, payoff, and ending
+Expected behavior now:
 
-The in-game clock still spans one 9:00–5:00 workday, but time is heavily compressed.
+- opening the expected app from the dock advances the tutorial
+- focusing an already-open expected app advances the tutorial
+- Dana's shortcut button still works
+- the same step never advances twice
+- The Loop, Files, Calendar, NARC, and the final return to The Loop all work through normal navigation
 
-A beat should generally earn its place by doing at least one of these:
+If browser verification finds a regression, fix it on the active branch and document it in PR #86.
+
+### 2. Implement #87 — strengthen opening context
+
+Current first Dana message is too mechanics-first.
+
+The opening should establish this mental model before teaching specific apps:
+
+> I work here -> a new workplace AI is being piloted -> it is monitoring me -> I still have a normal job -> Dana is helping me get situated.
+
+Required context, kept concise:
+
+- Dana is the player's manager
+- Employee 4417 is an Operations Associate
+- Meridian is piloting NARC internally
+- NARC is an AI workplace-monitoring / assessment system
+- it watches observable work traces and converts them into employee assessments
+- the player still has three normal work responsibilities today
+- Dana is helping the player get oriented
+
+The People Operations email can reinforce this, but Dana's first message should stand on its own.
+
+A useful copy direction is:
+
+> Hi, Dana here — your manager. Meridian is piloting NARC, a new AI system that watches how work gets done and turns those signals into employee assessments.
+>
+> You've still got your normal job today: three things need your attention, and I'll get you oriented before NARC starts making too many assumptions. Start with The Loop.
+
+Exact wording can change if a shorter version reads better.
+
+**Do not rename Meridian.** GoodThink is only a candidate and has not been approved.
+
+### 3. Run #70 as the single browser-validation gate
+
+#70 is now the consolidated human/browser gate for the current game.
+
+Target real-world playtime: **about 15 minutes**.
+
+Pacing target:
+
+- 1–2 minutes onboarding/tutorial
+- 8–10 minutes decisions, interruptions, NARC reactions, and tradeoffs
+- 2–3 minutes escalation/payoff/ending
+
+Record:
+
+- total runtime
+- tutorial runtime
+- any “what do I do now?” moments
+- dead air vs overload separately
+- repeated reliance on **Work until...**
+- whether the player changes strategy
+- whether Focus Time -> NARC adaptation -> keepalive feels causally connected
+- whether the ending feels like payoff
+- whether the player can explain actual work vs NARC-visible work without prompting
+
+Be ruthless about filler. A beat should generally do at least one of:
 
 - teach a NARC rule
 - force a tradeoff
 - create a consequence
 - reveal useful character/worldbuilding
-- let the player exploit or challenge the system
-- pay off an earlier choice
+- let the player exploit/challenge the system
+- pay off an earlier action
 
-## Core premise
+If the playtest exposes problems, create focused issues rather than reopening broad old implementation issues.
+
+### 4. Only after #70 stabilizes the loop, consider #88
+
+#88 tracks lightweight Vercel Web Analytics custom events.
+
+Do not instrument the current unstable flow first.
+
+Possible later events include:
+
+- `game_started`
+- `tutorial_completed`
+- `first_task_selected`
+- meaningful fast vs careful work choice
+- NARC assessment challenged / left standing
+- `focus_time_used`
+- `keepalive_used`
+- Trusted Operator reached
+- Review Open reached
+- `game_completed`
+- completion duration / broad ending
+- replay started, if replay exists later
+
+Guardrails:
+
+- anonymous only
+- no PII
+- no message contents
+- no free-text player data
+- do not instrument every click
+
+## GitHub cleanup status
+
+Closed as implementation-complete:
+
+- #80 Repair single-day opening, desktop window behavior, and midmorning pacing
+- #82 Refine onboarding, NARC presence, and quiet-time flow
+- #84 Polish notifications, tutorial handoff, NARC actions, and keepalive
+
+Their remaining browser verification is consolidated into #70.
+
+Current active issues that matter now:
+
+- **#70** Playtest the ~15-minute core loop
+- **#87** Strengthen opening context
+- **#88** Add lightweight Vercel gameplay analytics after the core loop stabilizes
+
+Deferred backlog:
+
+- **#45** promotion/replay authority/settings
+- **#48** invasive personalization
+
+Do not implement #45 or #48 automatically.
+
+## Product target
+
+NARC is a short portfolio game, not a long simulation.
+
+Core premise:
 
 **A human employee learns to game an AI workplace-monitoring system by understanding the gap between what the system can see and what is actually true.**
 
-The current company name is still **Meridian Supply Co.**
+Core loop:
 
-Paige is considering **GoodThink** as a replacement, framed as a workplace-tech company dogfooding NARC internally before client rollout. That rename is **not final**. Do not change Meridian without explicit approval.
-
-## Current loop
-
-`notice competing priorities → decide → act → spend time → receive work/NARC/social feedback → reprioritize`
+`notice competing priorities -> decide -> act -> spend time -> receive work/NARC/social feedback -> reprioritize`
 
 Three forces should regularly conflict:
 
@@ -53,13 +168,13 @@ Three forces should regularly conflict:
 2. protecting NARC-visible productivity / personal standing
 3. helping or preserving trust with coworkers
 
-Messages should interrupt or complicate this loop, not carry the whole game.
+Messages should interrupt or complicate the loop, not carry the whole game.
 
 ## Canonical single-day behavior
 
 ### Desktop
 
-The game is a fictional company laptop with:
+The fictional company laptop contains:
 
 - The Loop
 - Messages
@@ -70,20 +185,7 @@ The game is a fictional company laptop with:
 - Browser
 - NARC
 
-Wide layouts can keep up to three overlapping windows open. Close hides a window; state persists. Windows must remain reachable when dragged.
-
-### Onboarding
-
-The People Operations email opens first.
-
-After **Start workday**:
-
-- Email stays open
-- Dana arrives through a Messages notification
-- Dana's tutorial lives entirely in Messages
-- each Dana message explains the next app and why it matters **before** the player opens it
-- after the app visit, Dana sends the next notification
-- the final tutorial message explicitly sends the player to The Loop to pick one of the three real responsibilities
+Wide layouts can keep up to three overlapping windows open. Window state persists and dragged windows must remain reachable.
 
 ### Work
 
@@ -93,130 +195,94 @@ Three starting responsibilities:
 - Priya client escalation, due 1:00
 - Marcus project scope cut, due 3:30
 
-Each has a fast/visible path and a slower/more substantive path.
+Each offers a fast/visible path and a slower/more substantive path.
 
 Morning shortcuts can create afternoon rework.
 
 ### NARC
 
-NARC maintains a **Visible Activity Index** and reacts to work traces.
+NARC maintains a **Visible Activity Index** and reacts to observable work traces.
 
-The current single-day arc includes:
+Current arc includes:
 
-- baseline monitoring on login
-- an immediate first read after the player's first real task
-- a first-response decision
-- a midmorning pattern check
+- baseline monitoring
+- first read after first real task
+- response choice
+- midmorning pattern check
 - Focus Time initially protecting quiet work
-- NARC 2.0 adapting after Focus Time spreads
-- a later response to that adaptation
+- coworkers adopting Focus Time
+- NARC 2.0 adapting to repeated Focus Time
+- `keepalive.pkg` arriving as a more aggressive workaround
 
 NARC should feel like an active system, not something Dana merely explains.
 
 ### Player standing
 
-Player stakes are now lightweight and explicit without adding another meter.
-
-Possible standing states:
+Possible states:
 
 - Standard
 - Trusted Operator
 - Review Open
 
-A flattering visible-activity read can earn **Trusted Operator** recognition if the player leaves it standing.
+A flattering visible-activity read can earn Trusted Operator if left standing.
 
 A low-activity read left unchallenged can open a review.
 
-Standing can change later options. For example, a Trusted Operator can let Dana rely on NARC's summary instead of giving a full status update, which is personally efficient but can hide bad work.
-
-### Coworkers and Messages
-
-Current recurring coworkers:
-
-- Dana Whitfield
-- Luis Perez
-- Marcus Reed
-- Priya Shah
-
-Messages should always do useful work: teach a rule, reveal missing context, prompt a choice, warn about a consequence, unlock an action, or set up a callback.
-
-### Notifications
-
-Toasts show the actual notification/message preview, not generic “sent you a message” copy.
-
-A top-bar notification center keeps recent notifications with:
-
-- sender/source
-- message preview
-- time
-- read/unread state
-- click-through to the relevant app/thread
+Standing changes later options, including whether Dana can rely on NARC's summary instead of hearing the real status.
 
 ### Workarounds
 
 **Focus Time**
-
-- initially helps protect quiet work from being read as inactivity
+- initially protects quiet work
 - spreads to coworkers
-- NARC 2.0 begins treating repeated Focus Time as possible gaming
+- NARC adapts and begins treating repeated use as gaming
 
 **keepalive.pkg**
-
 - arrives from Marcus after Focus Time is nerfed
-- appears as an actionable attachment in Messages
+- appears as an actionable Messages attachment
 - opens Utilities
 - can be installed/run once
 - simulated input raises visible activity
-- ending can call out that NARC counted fake input as real activity
+- ending can call out that NARC counted fake activity as real
 
-## Development / validation state
+## Vercel state
 
-### Implemented on current branch
+Project: `narc` under the Pallas team.
 
-Tracked primarily in #84 plus the personal-stakes/message-audit work:
+Useful current setup:
 
-- notification previews
-- notification history
-- improved Messages sidebar previews
-- explanation-before-navigation tutorial sequencing
-- explicit post-tutorial handoff
-- NARC button styling
-- keepalive reintroduction
-- lightweight player standing
-- Trusted Operator reward path
-- Review Open downside
-- later option changed by standing
-- message usefulness audit
-- ~15-minute portfolio runtime target
+- Git branch preview deployments are working
+- production `main` deployment is READY
+- no runtime errors were found in the recent 7-day check
+- Pallas Spend Management is set to a **$10** on-demand budget
+- Paige turned **Pause** on at the budget threshold
 
-### Still requires a human/browser gate
+Pro features worth using for NARC:
 
-Do not mark these complete from source inspection alone:
+- preview deployments for QA
+- Web Analytics / custom gameplay events after the loop stabilizes
 
-- #70: at least one uncoached ~15-minute playtest
-- #80 / #82 / #84: browser smoke of the actual updated desktop flow
-- runtime observation, dead-air notes, overload notes, and whether the player changes strategy
+Not currently worth adding:
 
-## Explicitly deferred
+- Fluid Compute
+- AI Gateway
+- rolling releases
+- extra server-side infrastructure
+- Speed Insights specifically for NARC
 
-Do not build automatically:
-
-- #45 promotion/replay authority/settings layer
-- #48 invasive personalization
-
-These remain later backlog unless Paige explicitly reopens them.
+NARC is mostly client-side and deterministic right now.
 
 ## Realism rule
 
 For major NARC mechanics:
 
-**real capability → plausible inference → ridiculous institutional response → exploitable weakness**
+**real capability -> plausible inference -> ridiculous institutional response -> exploitable weakness**
 
-Grounded examples currently used include workstation activity, application/website usage concepts, calendar/context signals, and synthetic activity workarounds.
+Grounded examples include workstation activity, application/website usage concepts, calendar/context signals, and synthetic activity workarounds.
 
-The game should not imply every employer uses every capability or that NARC's institutional judgments are standard industry behavior.
+Do not imply every employer uses every capability or that NARC's institutional judgments are standard industry behavior.
 
-Public-facing claims should distinguish documented monitoring capabilities from the game's satirical extrapolation.
+Public case-study claims should distinguish documented monitoring capabilities from satirical extrapolation.
 
 ## Source of truth
 
@@ -227,4 +293,4 @@ For the active single-day build:
 3. current open GitHub issues
 4. `day.js` / `day-desktop-app.js`
 
-The archived week documentation and `week.html` are reference material only.
+The archived week documentation and `week.html` are reference only.
