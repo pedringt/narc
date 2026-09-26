@@ -103,6 +103,13 @@
 .narc-kicker { color: var(--n-accent); font-size: 11px; letter-spacing: .08em; }
 .narc-summary h2 { margin: 8px 0; font-size: 22px; }
 .narc-copy { color: var(--n-muted); }
+.narc-explainer,
+.narc-action-copy {
+  margin: 6px 0 0;
+  color: var(--n-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .narc-rule, .narc-action {
   border-top: 1px solid var(--n-line);
   margin-top: 14px;

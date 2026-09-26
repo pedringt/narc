@@ -74,6 +74,21 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
   assert.equal(s.requests.narcCheckpoint.status, 'handled');
 }
 
+// -------------------------------- zero-minute no-action choices are score-neutral
+{
+  let s = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  const beforeAccept = s.index;
+  const beforeTime = s.t;
+  s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  assert.equal(s.t, beforeTime, 'leaving the assessment standing takes zero minutes');
+  assert.equal(s.index, beforeAccept, 'zero-minute leave/ignore choices do not lower the activity index');
+
+  let quiet = newGame();
+  const quietBefore = quiet.index;
+  quiet = act(quiet, { do: 'task', id: 'vendor', approach: 'thorough' });
+  assert.ok(quiet.index < quietBefore, 'nonzero quiet work still lowers the visible activity index');
+}
+
 // -------------------------------------------------------- competing requests
 {
   let s = newGame();
@@ -161,6 +176,14 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
 {
   let s = act(newGame(), { do: 'logoff' });
   assert.equal(s.phase, 'end');
+  assert.equal(s.t, START, 'logging off early preserves the actual time');
+  assert.equal(s.flags.loggedOffEarly, true, 'early logoff is distinguishable from reaching 5:00');
+  const earlyEnding = ending(s);
+  assert.match(earlyEnding.lines[0], /logoff summary/i, 'early logoff does not claim to be an end-of-day summary');
+  assert.ok(earlyEnding.lines.some((line) => /still pending when you logged off/i.test(line)), 'early logoff names unfinished responsibilities');
+
+  let finished = act(newGame(), { do: 'idle', minutes: 999 });
+  assert.equal(finished.flags.loggedOffEarly, undefined, 'normal 5:00 completion is not marked as an early logoff');
 }
 
 // --------------------------------- a rushed morning call comes back due (#66)

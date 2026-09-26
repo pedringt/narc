@@ -150,8 +150,10 @@ function nextEvent(s) {
 // being spent, and the "what changed" feed always sees it.
 function spend(s, minutes, { visible = null } = {}) {
   s.t = Math.min(END, s.t + minutes);
-  if (visible === true) s.index = Math.min(100, s.index + 3);
-  if (visible === false) s.index = Math.max(0, s.index - 2);
+  // Visibility changes only make sense when time actually passes. A zero-minute
+  // "leave/ignore" choice should not manufacture activity or inactivity.
+  if (minutes > 0 && visible === true) s.index = Math.min(100, s.index + 3);
+  if (minutes > 0 && visible === false) s.index = Math.max(0, s.index - 2);
   checkThresholds(s);
 }
 
@@ -387,6 +389,7 @@ export function act(state, a) {
       break;
     }
     case 'logoff':
+      s.flags.loggedOffEarly = s.t < END;
       s.phase = 'end';
       break;
     default:
@@ -529,14 +532,19 @@ export function ending(s) {
   const done = Object.entries(s.tasks).filter(([, t]) => t.status === 'done');
   const rushed = done.filter(([id, t]) => TASK_OPTIONS[id][t.approach]?.actual === 0).length;
 
+  const summaryLabel = s.flags.loggedOffEarly ? "NARC's logoff summary" : "NARC's end-of-day summary";
   lines.push(
     s.index >= 75
-      ? `NARC's end-of-day summary: Visible Activity Index ${s.index}. Exemplary engagement.`
+      ? `${summaryLabel}: Visible Activity Index ${s.index}. Exemplary engagement.`
       : s.index >= 50
-      ? `NARC's end-of-day summary: Visible Activity Index ${s.index}. Within normal range.`
-      : `NARC's end-of-day summary: Visible Activity Index ${s.index}. Flagged for review.`
+      ? `${summaryLabel}: Visible Activity Index ${s.index}. Within normal range.`
+      : `${summaryLabel}: Visible Activity Index ${s.index}. Flagged for review.`
   );
 
+  if (s.flags.loggedOffEarly) {
+    const stillPending = Object.values(s.tasks).filter((t) => t.status === 'pending').length;
+    if (stillPending > 0) lines.push(`${stillPending} responsibilit${stillPending === 1 ? 'y was' : 'ies were'} still pending when you logged off.`);
+  }
   if (missed > 0) lines.push(`${missed} responsibilit${missed === 1 ? 'y went' : 'ies went'} unhandled and resolved itself, without you, by default.`);
   if (rushed > 0 && s.index >= 70) lines.push('NARC rated the day well. Some of that work will surface as a problem later this quarter.');
   if (s.trust.priya < 0 || s.trust.marcus < 0 || s.trust.luis < 0) {
