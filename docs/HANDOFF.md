@@ -1,6 +1,6 @@
 # NARC Handoff
 
-## Current status (2026-09-25)
+## Current status (2026-09-26)
 
 The canonical experience is the **single-workday desktop build** at `/` and `/day.html`.
 
@@ -15,12 +15,45 @@ The old one-week build remains at `/week.html` only as an archive/reference.
 
 ## Branch / PR state
 
-- `main` currently contains PR #100, the recurring-coworker / tutorial / paced-chat polish pass.
-- Active handoff branch: `narc-polish-status-redesign-sept25`
-- Active draft PR: **#101 — Redesign NARC status and clarify interaction hierarchy**
-- Do **not** merge #101 to `main` or production without Paige explicitly asking for `main`/production in that instruction.
+- `main` includes PR **#101**, merged at commit `c514c46d27d478ad61efb73448935b9c3db4eb09`.
+- Current working branch for copy review/export: `game-copy-export-sept26`.
+- `docs/GAME_COPY_EDITABLE.md` exists on that branch as the editable master inventory of current player-facing text.
+- The copy-export branch has **not** been merged to `main`.
+- Do not merge/push/deploy this branch to `main` or production unless Paige explicitly names that destination in the current instruction.
 
-## What PR #101 changes
+## Copy editing workflow
+
+Paige asked for a single editable file containing the game's current dialogue/text.
+
+Use:
+- `docs/GAME_COPY_EDITABLE.md`
+
+It contains:
+- dialogue
+- NARC/system copy
+- tutorial text
+- emails
+- task descriptions
+- player choice/button labels
+- Browser article copy
+- endings/outcomes
+- visible UI text
+
+Format:
+- **Source**
+- **Current text**
+- **Edited text**
+
+Workflow:
+1. Paige edits only the **Edited text** column.
+2. Blank means no change.
+3. `DELETE` means remove the line.
+4. `NEW` rows may be added for new copy.
+5. When the edited file comes back, apply only the approved copy edits to the canonical source files.
+6. Preserve dynamic placeholders such as `${state.index}`, `${risk.label}`, and `${clock(...)}` unless Paige intentionally requests implementation changes too.
+7. Treat copy review as separate from gameplay/system redesign.
+
+## What PR #101 changed
 
 This pass responds to Paige's latest live playtest feedback.
 
@@ -128,9 +161,12 @@ Then Marcus can send `keepalive.pkg`, which produces synthetic activity NARC can
 
 This is a compact playable feedback loop: users adapt to the model; the model adapts to users.
 
-## Immediate next step: browser playtest PR #101
+## Immediate next steps
 
-Use the PR #101 Vercel preview once READY.
+There are now two parallel next-step tracks:
+
+1. **Copy review:** Paige may edit `docs/GAME_COPY_EDITABLE.md` and hand it back for application.
+2. **Gameplay validation:** issue #70 remains the main browser/playtest gate for the current production build.
 
 Validate:
 
@@ -164,20 +200,27 @@ Validate:
 
 ## Verification state
 
-Implemented in PR #101:
-- code changes
-- regression/source assertions
-- docs/handoff updates
+PR #101 was merged to `main` after a successful Vercel preview build.
 
-Environment limitation:
-- local Node test execution has not been run in this ChatGPT environment
-- use GitHub/Vercel build status plus browser playtesting as the current verification path
-- do not claim full automated tests passed unless they are actually run elsewhere
+The current copy-export branch only adds documentation/copy-review material; it does not change gameplay behavior.
+
+Environment limitation from the last implementation pass:
+- local Node test execution was not available in the ChatGPT environment
+- Vercel build status was used for deployment verification
+- do not claim a full automated-test pass unless it is actually run elsewhere
 
 ## GitHub issue state
 
 Primary current issue:
 - **#70** Playtest the ~15-minute core loop for agency, pacing, and payoff
+
+New design exploration:
+- **#102** Explore in-game urgency timers for consequential decisions
+  - inspiration: Cooking Fever-style draining urgency
+  - must use **in-game time**, never real-world countdown pressure
+  - intended to make action-time costs and prioritization more meaningful
+  - selectively test hard deadlines, soft deadlines, and NARC attention pressure
+  - do not implement automatically without a new explicit implementation instruction
 
 Blocked until #70 stabilizes:
 - **#88** lightweight Vercel gameplay analytics
@@ -186,7 +229,8 @@ Deferred, do not implement automatically:
 - **#45** promotion/replay authority/settings
 - **#48** benignly invasive personalization
 
-Issue #87 (opening context) is complete and should remain closed after GitHub cleanup.
+Completed:
+- **#87** opening context
 
 ## Portfolio / case-study framing worth preserving
 
