@@ -13,6 +13,21 @@
 .loop-task:first-of-type { border-top: 0; }
 .loop-task > div { min-width: 220px; flex: 1 1 auto; }
 .loop-task .loop-link { width: auto; flex: none; align-self: flex-start; white-space: nowrap; }
+.loop-task-actions {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.loop-task-actions .loop-link {
+  border: 1px solid #d8d3c8;
+  border-radius: 6px;
+  padding: 6px 9px;
+  background: #fff;
+}
+.loop-task-actions .loop-link:first-of-type { border-top: 1px solid #d8d3c8; }
 
 .tutorial-guide {
   flex: none;
@@ -90,6 +105,11 @@
 .quiet-card div { display: flex; flex-direction: column; gap: 2px; }
 .quiet-card span { color: var(--bar-muted); font-size: 12px; }
 
+.window.app-narc .body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
 .narc-summary,
 .narc-log {
   border: 1px solid var(--n-line);
@@ -115,6 +135,46 @@
   margin-top: 14px;
   padding-top: 14px;
 }
+.narc-system-update {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #7a6530;
+  border-left: 4px solid var(--n-warn);
+  background: #171710;
+}
+.narc-system-update b {
+  display: block;
+  margin-top: 3px;
+  color: var(--n-text);
+}
+.narc-system-update p {
+  margin: 5px 0 0;
+  color: var(--n-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.narc-update-kicker {
+  color: var(--n-warn);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+.narc-checkpoint-facts {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+.narc-checkpoint-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 8px;
+  border: 1px solid var(--n-line);
+  background: #101310;
+  font-size: 11px;
+}
+.narc-checkpoint-facts span { color: var(--n-muted); }
+.narc-checkpoint-facts b { color: var(--n-text); text-align: right; }
 .narc-action .btn { margin: 10px 8px 0 0; }
 .narc-log-row {
   display: grid;
@@ -152,6 +212,7 @@
   .loop-task { flex-direction: column; }
   .loop-task > div { min-width: 0; }
   .loop-task .loop-link { width: auto; }
+  .loop-task-actions { width: 100%; justify-content: flex-start; }
   .tutorial-guide { align-items: flex-start; flex-wrap: wrap; }
   .tutorial-guide .btn { margin-left: 46px; }
 }
@@ -311,3 +372,27 @@
 }
 .narc-standing-trusted b { color: var(--n-good); }
 .narc-standing-review b { color: var(--n-danger); }
+
+.browser-story { cursor: pointer; }
+.browser-story .browser-dek {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+.browser-article-dek {
+  color: var(--app-muted);
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0 0 18px;
+  max-width: 58ch;
+}
+.browser-article-copy {
+  max-width: 62ch;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+.deadline-event {
+  border-left-color: #b07b2f;
+}
