@@ -301,7 +301,11 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   // Chained the rest of the way -- resolving whatever opens with its
   // cheapest option -- it reaches end of day on a small, bounded number of
   // contextual jumps rather than a click-to-burn-time loop.
-  const cheapest = { narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore', rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore' };
+  const cheapest = {
+    narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
+    rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
+    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave',
+  };
   let hops = 0;
   while (s.phase !== 'end' && hops < 40) {
     const openReq = Object.entries(s.requests).find(([, r]) => r.status === 'open');
@@ -311,7 +315,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
     else { s = act(s, { do: 'workUntil' }); hops += 1; }
   }
   assert.equal(s.phase, 'end');
-  assert.ok(hops <= 7, `expected a handful of contextual jumps, got ${hops}`);
+  assert.ok(hops <= 10, `expected a bounded number of contextual jumps, got ${hops}`);
 }
 
 // nextEvent must never point backwards or at the current instant.
@@ -370,7 +374,11 @@ console.log('day.js tests passed');
   s = act(s, { do: 'chat', who: 'luis', topic });
   assert.equal(s.chats[topic], true);
   assert.ok(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'me'), 'player chat is represented in the thread');
-  assert.ok(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'them'), 'coworker replies to optional chat');
+  assert.equal(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'them'), false, 'coworker reply waits for the typing delay');
+  assert.ok(s.pendingReplies[topic], 'reply is queued while the coworker types');
+  s = act(s, { do: 'deliverChat', topic });
+  assert.ok(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'them'), 'queued coworker reply can be delivered after the delay');
+  assert.equal(s.pendingReplies[topic], undefined);
 }
 
 // -------------------------------------- NARC 2.0 keeps its explanatory email
@@ -379,4 +387,31 @@ console.log('day.js tests passed');
   s = act(s, { do: 'idle', minutes: 270 });
   assert.equal(s.narc.adaptation, true);
   assert.equal(s.flags.narc2EmailAvailable, true, 'NARC 2.0 rollout email is available when Focus Time weighting changes');
+}
+
+
+// ---------------------------- recurring coworker patterns appear before cases
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: (10 * 60 + 15) - s.t });
+  assert.equal(s.flags.priyaChatterBeat, true);
+  assert.equal(s.flags.luisBathroomBeat, true);
+  assert.equal(s.flags.marcusAttendanceBeat, true);
+  assert.ok(s.threads.priya.some((m) => /41 message threads|Communication Load/i.test(m.text)), 'Priya is established as chatty before her NARC case');
+  assert.ok(s.threads.luis.some((m) => /bathroom/i.test(m.text)), 'Luis bathroom pattern appears before his NARC case');
+  assert.ok(s.threads.marcus.some((m) => /again|credibility/i.test(m.text)), 'Marcus lateness pattern appears before his NARC case');
+
+  s = act(s, { do: 'idle', minutes: (12 * 60 + 10) - s.t });
+  assert.equal(s.flags.priyaChatterFollowup, true, 'Priya chatty pattern recurs');
+  assert.equal(s.flags.luisBathroomFollowup, true, 'Luis bathroom pattern recurs');
+  assert.equal(s.flags.marcusAttendanceFollowup, true, 'Marcus attendance pattern recurs');
+}
+
+// ---------------------- Trusted Operator now explains the exact cause in-state
+{
+  let s = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  assert.equal(s.standing.status, 'trusted');
+  assert.match(s.standing.note, /first completed task produced high visible activity/i);
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /positive assessment unchallenged/i.test(e.text)));
 }

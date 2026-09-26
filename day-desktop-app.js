@@ -48,8 +48,8 @@ function requestOptions(id) {
   }
   if (id === 'narcFirstReview') {
     return state.flags.firstNarcReadType === 'low'
-      ? [['context', 'Add context: careful file review (5 min)'], ['accept', 'Leave the assessment']]
-      : [['context', 'Add context about the completed task (5 min)'], ['accept', 'Leave the assessment']];
+      ? [['context', 'Add context: careful file review (5 min)'], ['accept', 'Leave the negative assessment standing']]
+      : [['context', 'Add context about the completed task (5 min)'], ['accept', "Accept NARC's positive activity assessment"]];
   }
   if (id === 'narcCheckpoint') return [['context', "Add context to NARC's assessment (8 min)"], ['ignore', "Leave NARC's assessment unchanged"]];
   if (id === 'danaCheckin' && state.flags.trustedOperator) {
@@ -181,8 +181,9 @@ let tutorialTimer = null;
 
 function freshUi() {
   return {
-    oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialAdvancing: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
+    oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialVisited: {}, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
     selectedFile: null, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
+    typingThreads: {}, scrollThreadToBottom: null,
   };
 }
 
@@ -231,25 +232,32 @@ els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }
 function restart() { state = newGame(); ui = freshUi(); render(); }
 
 function completeTutorialTarget(id) {
-  const step = TUTORIAL_STEPS[ui.tutorialStep];
-  if (!step || ui.tutorialDone || ui.tutorialAdvancing || step.target !== id) return;
+  if (ui.tutorialStep < 0 || ui.tutorialDone) return;
+  ui.tutorialVisited[id] = true;
 
-  if (step.final) {
-    ui.tutorialDone = true;
-    return;
+  let advanced = false;
+  while (!ui.tutorialDone) {
+    const step = TUTORIAL_STEPS[ui.tutorialStep];
+    if (!step || !ui.tutorialVisited[step.target]) break;
+    if (step.final) {
+      ui.tutorialDone = true;
+      ui.tutorialUnread = false;
+      break;
+    }
+    ui.tutorialStep += 1;
+    advanced = true;
   }
 
-  ui.tutorialAdvancing = true;
-  clearTimeout(tutorialTimer);
-  tutorialTimer = setTimeout(() => {
-    if (ui.tutorialDone) return;
-    ui.tutorialStep += 1;
-    ui.tutorialAdvancing = false;
+  if (!ui.tutorialDone && advanced) {
     ui.tutorialUnread = true;
-    render();
-    const nextStep = TUTORIAL_STEPS[ui.tutorialStep];
-    if (nextStep) showToast('Dana Whitfield', nextStep.text, 'messages', { thread: 'dana', tutorial: true });
-  }, 350);
+    clearTimeout(tutorialTimer);
+    tutorialTimer = setTimeout(() => {
+      const step = TUTORIAL_STEPS[ui.tutorialStep];
+      if (!step || ui.tutorialDone) return;
+      render();
+      showToast('Dana Whitfield', step.text, 'messages', { thread: 'dana', tutorial: true });
+    }, 250);
+  }
 }
 
 function isMobile() {
@@ -321,6 +329,7 @@ function goApp(id) {
 
 function openThread(thread) {
   ui.selectedThread = thread;
+  ui.scrollThreadToBottom = thread;
   setMobileDetail('messages', true);
   goApp('messages');
 }
@@ -347,8 +356,31 @@ function closeWindow(id) {
 function dispatch(action) {
   const before = state;
   state = act(state, action);
+  const thread = action.do === 'respond' ? REQUEST_THREAD[action.id] : null;
+  if (thread) ui.scrollThreadToBottom = thread;
   announceChanges(before, state);
   render();
+}
+
+function sendChat(who, topic) {
+  const before = state;
+  state = act(state, { do: 'chat', who, topic });
+  const pending = state.pendingReplies[topic];
+  ui.typingThreads[who] = true;
+  ui.scrollThreadToBottom = who;
+  announceChanges(before, state);
+  render();
+
+  if (!pending) return;
+  const delay = Math.min(2500, 800 + pending.text.length * 10);
+  setTimeout(() => {
+    const beforeReply = state;
+    state = act(state, { do: 'deliverChat', topic });
+    delete ui.typingThreads[who];
+    ui.scrollThreadToBottom = who;
+    announceChanges(beforeReply, state);
+    render();
+  }, delay);
 }
 
 function announceChanges(before, after) {
@@ -497,6 +529,7 @@ function renderChrome() {
   els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
 
   const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && REQUEST_THREAD[id]).length;
+  const unreadMessages = ui.notifications.filter((n) => !n.read && n.app === 'messages').length;
   const pendingTasks = Object.values(state.tasks).filter((t) => t.status === 'pending').length;
   const visibleApps = ui.oriented ? APPS : APPS.filter(([id]) => id === 'email' || id === 'intranet');
   els.dock.replaceChildren(...visibleApps.map(([id, label]) => {
@@ -506,7 +539,7 @@ function renderChrome() {
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
     const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
-    const count = id === 'messages' ? openReq + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
+    const count = id === 'messages' ? Math.max(openReq, unreadMessages) + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
     return b;
@@ -628,12 +661,14 @@ function latestThreadPreview(thread) {
 function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
-    const active = requestForThread(id).length + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
+    const unread = ui.notifications.filter((n) => !n.read && n.app === 'messages' && n.thread === id).length;
+    const active = Math.max(requestForThread(id).length, unread) + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
     const preview = latestThreadPreview(id);
     const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', preview)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
     row.addEventListener('click', () => {
       ui.selectedThread = id;
+      ui.scrollThreadToBottom = id;
       setMobileDetail('messages', true);
       markNotificationsRead('messages', id);
       if (id === 'dana') ui.tutorialUnread = false;
@@ -659,6 +694,9 @@ function renderMessages() {
       }
       scroll.append(bubble);
     });
+    if (ui.typingThreads[id]) {
+      scroll.append(h('div', 'typing', h('span', null, `${t.name.split(' ')[0]} is typing`), h('span', 'typing-dots', '•••')));
+    }
     if (id === 'dana' && state.requests.danaMorning.status === 'handled') {
       scroll.append(h('div', 'bubble me', state.flags.morningContext
         ? (state.flags.firstNarcReadType === 'low' ? 'I was carefully reviewing the file. That is what the low-activity read missed.' : 'The visible activity came from moving fast. It did not mean the work was careful.')
@@ -677,11 +715,11 @@ function renderMessages() {
       requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
-    const optional = chatOptions(state, id).slice(0, 3);
+    const optional = ui.typingThreads[id] ? [] : chatOptions(state, id).slice(0, 3);
     if (optional.length) {
       const smallTalk = h('div', 'optional-chat', h('div', 'compose-state', requestForThread(id).length ? 'Optional' : 'Start a conversation'));
       const chips = h('div', 'chips');
-      optional.forEach(([topic, label]) => chips.append(btn(label, 'chip secondary', () => dispatch({ do: 'chat', who: id, topic }))));
+      optional.forEach(([topic, label]) => chips.append(btn(label, 'chip secondary', () => sendChat(id, topic))));
       smallTalk.append(chips);
       compose.append(smallTalk);
     }
@@ -821,6 +859,13 @@ function renderNarc() {
     if (state.requests[reqId]?.status !== 'open') return;
     const title = reqId === 'narcCheckpoint' ? 'Midmorning assessment' : 'Response requested';
     const action = h('div', 'narc-action', h('div', 'narc-action-title', h('b', null, title)));
+    if (reqId === 'narcFirstReview') {
+      action.append(h('p', 'narc-action-copy',
+        state.flags.firstNarcReadType === 'visible'
+          ? "NARC read your first completed task as high visible activity and is treating that as a positive adoption signal. Accepting this assessment will mark that pattern as healthy NARC adoption and can improve your standing."
+          : "NARC read your first completed task as low activity even though the task was completed. Add context if the quiet period was real work, or leave the negative interpretation standing."
+      ));
+    }
     if (reqId === 'narcCheckpoint') {
       const firstRead = state.flags.firstNarcReadType === 'low'
         ? 'First completed work block read as low-input activity'
@@ -852,7 +897,8 @@ function renderQuietAction() {
   const old = root.querySelector('.quiet-card');
   if (old) old.remove();
   const nothingOpen = Object.values(state.tasks).every((t) => t.status !== 'pending') && Object.values(state.requests).every((r) => r.status !== 'open');
-  if (!nothingOpen || state.phase === 'end' || !ui.oriented) return;
+  const unread = ui.notifications.some((n) => !n.read);
+  if (!nothingOpen || unread || state.phase === 'end' || !ui.oriented) return;
   const next = nextEvent(state);
   const used = state.flags.workUntilUses || 0;
   const label = next.t >= 17 * 60 ? 'Finish the workday' : used >= 2 ? 'Continue background work' : `Work until ${clock(next.t)}`;
@@ -875,6 +921,12 @@ function renderEnd() {
 
 function render() {
   renderChrome(); renderWindows(); renderEnd(); renderQuietAction(); renderNotificationCenter();
+  requestAnimationFrame(() => {
+    if (!ui.scrollThreadToBottom || ui.selectedThread !== ui.scrollThreadToBottom) return;
+    const scroll = els.windows.querySelector('.window.app-messages .thread .scroll');
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+    ui.scrollThreadToBottom = null;
+  });
 }
 
 render();
