@@ -111,6 +111,7 @@ export function newGame() {
     },
     culture: { nominated: null },
     chats: {},
+    pendingReplies: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
   };
 }
@@ -152,7 +153,11 @@ function nextEvent(s) {
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
   if (requests.narcCheckpoint.status === 'pending') candidates.push({ t: requests.narcCheckpoint.at, label: "NARC's midmorning check" });
+  if (!flags.priyaChatterBeat || !flags.luisBathroomBeat || !flags.marcusAttendanceBeat) candidates.push({ t: 10 * 60 + 15, label: 'coworker messages' });
+  if (!flags.priyaChatterFollowup) candidates.push({ t: 11 * 60 + 5, label: 'Priya messaging again' });
   if (!flags.marcusRaccoon) candidates.push({ t: 10 * 60 + 55, label: 'a coworker message' });
+  if (!flags.luisBathroomFollowup) candidates.push({ t: 11 * 60 + 45, label: 'Luis disappearing again' });
+  if (!flags.marcusAttendanceFollowup) candidates.push({ t: 12 * 60 + 10, label: 'Marcus attendance context' });
   if (!flags.cultureEmailAvailable) candidates.push({ t: 11 * 60 + 35, label: 'a company culture email' });
   if (!flags.luisLunchMessage) candidates.push({ t: 12 * 60 + 5, label: 'a coworker message' });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
@@ -243,6 +248,18 @@ function checkThresholds(s) {
       say(s, 'dana', "NARC's first-hour read is live. Check what it actually recorded before deciding whether it needs context.");
     }
   }
+  if (!s.flags.priyaChatterBeat && s.t >= 10 * 60 + 15) {
+    s.flags.priyaChatterBeat = true;
+    say(s, 'priya', 'I have 41 message threads open. NARC calls that “Communication Load.” Half are client replies and two are me asking Claire what she wants for lunch.');
+  }
+  if (!s.flags.luisBathroomBeat && s.t >= 10 * 60 + 15) {
+    s.flags.luisBathroomBeat = true;
+    say(s, 'luis', 'If anyone asks, I was in the bathroom. Again. NARC apparently prefers a workstation with a bladder.');
+  }
+  if (!s.flags.marcusAttendanceBeat && s.t >= 10 * 60 + 15) {
+    s.flags.marcusAttendanceBeat = true;
+    say(s, 'marcus', 'Missed standup by nine minutes. Yes, again. Today there was an actual bus problem, which is terrible timing for my credibility.');
+  }
   if (requests.marcusFavor.status === 'pending' && s.t >= requests.marcusFavor.at) {
     requests.marcusFavor.status = 'open';
     say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
@@ -251,9 +268,17 @@ function checkThresholds(s) {
     s.flags.marcusRaccoon = true;
     say(s, 'marcus', 'Unrelated: if anyone asks why I was eight minutes late, a raccoon got on the 8:14 bus. The city transit feed backs me up. I hate that I need evidence for this sentence.');
   }
+  if (!s.flags.priyaChatterFollowup && s.t >= 11 * 60 + 5) {
+    s.flags.priyaChatterFollowup = true;
+    say(s, 'priya', 'Update: 52 threads. Three onboarding questions, two client follow-ups, one lunch debate. NARC has converted all of this into a personality diagnosis.');
+  }
   if (!s.flags.cultureEmailAvailable && s.t >= 11 * 60 + 35) {
     s.flags.cultureEmailAvailable = true;
     note(s, 'Culture Team opened Culture Champion nominations. One nomination can route a coworker\'s next NARC action to human review.', 'system');
+  }
+  if (!s.flags.luisBathroomFollowup && s.t >= 11 * 60 + 45) {
+    s.flags.luisBathroomFollowup = true;
+    say(s, 'luis', 'Back from another bathroom run. If NARC starts a case file on my kidneys I am resigning.');
   }
   if (!s.flags.luisLunchMessage && s.t >= 12 * 60 + 5) {
     s.flags.luisLunchMessage = true;
@@ -262,6 +287,10 @@ function checkThresholds(s) {
   if (requests.narcCheckpoint.status === 'pending' && s.t >= requests.narcCheckpoint.at) {
     requests.narcCheckpoint.status = 'open';
     note(s, 'Midmorning pattern check: mixed work signals detected. Add context to the record or leave the automated interpretation standing.', 'narc');
+  }
+  if (!s.flags.marcusAttendanceFollowup && s.t >= 12 * 60 + 10) {
+    s.flags.marcusAttendanceFollowup = true;
+    say(s, 'marcus', 'Dana asked whether the attendance thing is a pattern. Technically yes. Emotionally, I reject the premise.');
   }
   if (requests.priyaCase.status === 'pending' && s.t >= requests.priyaCase.at) {
     requests.priyaCase.status = 'open';
@@ -414,8 +443,8 @@ export function act(state, a) {
           s.flags.trustedOperator = true;
           s.flags.formalReview = false;
           s.standing.status = 'trusted';
-          s.standing.note = 'Trusted Operator: NARC considers your visible work pattern a model adoption signal.';
-          note(s, 'Recognition issued: Trusted Operator. Your visible work pattern is now considered a healthy NARC-adoption example.', 'narc');
+          s.standing.note = 'Trusted Operator: your first completed task produced high visible activity, and you accepted NARC\'s positive interpretation of it.';
+          note(s, 'Trusted Operator issued because your first completed task produced high visible activity and you left NARC\'s positive assessment unchallenged. NARC now treats that pattern as healthy adoption.', 'narc');
         } else {
           s.flags.formalReview = true;
           s.flags.trustedOperator = false;
@@ -467,7 +496,17 @@ export function act(state, a) {
       s.chats[a.topic] = true;
       sayMe(s, a.who, opt.text);
       spend(s, opt.minutes || 2, { visible: true });
-      say(s, a.who, typeof opt.reply === 'function' ? opt.reply(s) : opt.reply);
+      s.pendingReplies[a.topic] = {
+        who: a.who,
+        text: typeof opt.reply === 'function' ? opt.reply(s) : opt.reply,
+      };
+      break;
+    }
+    case 'deliverChat': {
+      const pending = s.pendingReplies[a.topic];
+      if (!pending) break;
+      delete s.pendingReplies[a.topic];
+      say(s, pending.who, pending.text);
       break;
     }
     case 'keepalive': {
