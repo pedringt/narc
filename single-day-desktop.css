@@ -441,3 +441,26 @@
     flex-wrap: wrap;
   }
 }
+
+
+.typing {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 78%;
+  margin: 4px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--app-panel);
+  color: var(--app-muted);
+  font-size: 12px;
+}
+.typing-dots {
+  letter-spacing: 2px;
+  animation: typing-pulse 1s ease-in-out infinite;
+}
+@keyframes typing-pulse {
+  0%, 100% { opacity: .35; }
+  50% { opacity: 1; }
+}
