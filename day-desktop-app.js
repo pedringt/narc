@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, nextEvent } from './day.js';
+import { newGame, act, ending, clock, nextEvent, chatOptions } from './day.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -26,6 +26,7 @@ const THREADS = {
 
 const REQUEST_THREAD = {
   danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
+  priyaCase: 'priya', luisCase: 'luis', marcusCase: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
@@ -33,6 +34,9 @@ const REQUEST_OPTIONS = {
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
   marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
+  priyaCase: [['context', 'Add the client/onboarding context (8 min)'], ['quiet', 'Suggest she post less (2 min)'], ['report', 'Confirm the flag without context (2 min)']],
+  luisCase: [['context', 'Explain the low-input work (6 min)'], ['blame', 'Say Luis is probably gaming it (2 min)'], ['leave', 'Stay out of it']],
+  marcusCase: [['evidence', 'Send the transit alert (5 min)'], ['confirm', 'Confirm he was late (2 min)'], ['leave', 'Stay out of it']],
   narcResponse: [['explain', 'Explain the pattern (10 min)'], ['ignore', 'Leave the flag unanswered']],
 };
 
@@ -99,6 +103,32 @@ const EMAILS = [
     body: ['Visible Activity Index is not a direct measure of work quality.', 'It is an automated interpretation of observable workstation signals and may change as NARC is updated.'],
   },
 ];
+
+const CULTURE_EMAIL = {
+  id: 'culture', from: 'Culture Team', subject: 'Culture Champion nominations',
+  body: [
+    'Culture Champions are colleagues who make our workplace feel like a workplace.',
+    "You may nominate one coworker today. The selected Champion receives a temporary monitoring exemption: their next automatic NARC action is routed to human review instead.",
+    'This is a real policy. We also think it is fun.',
+  ],
+};
+
+const NARC2_EMAIL = {
+  id: 'narc2', from: 'People Operations', subject: 'NARC 2.0: new capabilities',
+  body: [
+    'NARC has been updated effective immediately.',
+    'Behavioral Deviation Detection now learns what is normal for each employee. Synthetic Activity Identification looks for repeated or mechanically regular activity patterns.',
+    'Repeated Focus Time usage is no longer treated as reliable context by default. It may now be weighted as possible activity manipulation.',
+    'Employees are encouraged to continue working normally.',
+  ],
+};
+
+function currentEmails() {
+  const out = [...EMAILS];
+  if (state.flags.cultureEmailAvailable) out.unshift(CULTURE_EMAIL);
+  if (state.flags.narc2EmailAvailable) out.unshift(NARC2_EMAIL);
+  return out;
+}
 
 const NEWS = [
   {
@@ -218,8 +248,8 @@ function completeTutorialTarget(id) {
     ui.tutorialUnread = true;
     render();
     const nextStep = TUTORIAL_STEPS[ui.tutorialStep];
-    showToast('Dana Whitfield', nextStep.text, 'messages', { thread: 'dana' });
-  }, 900);
+    if (nextStep) showToast('Dana Whitfield', nextStep.text, 'messages', { thread: 'dana', tutorial: true });
+  }, 350);
 }
 
 function isMobile() {
@@ -326,13 +356,17 @@ function announceChanges(before, after) {
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
+  if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
+    showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email');
+  }
   if (after.narc.adaptation && !before.narc.adaptation) {
     showToast('NARC SYSTEM UPDATE', 'Repeated Focus Time usage detected across Meridian. NARC 2.0 now treats repeated Focus Time as possible activity manipulation.', 'narc');
+    setTimeout(() => showToast('People Operations', 'NARC 2.0: new capabilities. Focus Time weighting has changed.', 'email'), 1200);
   } else {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) showToast('NARC', newNarc.text, 'narc');
   }
-  newEntries.filter((e) => e.kind === 'message').forEach((e) => {
+  newEntries.filter((e) => e.kind === 'message' && e.from !== 'me').forEach((e) => {
     showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
   });
 }
@@ -498,8 +532,9 @@ function renderWindows() {
 }
 
 function renderEmail() {
+  const mails = currentEmails();
   const list = h('div', 'list');
-  EMAILS.forEach((m) => {
+  mails.forEach((m) => {
     const row = h('button', 'row mail-row', h('span', 'mail-row-icon', '✉'), h('div', 'mail-row-copy', h('div', 'top', h('span', 'name', m.from)), h('div', 'sub sub-b', m.subject)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedEmail === m.id));
     row.addEventListener('click', () => {
@@ -508,9 +543,18 @@ function renderEmail() {
       render();
     }); list.append(row);
   });
-  const m = EMAILS.find((x) => x.id === ui.selectedEmail) || EMAILS[0];
+  const m = mails.find((x) => x.id === ui.selectedEmail) || mails[0];
   const detail = h('div', 'detail mail', h('h2', null, m.subject), h('div', 'from', `From: ${m.from}`));
   m.body.forEach((p) => detail.append(h('p', null, p)));
+  if (m.id === 'culture') {
+    if (state.culture.nominated) {
+      detail.append(h('div', 'mail-form-result', `Nomination submitted: ${THREADS[state.culture.nominated].name}.`));
+    } else {
+      const form = h('div', 'mail-form', h('b', null, 'Nominate one coworker'));
+      ['luis', 'marcus', 'priya'].forEach((who) => form.append(btn(THREADS[who].name, 'btn', () => dispatch({ do: 'nominate', who }))));
+      detail.append(form);
+    }
+  }
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
     ui.tutorialStep = 0;
@@ -565,7 +609,7 @@ function requestForThread(thread) {
 }
 
 function threadMessages(thread) {
-  return state.log.filter((e) => e.kind === 'message' && e.who === thread).map((e) => ({ text: e.text, t: e.t }));
+  return state.log.filter((e) => e.kind === 'message' && e.who === thread).map((e) => ({ text: e.text, t: e.t, from: e.from || 'them' }));
 }
 
 function latestThreadPreview(thread) {
@@ -604,7 +648,7 @@ function renderMessages() {
     if (!msgs.length && !tutorialMsgs.length) scroll.append(h('div', 'empty', 'No new messages.'));
     tutorialMsgs.forEach((m) => scroll.append(h('div', 'bubble', m.text)));
     msgs.forEach((m) => {
-      const bubble = h('div', 'bubble', m.text);
+      const bubble = h('div', `bubble${m.from === 'me' ? ' me' : ''}`, m.text);
       if (id === 'marcus' && state.flags.keepaliveAvailable && /keepalive\.pkg/i.test(m.text)) {
         bubble.append(btn('keepalive.pkg · Open in Utilities', 'attach clickable', () => goApp('utilities')));
       }
@@ -628,6 +672,14 @@ function renderMessages() {
       requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
+    const optional = chatOptions(state, id).slice(0, 3);
+    if (optional.length) {
+      const smallTalk = h('div', 'optional-chat', h('div', 'compose-state', requestForThread(id).length ? 'Optional' : 'Start a conversation'));
+      const chips = h('div', 'chips');
+      optional.forEach(([topic, label]) => chips.append(btn(label, 'chip secondary', () => dispatch({ do: 'chat', who: id, topic }))));
+      smallTalk.append(chips);
+      compose.append(smallTalk);
+    }
     if (!compose.childNodes.length) compose.append(h('div', 'compose-state', 'Nothing else needs a reply right now.'));
     wrap.append(compose); detail.append(wrap);
   }
@@ -763,7 +815,7 @@ function renderNarc() {
   ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
     if (state.requests[reqId]?.status !== 'open') return;
     const title = reqId === 'narcCheckpoint' ? 'Midmorning assessment' : 'Response requested';
-    const action = h('div', 'narc-action', h('b', null, title));
+    const action = h('div', 'narc-action', h('div', 'narc-action-title', h('b', null, title)));
     if (reqId === 'narcCheckpoint') {
       const firstRead = state.flags.firstNarcReadType === 'low'
         ? 'First completed work block read as low-input activity'
@@ -779,7 +831,9 @@ function renderNarc() {
         )
       );
     }
-    requestOptions(reqId).forEach(([choice, label]) => action.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
+    const actions = h('div', 'narc-action-buttons');
+    requestOptions(reqId).forEach(([choice, label]) => actions.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
+    action.append(actions);
     panel.append(action);
   });
   const log = h('div', 'narc-log', h('h3', null, 'Recent NARC reads'));
@@ -795,7 +849,10 @@ function renderQuietAction() {
   const nothingOpen = Object.values(state.tasks).every((t) => t.status !== 'pending') && Object.values(state.requests).every((r) => r.status !== 'open');
   if (!nothingOpen || state.phase === 'end' || !ui.oriented) return;
   const next = nextEvent(state);
-  const card = h('div', 'quiet-card', h('div', null, h('b', null, 'Nothing urgent right now'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(`Work until ${clock(next.t)}`, 'btn primary', () => dispatch({ do: 'workUntil' })));
+  const used = state.flags.workUntilUses || 0;
+  if (used >= 2 && next.t < 17 * 60) return;
+  const label = used >= 2 ? 'Finish the workday' : `Work until ${clock(next.t)}`;
+  const card = h('div', 'quiet-card', h('div', null, h('b', null, used >= 2 ? 'Wrap up when you are ready' : 'Nothing urgent right now'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
   root.append(card);
 }
 
