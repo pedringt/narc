@@ -101,13 +101,43 @@ const EMAILS = [
 ];
 
 const NEWS = [
-  ['WorkFuture Daily', 'Startup says AI can detect employee enthusiasm from mouse movement', 'The company says micro-velocity patterns correlate with commitment. Researchers remain unconvinced.'],
-  ['Office Systems Weekly', 'Why your calendar is becoming workplace evidence', 'Scheduling metadata is easier to measure than the quality of the work itself.'],
-  ['Model Behavior', 'The anti-idle arms race gets an anti-anti-idle layer', 'Monitoring tools now look for repeating input patterns after workers learned to spoof activity.'],
+  {
+    id: 'mouse-enthusiasm',
+    source: 'WorkFuture Daily',
+    title: 'Startup says AI can detect employee enthusiasm from mouse movement',
+    dek: 'The company says micro-velocity patterns correlate with commitment. Researchers remain unconvinced.',
+    body: [
+      'A workplace analytics startup says tiny variations in mouse movement can help distinguish engaged employees from disengaged ones.',
+      'The company describes the signal as one input among many. Independent researchers quoted in the report say the same movement patterns can reflect hardware, accessibility needs, task type, or simple habit.',
+      'The argument is familiar: activity is easy to count. Whether the count means what the system says it means is a different question.',
+    ],
+  },
+  {
+    id: 'calendar-evidence',
+    source: 'Office Systems Weekly',
+    title: 'Why your calendar is becoming workplace evidence',
+    dek: 'Scheduling metadata is easier to measure than the quality of the work itself.',
+    body: [
+      'More workplace systems are treating calendar labels, response times, and availability states as evidence about how employees spend their day.',
+      'That can make invisible work easier to explain, but it can also reward employees for producing the right metadata instead of doing better work.',
+      'Teams adopting these systems are increasingly teaching workers how to label concentration, meetings, and offline work so automated summaries do not mistake quiet time for inactivity.',
+    ],
+  },
+  {
+    id: 'anti-idle',
+    source: 'Model Behavior',
+    title: 'The anti-idle arms race gets an anti-anti-idle layer',
+    dek: 'Monitoring tools now look for repeating input patterns after workers learned to spoof activity.',
+    body: [
+      'Mouse jigglers and simulated input tools became popular as workers tried to keep status indicators active during reading, calls, and other low-input work.',
+      'Monitoring vendors responded by looking for repetitive or mechanically regular activity. Workers then changed tools again.',
+      'The result is an arms race around the measurement itself: employees optimize for what the system can observe, while the system keeps changing what counts as suspicious.',
+    ],
+  },
 ];
 
 const TUTORIAL_STEPS = [
-  { target: 'intranet', text: 'Hi, Dana here — your manager. Meridian is piloting NARC, a new AI system that watches how work gets done and turns those signals into employee assessments. You have still got your normal job today: three things need your attention, and I will get you oriented before NARC starts making too many assumptions. Start with The Loop.', label: 'Open The Loop' },
+  { target: 'intranet', text: 'Hi, Dana here — your manager. You are on the operations team at Meridian Supply Co.; we handle vendor, client, and delivery work. The Loop is our employee home base for tasks, people, files, and company systems. Leadership is piloting NARC because they want a clearer picture of how work gets done, so it watches the signals it can see and turns them into employee assessments. It cannot actually see the quality of the work itself. You have three things waiting today. Start with The Loop and I will show you around.', label: 'Open The Loop' },
   { target: 'files', text: 'Next, open Files. That is where the substance of the work lives. Careful reading can take real time while producing very little visible activity, which matters to NARC.', label: 'Open Files' },
   { target: 'calendar', text: 'Next, check Calendar. NARC treats calendar status as evidence, so the same quiet work block can look different depending on how it is labeled.', label: 'Open Calendar' },
   { target: 'narc', text: 'Now open NARC itself. This is the system’s version of your day: what it saw, what it inferred, and what it thinks your activity means.', label: 'Open NARC' },
@@ -122,7 +152,7 @@ let tutorialTimer = null;
 function freshUi() {
   return {
     oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialAdvancing: false, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
-    selectedFile: null, selectedThread: null, mobileDetail: { email: true, messages: false, files: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
+    selectedFile: null, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
   };
 }
 
@@ -173,8 +203,6 @@ function restart() { state = newGame(); ui = freshUi(); render(); }
 function completeTutorialTarget(id) {
   const step = TUTORIAL_STEPS[ui.tutorialStep];
   if (!step || ui.tutorialDone || ui.tutorialAdvancing || step.target !== id) return;
-
-  ui.tutorialUnread = false;
 
   if (step.final) {
     ui.tutorialDone = true;
@@ -261,6 +289,12 @@ function goApp(id) {
   render();
 }
 
+function openThread(thread) {
+  ui.selectedThread = thread;
+  setMobileDetail('messages', true);
+  goApp('messages');
+}
+
 function focusWindow(id) {
   if (!ui.openApps.includes(id)) return;
   ui.app = id;
@@ -293,7 +327,7 @@ function announceChanges(before, after) {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.narc.adaptation && !before.narc.adaptation) {
-    showToast('NARC', 'NARC 2.0 changed how it reads Focus Time.', 'narc');
+    showToast('NARC SYSTEM UPDATE', 'Repeated Focus Time usage detected across Meridian. NARC 2.0 now treats repeated Focus Time as possible activity manipulation.', 'narc');
   } else {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) showToast('NARC', newNarc.text, 'narc');
@@ -490,16 +524,28 @@ function renderEmail() {
 
 function renderLoop() {
   const main = h('div', 'intranet-list');
-  main.append(h('div', 'loop-welcome', h('div', 'loop-kicker', 'MERIDIAN SUPPLY CO. · EMPLOYEE HOME'), h('h2', null, 'The Loop'), h('p', null, 'Good morning, Employee 4417. Three things need your attention today. NARC is watching the work traces it can see, not the work itself.')));
+  main.append(h('div', 'loop-welcome',
+    h('div', 'loop-kicker', 'MERIDIAN SUPPLY CO. · EMPLOYEE HOME'),
+    h('h2', null, 'The Loop'),
+    h('p', null, 'Your home base for today: work, coworkers, files, deadlines, and company systems. Meridian handles vendor, client, and delivery operations. NARC is watching the work traces it can see, not the work itself.')
+  ));
 
   const taskBox = h('div', 'loop-card', h('div', 'loop-card-h', 'Today · your work'));
   Object.entries(state.tasks).filter(([, t]) => t.status !== 'hidden').forEach(([id, t]) => {
     const row = h('div', 'loop-task', h('div', null, h('b', null, t.label), h('p', 'loop-muted', `Due ${clock(t.deadline)} · ${t.status}`)));
-    if (t.status === 'pending') row.append(btn('Open file', 'loop-link', () => {
-      ui.selectedFile = id;
-      setMobileDetail('files', true);
-      goApp('files');
-    }));
+    if (t.status === 'pending') {
+      const actions = h('div', 'loop-task-actions');
+      actions.append(btn('Open file', 'loop-link', () => {
+        ui.selectedFile = id;
+        setMobileDetail('files', true);
+        goApp('files');
+      }));
+      if (id === 'client') actions.append(btn('Message Priya', 'loop-link', () => openThread('priya')));
+      else if (id === 'project') actions.append(btn('Message Marcus', 'loop-link', () => openThread('marcus')));
+      else if (id === 'rework') actions.append(btn('Message Dana', 'loop-link', () => openThread('dana')));
+      else actions.append(btn('View deadline', 'loop-link', () => goApp('calendar')));
+      row.append(actions);
+    }
     taskBox.append(row);
   });
   main.append(taskBox);
@@ -592,6 +638,12 @@ function renderCalendar() {
   const pane = h('div', 'pane');
   pane.append(h('div', 'cal-head', h('div', 'who-h', 'Today · one workday')));
   pane.append(h('div', 'event', h('div', 'time', '9:00–5:00'), h('div', null, h('div', null, 'Employee 4417 · workday'), h('div', 'where', 'Meridian workstation'))));
+  Object.entries(state.tasks).filter(([, t]) => t.status === 'pending').forEach(([id, t]) => {
+    pane.append(h('div', 'event deadline-event',
+      h('div', 'time', clock(t.deadline)),
+      h('div', null, h('div', null, t.label), h('div', 'where', id === 'rework' ? 'Follow-up required' : 'Work deadline'))
+    ));
+  });
   const card = h('div', 'card');
   card.append(h('h3', null, 'Focus Time'), h('p', 'note', state.narc.adaptation ? 'NARC 2.0 now treats repeated Focus Time as possible gaming. You can still test the signal.' : 'Mark a quiet stretch as Focus Time if NARC is reading concentration as inactivity.'));
   card.append(btn(state.narc.adaptation ? 'Use Focus Time anyway (5 min)' : 'Mark next block as Focus Time (5 min)', state.narc.adaptation ? 'btn' : 'btn primary', () => dispatch({ do: 'focus' })));
@@ -656,9 +708,37 @@ function renderUtilities() {
 
 function renderBrowser() {
   const list = h('div', 'list browser-list');
-  NEWS.forEach(([source, title, dek]) => list.append(h('div', 'row', h('div', 'browser-source', source), h('div', 'name', title), h('div', 'sub browser-dek', dek))));
-  const detail = h('div', 'detail browser-page', h('div', 'browser-home-kicker', 'MERIDIAN START'), h('h2', null, 'Company network highlights'), h('p', 'browser-home-copy', 'Industry news and the occasional reminder that measuring work is easier than understanding it.'));
-  return windowShell('browser', 'Browser', h('div', 'browser-shell', h('div', 'browser-toolbar', h('div', 'browser-address', 'meridian.start/')), h('div', 'body browser-body', list, detail)));
+  NEWS.forEach((article) => {
+    const row = h('button', 'row browser-story',
+      h('div', 'browser-source', article.source),
+      h('div', 'name', article.title),
+      h('div', 'sub browser-dek', article.dek)
+    );
+    row.type = 'button';
+    row.setAttribute('aria-current', String(ui.selectedArticle === article.id));
+    row.addEventListener('click', () => {
+      ui.selectedArticle = article.id;
+      setMobileDetail('browser', true);
+      render();
+    });
+    list.append(row);
+  });
+
+  const selected = NEWS.find((article) => article.id === ui.selectedArticle);
+  const detail = h('div', 'detail browser-page');
+  if (!selected) {
+    detail.append(
+      h('div', 'browser-home-kicker', 'MERIDIAN START'),
+      h('h2', null, 'Company network highlights'),
+      h('p', 'browser-home-copy', 'Industry news and the occasional reminder that measuring work is easier than understanding it. Select a headline to read more.')
+    );
+  } else {
+    detail.append(h('div', 'browser-home-kicker', selected.source), h('h2', null, selected.title), h('p', 'browser-article-dek', selected.dek));
+    selected.body.forEach((p) => detail.append(h('p', 'browser-article-copy', p)));
+  }
+
+  const address = selected ? `meridian.start/read/${selected.id}` : 'meridian.start/';
+  return windowShell('browser', 'Browser', h('div', 'browser-shell', h('div', 'browser-toolbar', h('div', 'browser-address', address)), h('div', 'body browser-body', list, detail)));
 }
 
 function renderNarc() {
@@ -672,13 +752,32 @@ function renderNarc() {
     h('p', 'narc-explainer', 'Measures what NARC can observe, not the quality or value of your work.')
   );
   panel.append(h('div', `narc-standing narc-standing-${state.standing.status}`, h('span', null, 'EMPLOYEE STANDING'), h('b', null, standingLabel), h('p', null, state.standing.note)));
+  if (state.narc.adaptation) {
+    panel.append(h('div', 'narc-system-update',
+      h('div', 'narc-update-kicker', 'NARC SYSTEM UPDATE · 2.0'),
+      h('b', null, 'Focus Time weighting changed'),
+      h('p', null, 'Repeated Focus Time usage was detected across Meridian. NARC now treats repeated Focus Time as possible activity manipulation rather than reliable context.')
+    ));
+  }
   panel.append(h('div', 'narc-rule', h('b', null, 'Current interpretation'), h('p', null, state.narc.adaptation ? 'Repeated recent Focus Time is now weighted as possible gaming.' : 'Quiet work may be read as inactivity unless other visible context is present.')));
   ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
     if (state.requests[reqId]?.status !== 'open') return;
     const title = reqId === 'narcCheckpoint' ? 'Midmorning assessment' : 'Response requested';
     const action = h('div', 'narc-action', h('b', null, title));
     if (reqId === 'narcCheckpoint') {
-      action.append(h('p', 'narc-action-copy', "NARC has formed a midmorning assessment of your activity. Add context or leave its interpretation unchanged."));
+      const firstRead = state.flags.firstNarcReadType === 'low'
+        ? 'First completed work block read as low-input activity'
+        : state.flags.firstNarcReadType === 'visible'
+        ? 'First completed work block read as high visible activity'
+        : 'No clear first-work pattern on record';
+      action.append(
+        h('p', 'narc-action-copy', "NARC has formed a midmorning assessment of your activity. Add context or leave its interpretation unchanged."),
+        h('div', 'narc-checkpoint-facts',
+          h('div', null, h('span', null, 'Visible Activity Index'), h('b', null, state.index)),
+          h('div', null, h('span', null, 'Observed pattern'), h('b', null, firstRead)),
+          h('div', null, h('span', null, 'Context on record'), h('b', null, state.flags.firstNarcContext ? 'Yes' : 'No'))
+        )
+      );
     }
     requestOptions(reqId).forEach(([choice, label]) => action.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
     panel.append(action);
