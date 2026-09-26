@@ -37,3 +37,7 @@ assert.match(app, /pendingReplies/, 'chat replies should not appear immediately'
 assert.match(app, /Accept NARC's positive activity assessment/, 'Trusted Operator choice should explain that the assessment is positive');
 assert.match(app, /positive adoption signal/, 'NARC should explain why accepting the assessment can improve standing');
 assert.match(app, /ui\.notifications\.some\(\(n\) => !n\.read\)/, 'quiet-time fast-forward should not cover unread activity');
+
+assert.match(app, /unreadMessages/, 'ambient coworker messages should contribute to the Messages badge');
+assert.match(app, /n\.thread === id/, 'each coworker row should surface unread ambient messages');
+assert.match(app, /ui\.typingThreads\[id\] \? \[\] : chatOptions/, 'do not allow stacked canned replies while a coworker is typing');
