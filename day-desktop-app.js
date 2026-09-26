@@ -357,7 +357,7 @@ function announceChanges(before, after) {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
-    showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' });
+    setTimeout(() => showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' }), 700);
   }
   if (after.narc.adaptation && !before.narc.adaptation) {
     showToast('NARC SYSTEM UPDATE', 'Repeated Focus Time usage detected across Meridian. NARC 2.0 now treats repeated Focus Time as possible activity manipulation.', 'narc');
