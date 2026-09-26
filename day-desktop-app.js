@@ -357,11 +357,11 @@ function announceChanges(before, after) {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
-    showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email');
+    showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' });
   }
   if (after.narc.adaptation && !before.narc.adaptation) {
     showToast('NARC SYSTEM UPDATE', 'Repeated Focus Time usage detected across Meridian. NARC 2.0 now treats repeated Focus Time as possible activity manipulation.', 'narc');
-    setTimeout(() => showToast('People Operations', 'NARC 2.0: new capabilities. Focus Time weighting has changed.', 'email'), 1200);
+    setTimeout(() => showToast('People Operations', 'NARC 2.0: new capabilities. Focus Time weighting has changed.', 'email', { email: 'narc2' }), 1200);
   } else {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) showToast('NARC', newNarc.text, 'narc');
@@ -377,6 +377,10 @@ function openNotification(item) {
   if (item.thread) {
     ui.selectedThread = item.thread;
     setMobileDetail('messages', true);
+  }
+  if (item.email) {
+    ui.selectedEmail = item.email;
+    setMobileDetail('email', true);
   }
   if (item.app) goApp(item.app);
   else render();
@@ -411,6 +415,7 @@ function showToast(source, text, app = null, meta = {}) {
     text,
     app,
     thread: meta.thread || null,
+    email: meta.email || null,
     t: state.t,
     read: false,
   };
@@ -850,9 +855,9 @@ function renderQuietAction() {
   if (!nothingOpen || state.phase === 'end' || !ui.oriented) return;
   const next = nextEvent(state);
   const used = state.flags.workUntilUses || 0;
-  if (used >= 2 && next.t < 17 * 60) return;
-  const label = used >= 2 ? 'Finish the workday' : `Work until ${clock(next.t)}`;
-  const card = h('div', 'quiet-card', h('div', null, h('b', null, used >= 2 ? 'Wrap up when you are ready' : 'Nothing urgent right now'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
+  const label = next.t >= 17 * 60 ? 'Finish the workday' : used >= 2 ? 'Continue background work' : `Work until ${clock(next.t)}`;
+  const title = used >= 2 ? 'Quiet stretch' : 'Nothing urgent right now';
+  const card = h('div', 'quiet-card', h('div', null, h('b', null, title), h('span', null, used >= 2 ? 'You can also poke around Messages, Browser, or Utilities.' : `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
   root.append(card);
 }
 
