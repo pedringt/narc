@@ -381,6 +381,23 @@ console.log('day.js tests passed');
   assert.equal(s.pendingReplies[topic], undefined);
 }
 
+// ---------------- Dana's raccoon callback only fires after the story exists
+{
+  let s = newGame();
+  let topic = chatOptions(s, 'dana').find(([key]) => key === 'dana-meridian')?.[0];
+  assert.equal(topic, 'dana-meridian');
+  s = act(s, { do: 'chat', who: 'dana', topic });
+  s = act(s, { do: 'deliverChat', topic });
+  assert.ok(s.threads.dana.some((m) => /chaos is less coordinated/i.test(m.text)), 'Dana should not reference the raccoon before Marcus tells that story');
+
+  let later = newGame();
+  later = act(later, { do: 'idle', minutes: (10 * 60 + 55) - later.t });
+  topic = chatOptions(later, 'dana').find(([key]) => key === 'dana-meridian')?.[0];
+  later = act(later, { do: 'chat', who: 'dana', topic });
+  later = act(later, { do: 'deliverChat', topic });
+  assert.ok(later.threads.dana.some((m) => /raccoon is metaphorical/i.test(m.text)), 'the raccoon line becomes a callback only after the player has seen the story');
+}
+
 // -------------------------------------- NARC 2.0 keeps its explanatory email
 {
   let s = act(newGame(), { do: 'focus' });

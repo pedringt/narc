@@ -101,26 +101,28 @@ Research notes live in `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`.
 
 ## Current development
 
-The active implementation branch is:
+The active polish branch is:
 
-`notification-tutorial-keepalive-polish`
+`narc-polish-status-redesign-sept25`
 
-It includes the latest notification, tutorial, keepalive, player-standing, and short-game polish.
+Draft PR: **#101 — Redesign NARC status and clarify interaction hierarchy**
 
-Do not merge to `main` or deploy without Paige explicitly naming the destination.
+This pass makes NARC's system state easier to understand:
+- persistent NARC intervention-risk status
+- Visible Activity shown as X/100 with Low / Normal / High meaning
+- evidence -> inference -> consequence -> action detail flow
+- concrete response labels instead of generic “Add context”
+- clearer event history / notifications
+- required message actions take priority over optional conversation
+- optional conversation prompts remain visible but disabled while a reply is being typed
+- callback dialogue only appears after the relevant story beat
 
-Human/browser validation is still required for:
+Do not merge to `main` or deploy production without Paige explicitly naming that destination.
 
-- browser smoke of the latest desktop flow
-- at least one uncoached ~15-minute playtest
-- dead-air / overload notes
-- actual observed completion time
-
-See:
-
+Human/browser validation is still required. See:
 - `docs/HANDOFF.md`
-- `docs/CORE_GAME_SPEC.md`
-- GitHub issue #70 for the playtest gate
+- `docs/PLAYTEST_CHECKLIST.md`
+- GitHub issue #70
 
 ## Deferred
 

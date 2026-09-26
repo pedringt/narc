@@ -1,250 +1,222 @@
 # NARC Handoff
 
-## Current status (2026-09-26)
+## Current status (2026-09-25)
 
-The canonical experience is the **single-workday desktop build** at `/` and `/day.html` (`day.js`/`day-desktop-app.js`/`single-day-desktop.css`).
+The canonical experience is the **single-workday desktop build** at `/` and `/day.html`.
 
-The archived one-week prototype remains at `/week.html` for reference only (`game.js`/`app.js`/`style.css`).
+Active implementation:
+- `day.js` — deterministic game/state engine
+- `day-desktop-app.js` — desktop UI and interaction layer
+- `single-day-desktop.css` — single-day integration/polish styles
+- `test-day.mjs` — engine/regression checks
+- `test-desktop.mjs` — source-level desktop integration checks
 
-### Branch / PR state
+The old one-week build remains at `/week.html` only as an archive/reference.
 
-- `main` is the only branch, at whatever commit `git log -1` shows — this file is not kept in sync with the exact SHA, don't trust a hardcoded commit hash here over `git log`
-- **#86 and #87 are both done and merged** — PR #86 (tutorial advances via any real app-navigation path, verified live in browser before merging) and #87 (Dana's opening line now establishes the situation before app mechanics) are closed/merged, not pending work
-- no open branches or PRs as of this writing
+## Branch / PR state
 
-## Immediate work order for Claude Code
+- `main` currently contains PR #100, the recurring-coworker / tutorial / paced-chat polish pass.
+- Active handoff branch: `narc-polish-status-redesign-sept25`
+- Active draft PR: **#101 — Redesign NARC status and clarify interaction hierarchy**
+- Do **not** merge #101 to `main` or production without Paige explicitly asking for `main`/production in that instruction.
 
-Work in this order. Do not jump to backlog features.
+## What PR #101 changes
 
-### 1. Run #70 as the single browser-validation gate
+This pass responds to Paige's latest live playtest feedback.
 
-#70 is now the consolidated human/browser gate for the current game.
+### NARC status is now legible at a glance
 
-Target real-world playtime: **about 15 minutes**.
+The old headline `VISIBLE ACTIVITY INDEX 61` was not self-explanatory.
 
-Pacing target:
+New hierarchy:
+1. persistent **NARC status** in the top bar
+2. derived intervention-risk meter: NORMAL / WATCHING / AT RISK / CRITICAL
+3. click NARC for the explanation
+4. Visible Activity remains a secondary signal shown as `X/100` plus a plain-English band
 
-- 1–2 minutes onboarding/tutorial
-- 8–10 minutes decisions, interruptions, NARC reactions, and tradeoffs
+Important: the risk meter is **derived UI**, not a new hidden morality/performance score. It summarizes NARC's current intervention pressure from existing state.
+
+Visible Activity bands:
+- 0–49: Low visible activity
+- 50–74: Normal visible activity
+- 75–100: High visible activity
+
+The UI explicitly says Visible Activity measures observable workstation activity, **not work quality**.
+
+### NARC detail screen was redesigned
+
+The NARC screen now answers four questions in order:
+
+- **WHAT NARC SAW**
+- **WHAT NARC INFERRED**
+- **WHAT THAT CHANGES**
+- **WHAT YOU CAN DO**
+
+This is the key mental model for the product. Evidence and inference must stay visibly separate.
+
+Active NARC decisions use concrete action labels instead of generic “Add context,” for example:
+- Explain the quiet file review
+- Explain that the fast work was rushed
+- Explain the quiet work NARC missed
+- Explain what the activity score missed
+- Explain why Focus Time spread
+
+Recent NARC history is now a categorized event timeline (Observation / Review / Recognition / System Update / Consequence).
+
+NARC toast notifications now include the current NARC status and explicitly direct the player to open NARC for evidence/inference/action details.
+
+### Message action hierarchy was tightened
+
+Rule:
+- if a tutorial step or required request is active in a person's thread, show the required action(s) only
+- optional “Start a conversation” prompts return when nothing required is waiting
+- while a coworker is typing, unused optional prompts remain visible but disabled/dimmed instead of disappearing
+- after the reply lands, they become active again
+
+This prevents optional banter from competing with progression.
+
+### Context-aware dialogue
+
+Dana's “Usually the raccoon is metaphorical” line only fires after Marcus's raccoon story has actually occurred.
+
+Before that beat, Dana answers:
+> No. Usually the chaos is less coordinated.
+
+General rule: callback jokes must respect what the player has actually seen.
+
+## Current gameplay shape
+
+Target real-world first run: about **15 minutes**.
+
+- 1–2 minutes onboarding
+- 8–10 minutes work decisions, interruptions, social choices, and NARC reactions
 - 2–3 minutes escalation/payoff/ending
 
-Record:
+The day remains one deliberately busy 9:00–5:00 workday. Do not return to a multi-day structure.
 
-- total runtime
-- tutorial runtime
-- any “what do I do now?” moments
-- dead air vs overload separately
-- repeated reliance on **Work until...**
-- whether the player changes strategy
-- whether Focus Time -> NARC adaptation -> keepalive feels causally connected
-- whether the ending feels like payoff
-- whether the player can explain actual work vs NARC-visible work without prompting
+### Recurring coworker patterns
 
-Be ruthless about filler. A beat should generally do at least one of:
+These must feel established before NARC turns them into cases:
 
-- teach a NARC rule
-- force a tradeoff
-- create a consequence
-- reveal useful character/worldbuilding
-- let the player exploit/challenge the system
-- pay off an earlier action
+- **Marcus** — repeatedly late/missing things, often with plausible context; raccoon/transit evidence is one incident in an existing pattern
+- **Luis** — repeatedly away from his desk / bathroom breaks; NARC reduces low-input stretches to “presence irregularities”
+- **Priya** — genuinely chatty and highly collaborative; NARC flattens client work, onboarding, and social chatter into “Communication Load”
 
-If the playtest exposes problems, create focused issues rather than reopening broad old implementation issues.
+The interesting design is ambiguity: NARC often has a real signal but lacks enough context to judge what the signal means.
 
-### 2. Only after #70 stabilizes the loop, consider #88
+### Player complicity
 
-#88 tracks lightweight Vercel Web Analytics custom events.
+The player can:
+- challenge NARC
+- accept flattering NARC interpretations
+- game NARC
+- protect coworkers
+- decline to intervene
+- weaponize NARC against coworkers
 
-Do not instrument the current unstable flow first.
+Do not simplify the game into “AI bad / resist AI.” Player incentives and institutional trust are part of the point.
 
-Possible later events include:
+### Adaptive system arc
 
-- `game_started`
-- `tutorial_completed`
-- `first_task_selected`
-- meaningful fast vs careful work choice
-- NARC assessment challenged / left standing
-- `focus_time_used`
-- `keepalive_used`
-- Trusted Operator reached
-- Review Open reached
-- `game_completed`
-- completion duration / broad ending
-- replay started, if replay exists later
-
-Guardrails:
-
-- anonymous only
-- no PII
-- no message contents
-- no free-text player data
-- do not instrument every click
-
-## GitHub cleanup status
-
-Closed as implementation-complete:
-
-- #80 Repair single-day opening, desktop window behavior, and midmorning pacing
-- #82 Refine onboarding, NARC presence, and quiet-time flow
-- #84 Polish notifications, tutorial handoff, NARC actions, and keepalive
-- #86 Advance tutorial from normal app navigation (merged to `main`, browser-verified)
-- #87 Strengthen opening context (merged to `main`, browser-verified)
-
-Their remaining browser verification (plus #86/#87's own) is consolidated into #70.
-
-Current active issues that matter now:
-
-- **#70** Playtest the ~15-minute core loop — the only real gate left before more code work
-- **#88** Add lightweight Vercel gameplay analytics after the core loop stabilizes
-
-Deferred backlog:
-
-- **#45** promotion/replay authority/settings
-- **#48** invasive personalization
-
-Do not implement #45 or #48 automatically.
-
-## Product target
-
-NARC is a short portfolio game, not a long simulation.
-
-Core premise:
-
-**A human employee learns to game an AI workplace-monitoring system by understanding the gap between what the system can see and what is actually true.**
-
-Core loop:
-
-`notice competing priorities -> decide -> act -> spend time -> receive work/NARC/social feedback -> reprioritize`
-
-Three forces should regularly conflict:
-
-1. doing the actual work well
-2. protecting NARC-visible productivity / personal standing
-3. helping or preserving trust with coworkers
-
-Messages should interrupt or complicate the loop, not carry the whole game.
-
-## Canonical single-day behavior
-
-### Desktop
-
-The fictional company laptop contains:
-
-- The Loop
-- Messages
-- Email
-- Calendar
-- Files
-- Utilities
-- Browser
-- NARC
-
-Wide layouts can keep up to three overlapping windows open. Window state persists and dragged windows must remain reachable.
-
-### Work
-
-Three starting responsibilities:
-
-- Halcyon vendor renewal, due 11:30
-- Priya client escalation, due 1:00
-- Marcus project scope cut, due 3:30
-
-Each offers a fast/visible path and a slower/more substantive path.
-
-Morning shortcuts can create afternoon rework.
-
-### NARC
-
-NARC maintains a **Visible Activity Index** and reacts to observable work traces.
-
-Current arc includes:
-
-- baseline monitoring
-- first read after first real task
-- response choice
-- midmorning pattern check
-- Focus Time initially protecting quiet work
-- coworkers adopting Focus Time
-- NARC 2.0 adapting to repeated Focus Time
-- `keepalive.pkg` arriving as a more aggressive workaround
-
-NARC should feel like an active system, not something Dana merely explains.
-
-### Player standing
-
-Possible states:
-
-- Standard
-- Trusted Operator
-- Review Open
-
-A flattering visible-activity read can earn Trusted Operator if left standing.
-
-A low-activity read left unchallenged can open a review.
-
-Standing changes later options, including whether Dana can rely on NARC's summary instead of hearing the real status.
-
-### Workarounds
-
-**Focus Time**
+Focus Time:
 - initially protects quiet work
-- spreads to coworkers
-- NARC adapts and begins treating repeated use as gaming
+- coworkers learn the workaround
+- usage spreads
+- NARC 2.0 reinterprets repeated Focus Time as possible gaming
 
-**keepalive.pkg**
-- arrives from Marcus after Focus Time is nerfed
-- appears as an actionable Messages attachment
-- opens Utilities
-- can be installed/run once
-- simulated input raises visible activity
-- ending can call out that NARC counted fake activity as real
+Then Marcus can send `keepalive.pkg`, which produces synthetic activity NARC can count as real visible input.
 
-## Vercel state
+This is a compact playable feedback loop: users adapt to the model; the model adapts to users.
 
-Project: `narc` under the Pallas team.
+## Immediate next step: browser playtest PR #101
 
-Useful current setup:
+Use the PR #101 Vercel preview once READY.
 
-- Git branch preview deployments are working
-- production `main` deployment is READY
-- no runtime errors were found in the recent 7-day check
-- Pallas Spend Management is set to a **$10** on-demand budget
-- Paige turned **Pause** on at the budget threshold
+Validate:
 
-Pro features worth using for NARC:
+### NARC clarity
+- top-bar NARC status is visible but not distracting
+- NORMAL/WATCHING/AT RISK/CRITICAL changes make intuitive sense
+- clicking NARC explains **why** the status changed
+- Visible Activity always reads as X/100 plus Low/Normal/High
+- player understands that Visible Activity is not job performance
+- every active NARC event clearly separates signal -> inference -> consequence -> action
+- concrete action wording is understandable without prior knowledge of “add context”
+- event history is readable rather than a log dump
 
-- preview deployments for QA
-- Web Analytics / custom gameplay events after the loop stabilizes
+### Messages
+- optional conversation prompts are hidden while required/tutorial actions are active
+- while someone is typing, remaining optional prompts stay visible but disabled
+- layout does not collapse/jump during typing
+- new replies stay at the bottom
+- Dana does not mention the raccoon before the player has heard the story
 
-Not currently worth adding:
+### Pacing
+- 10:15 still feels busy
+- unread coworker activity is discoverable
+- “Work until...” does not appear while meaningful unread activity is waiting
+- no new NARC UI causes the run to slow down significantly
 
-- Fluid Compute
-- AI Gateway
-- rolling releases
-- extra server-side infrastructure
-- Speed Insights specifically for NARC
+### Ending / consequences
+- coworker employment/protection outcomes still match choices
+- Trusted Operator / Review Open still affect later play
+- Focus Time -> NARC 2.0 -> keepalive remains causally legible
 
-NARC is mostly client-side and deterministic right now.
+## Verification state
 
-## Realism rule
+Implemented in PR #101:
+- code changes
+- regression/source assertions
+- docs/handoff updates
 
-For major NARC mechanics:
+Environment limitation:
+- local Node test execution has not been run in this ChatGPT environment
+- use GitHub/Vercel build status plus browser playtesting as the current verification path
+- do not claim full automated tests passed unless they are actually run elsewhere
 
-**real capability -> plausible inference -> ridiculous institutional response -> exploitable weakness**
+## GitHub issue state
 
-Grounded examples include workstation activity, application/website usage concepts, calendar/context signals, and synthetic activity workarounds.
+Primary current issue:
+- **#70** Playtest the ~15-minute core loop for agency, pacing, and payoff
 
-Do not imply every employer uses every capability or that NARC's institutional judgments are standard industry behavior.
+Blocked until #70 stabilizes:
+- **#88** lightweight Vercel gameplay analytics
 
-Public case-study claims should distinguish documented monitoring capabilities from satirical extrapolation.
+Deferred, do not implement automatically:
+- **#45** promotion/replay authority/settings
+- **#48** benignly invasive personalization
+
+Issue #87 (opening context) is complete and should remain closed after GitHub cleanup.
+
+## Portfolio / case-study framing worth preserving
+
+Strong thesis:
+
+> NARC is a playable systems-design experiment about what happens when organizations turn observable proxies into judgments, and people begin adapting to the measurement system.
+
+Important case-study themes:
+- ambiguous evidence rather than cartoonishly wrong AI
+- player incentives and complicity
+- model/user feedback loops
+- human review as both safeguard and possible failure point
+- explainability as interaction design, not a documentation paragraph
+- proxy metrics / Goodhart-style behavior taught through play
+- deliberate compression from a larger multi-day idea into a short portfolio experience
+- live playtesting changed mechanics and pacing, not just visual polish
+- humor makes serious AI-system behavior approachable without turning the game into a lecture
+
+AI-assisted creation should be attributed accurately:
+- Paige made the product/game decisions, playtested, selected what to keep/cut, and directed scope/tone
+- AI tools helped explore design space, inspect/recover prior mechanics, draft variants, implement code, perform QA, and maintain documentation
+- NARC is authored/deterministic-first; a live LLM is not required for the game mechanic
 
 ## Source of truth
 
-For the active single-day build:
-
+For the active build, use this order:
 1. `docs/CORE_GAME_SPEC.md`
-2. this handoff
+2. `docs/HANDOFF.md`
 3. current open GitHub issues
 4. `day.js` / `day-desktop-app.js`
+5. `docs/CASE_STUDY_NOTES.md`
 
-The archived week documentation and `week.html` are reference only.
+The archived week build and old issue descriptions are reference material only.

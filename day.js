@@ -700,7 +700,7 @@ const CHAT_OPTIONS = {
   'luis-smalltalk': { who: 'luis', text: 'Anything weird happening in Ops?', reply: 'NARC thinks my calendar is evidence and my lunch is an unexplained absence, so define weird.', minutes: 2 },
   'luis-survey': { who: 'luis', text: 'Are you supposed to answer employee surveys honestly?', reply: 'Absolutely. That is why ours has a 0% response rate.', minutes: 2 },
   'dana-narc': { who: 'dana', text: 'Do you actually trust NARC?', reply: 'I trust it to tell me what it can observe. I do not trust observation to magically become judgment.', minutes: 2 },
-  'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: 'No. Usually the raccoon is metaphorical.', minutes: 2 },
+  'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: (s) => s.flags.marcusRaccoon ? 'No. Usually the raccoon is metaphorical.' : 'No. Usually the chaos is less coordinated.', minutes: 2 },
   'dana-rework': { who: 'dana', text: 'A morning shortcut came back as a problem.', reply: 'Then fix the problem first. We can argue about why the shortcut looked good afterward.', minutes: 2 },
 };
 

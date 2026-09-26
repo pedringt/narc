@@ -464,3 +464,236 @@
   0%, 100% { opacity: .35; }
   50% { opacity: 1; }
 }
+
+
+/* Sept 25 final NARC clarity pass: persistent risk state + evidence/inference/action hierarchy. */
+.narc-tray-status {
+  gap: 6px;
+  min-width: 150px;
+}
+.narc-tray-status .dot { flex: none; }
+.narc-tray-status #trayText {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.narc-tray-meter {
+  width: 42px;
+  height: 5px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255,255,255,.16);
+}
+.narc-tray-meter > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #7fb291;
+  transition: width .25s ease, background .25s ease;
+}
+.narc-tray-status.risk-watching .narc-tray-meter > span { background: #d7aa50; }
+.narc-tray-status.risk-risk .narc-tray-meter > span { background: #d67849; }
+.narc-tray-status.risk-critical .narc-tray-meter > span { background: #d94c4c; }
+.narc-tray-status.risk-risk,
+.narc-tray-status.risk-critical { border-color: rgba(217,76,76,.6); }
+
+.narc-inline-status {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+}
+.narc-inline-status.risk-normal { color: #2c8558; }
+.narc-inline-status.risk-watching { color: #9b7525; }
+.narc-inline-status.risk-risk,
+.narc-inline-status.risk-critical { color: #a14c3f; }
+
+.narc-dashboard {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+.narc-dashboard > section {
+  margin: 0;
+  border: 1px solid var(--n-line);
+  border-radius: 8px;
+  background: var(--n-panel);
+  color: var(--n-text);
+  padding: 16px;
+  font-family: var(--mono);
+}
+.narc-status-card {
+  border-left: 4px solid var(--n-good) !important;
+}
+.narc-status-card.risk-watching { border-left-color: var(--n-warn) !important; }
+.narc-status-card.risk-risk,
+.narc-status-card.risk-critical { border-left-color: var(--n-danger) !important; }
+.narc-status-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.narc-status-head h2 {
+  margin: 4px 0 0;
+  font-size: 28px;
+  letter-spacing: .04em;
+}
+.narc-risk-number {
+  color: var(--n-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.narc-risk-track {
+  height: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  background: #0d100d;
+}
+.narc-risk-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--n-good);
+  transition: width .25s ease, background .25s ease;
+}
+.risk-watching .narc-risk-fill { background: var(--n-warn); }
+.risk-risk .narc-risk-fill,
+.risk-critical .narc-risk-fill { background: var(--n-danger); }
+.narc-status-copy {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.narc-section-title {
+  margin-bottom: 8px;
+  color: var(--n-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+}
+.narc-activity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.narc-activity-row > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.narc-activity-row strong {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+.narc-activity-row span {
+  color: var(--n-muted);
+  font-size: 12px;
+}
+.narc-band {
+  flex: none;
+  border: 1px solid var(--n-line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--n-muted);
+  font-size: 11px;
+}
+.narc-band-high { border-color: #52745c; color: var(--n-good); }
+.narc-band-low { border-color: #7c4b45; color: var(--n-danger); }
+
+.narc-assessment-card h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+.narc-explain-row {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 14px;
+  padding: 9px 0;
+  border-top: 1px solid var(--n-line);
+}
+.narc-explain-row span {
+  color: var(--n-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .07em;
+}
+.narc-explain-row p {
+  margin: 0;
+  color: var(--n-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.narc-assessment-card .narc-action-buttons {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--n-line);
+}
+.narc-dashboard .narc-standing {
+  margin-top: 0;
+  padding-top: 14px;
+}
+.narc-dashboard .narc-system-update {
+  margin-top: 0;
+}
+.narc-dashboard .narc-log {
+  padding: 16px;
+}
+.narc-dashboard .narc-log-row {
+  display: block;
+  padding: 10px 0;
+}
+.narc-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.narc-log-meta time {
+  color: var(--n-muted);
+  font-size: 10px;
+}
+.narc-event-type {
+  border: 1px solid var(--n-line);
+  border-radius: 3px;
+  padding: 2px 5px;
+  color: var(--n-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.narc-log-row p {
+  margin: 0;
+  color: var(--n-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.optional-chat.is-waiting .chip.secondary {
+  opacity: .48;
+  cursor: wait;
+}
+.optional-chat .chip.secondary:disabled {
+  opacity: .48;
+  cursor: wait;
+}
+
+@media (max-width: 760px) {
+  .narc-tray-status {
+    min-width: 0;
+    padding-inline: 6px;
+  }
+  .narc-tray-status .full,
+  .narc-tray-meter { display: none; }
+  .narc-status-head,
+  .narc-activity-row { align-items: flex-start; }
+  .narc-explain-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

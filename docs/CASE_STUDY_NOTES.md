@@ -839,3 +839,117 @@ The same playtest also exposed several affordance/causality problems:
 - a Luis peer-report joke obscured the event it was supposed to communicate
 
 These findings reinforce a useful design rule for the portfolio case study: **satirical UI can still be funny, but state changes and causality have to be immediately legible.**
+
+
+## Final-polish design findings: make the machine's reasoning legible (2026-09-25)
+
+A later live playtest showed that NARC's mechanics were present, but the **NARC interface itself was still the weakest part of the experience**.
+
+The clearest symptom was the headline:
+
+> VISIBLE ACTIVITY INDEX 61
+
+Even with explanatory copy nearby, “61” did not tell the player:
+- whether the number was good or dangerous
+- what the scale was
+- how close they were to a consequential NARC action
+- what changed it
+- what they should do next
+
+### Product decision: separate danger from the proxy metric
+
+The new design makes **NARC intervention risk** the primary player-facing status:
+
+- NORMAL
+- WATCHING
+- AT RISK
+- CRITICAL
+
+A small persistent meter lives in the desktop chrome and can be clicked to open NARC.
+
+The existing Visible Activity Index remains, but as a secondary signal shown as:
+- X/100
+- Low / Normal / High visible activity
+- an explicit reminder that it measures observable workstation behavior, not work quality
+
+The danger meter is not a new morality/performance system. It is a derived UX layer over existing NARC state, designed to answer:
+
+> How worried should I be about NARC right now?
+
+### Product decision: evidence -> inference -> consequence -> action
+
+The NARC detail view was reorganized around four questions:
+
+1. **What NARC saw**
+2. **What NARC inferred**
+3. **What that changes**
+4. **What you can do**
+
+This is more than UI polish. It makes the core AI/product idea visible in the interaction: a real observed signal can still support a weak or incomplete inference.
+
+Generic “Add context” wording was removed in favor of concrete actions such as:
+- Explain the quiet file review
+- Explain that the fast work was rushed
+- Explain what the activity score missed
+- Explain why Focus Time spread
+
+This is a useful case-study example of **explainability as UX** rather than as a documentation paragraph.
+
+### Product decision: required interactions outrank optional banter
+
+Optional conversation starters were useful for character and discovery, but they competed visually with tutorial/progression actions.
+
+New hierarchy:
+- required/tutorial action present -> show required controls only
+- no required action -> show optional conversation prompts
+- coworker typing -> unused prompts stay visible but disabled, avoiding layout collapse
+
+This preserves the “real messaging app” feel while keeping progression legible.
+
+### Context-dependent humor
+
+A playtest caught Dana saying “Usually the raccoon is metaphorical” before the player had heard Marcus's raccoon story.
+
+The line now has a pre-story version and a post-story callback.
+
+General lesson:
+
+> authored humor should be state-aware enough to feel like a callback, not random generated dialogue.
+
+### Case-study themes strengthened by the current build
+
+**Ambiguous evidence, not cartoonishly bad AI.** Marcus really is late often. Luis really is away from his desk. Priya really is chatty. NARC often observes something true, then lacks the context required to judge what it means.
+
+**Player complicity.** The player can resist NARC, benefit from flattering interpretations, game the measurement, protect coworkers, stay neutral, or weaponize the system.
+
+**Progressive adaptation.** Focus Time works, spreads, then NARC changes how it interprets the same signal. User behavior changes the model environment; the system then changes user incentives again.
+
+**Human review is not automatically safe.** Human context can correct the machine, but humans can also be rushed, defer to NARC, or choose not to intervene.
+
+**Compression was a product decision.** The concept moved from a broader multi-day game into one deliberately dense workday because a portfolio reviewer needs to reach the insight quickly.
+
+**Humor is functional.** Workplace comedy makes proxy metrics, automated authority, anti-gaming systems, and employment consequences approachable enough to explore through play.
+
+## AI collaboration / attribution notes
+
+NARC is also a useful example of creative AI-assisted product work.
+
+Paige used AI tools to:
+- explore and pressure-test premise variants
+- translate abstract AI failure modes into playable mechanics
+- brainstorm branching consequences and satirical corporate language
+- inspect older code and recover the strongest mechanics after the one-day compression
+- turn live playtest reactions into scoped UX/system changes
+- accelerate implementation, QA, and documentation
+
+Paige retained product/editorial control:
+- chose the single-day portfolio scope
+- decided what mechanics to keep/cut
+- evaluated every playtest
+- set the humor/tone boundary
+- decided when AI ideas were understandable or too abstract
+- explicitly controlled branch/main promotion
+
+A useful public attribution line:
+
+> I used AI to explore the design space quickly, turn abstract AI failure modes into playable mechanics, test narrative and system variations, and recover the strongest ideas through repeated playtesting. I made the product decisions, chose what to keep or cut, and used AI as a fast creative collaborator rather than an autonomous game designer.

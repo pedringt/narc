@@ -111,11 +111,20 @@ Morning shortcuts can create afternoon rework.
 
 NARC should act like a system with opinions, not passive analytics.
 
+The player-facing hierarchy is:
+
+1. **NARC status** — NORMAL / WATCHING / AT RISK / CRITICAL
+2. **Visible Activity** — X/100 with Low / Normal / High meaning
+3. **Assessment detail** — What NARC saw -> what it inferred -> what that changes -> what the player can do
+4. **Recent events** — categorized timeline
+
+The NARC status meter is derived from existing game state and is not a second hidden performance/morality score. Its job is to answer one question quickly: **how close is NARC to taking consequential action against me?**
+
 Current beats:
 
 - baseline monitoring on login
 - first automated read after first real task
-- player can add context or leave the read standing
+- player can explain what NARC missed or leave/accept the read
 - midmorning pattern check
 - Focus Time exploit
 - NARC 2.0 adaptation
@@ -137,7 +146,7 @@ Later choices can depend on that standing.
 
 Example: a Trusted Operator can let Dana rely on NARC's summary for a faster check-in. This helps the player personally but can hide rushed or bad work.
 
-Do not add a second score bar.
+Do not turn the NARC status meter into an independent simulation. It is a derived clarity layer over existing standing, open reviews, activity, and NARC state.
 
 ### Counterplay
 
@@ -157,6 +166,13 @@ The joke should come from the system confidently treating its observable proxy a
 
 ## Messages rule
 
+Required progression beats take precedence over optional social chat.
+
+- tutorial/required action active -> show required controls only
+- no required action -> optional “Start a conversation” prompts may appear
+- coworker typing -> unused optional prompts remain visible but disabled until the reply arrives
+- callback jokes must only reference story information the player has already seen
+
 Almost every retained message must do at least one useful job:
 
 - teach a NARC rule
@@ -174,7 +190,14 @@ Do not add dialogue solely to make the desktop feel busy.
 
 ## Notifications rule
 
-Notifications should be recoverable.
+Notifications should be recoverable and causally legible.
+
+For meaningful NARC events, the player should be able to determine:
+- what changed
+- whether action is required
+- where to click for evidence/inference/consequence details
+
+Notifications are pointers; the NARC screen is the authoritative explanation surface.
 
 Toast:
 - source/sender
