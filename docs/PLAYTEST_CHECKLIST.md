@@ -1,185 +1,136 @@
-# NARC Live Playtest / Pre-Merge Checklist
+# NARC Single-Day Playtest Checklist
 
-> **ARCHIVED (2026-09-26).** This checklist is written for the original
-> one-week build (Luis/Marcus/Priya/Dana incidents, NARC 2.0 escalation,
-> "Replay this week", the long-deleted `prototype-v1` branch) — now archived
-> at `week.html`. It does not apply to the canonical single-workday build.
-> The current playtest checklist lives in issue **#70**'s own body; use that
-> instead. Kept below for historical/reference value only.
+**Canonical build:** `day.js` + `day-desktop-app.js`  
+**Current polish PR:** #101  
+**Target first-run runtime:** about 15 minutes
 
-**Purpose:** Manual QA checklist for the archived one-week build, prior to its `prototype-v1` -> `main` merges.
+This replaces the old week-oriented checklist for active validation. `week.html` is archive/reference only.
 
-This complements `node test.mjs`. The deterministic suite verifies state logic; this checklist verifies that the experience actually feels clear, funny, and intentional.
+## 1. Opening / tutorial
 
-## 1. Fresh start / orientation
+- [ ] People Ops email gives enough context to start.
+- [ ] Dana establishes who the player is, what Meridian is, and what NARC does.
+- [ ] Tutorial completes in about 1–2 minutes.
+- [ ] Opening an expected app by any path advances/reconciles the tutorial.
+- [ ] Old tutorial CTAs disappear if the player reaches the destination another way.
+- [ ] Only one required tutorial instruction is active at a time.
+- [ ] Optional “Start a conversation” prompts do not compete with required tutorial actions.
 
-- [ ] Page loads at Monday 09:02.
-- [ ] Email is the only initially exposed dock app.
-- [ ] People Operations NARC email is already selected/open.
-- [ ] Email spells out **NARC — Networked Assessment & Risk Coordination**.
-- [ ] Email clearly says workplace activity is monitored, without sounding like tutorial copy.
-- [ ] No consequential NARC case begins before orientation is complete.
-- [ ] Dana is clearly established as the player's manager.
-- [ ] Messages and Calendar appear only when introduced.
-- [ ] The first minute makes it obvious what to do without showing explicit "Step 1 / Step 2" instructions.
+## 2. Message UX
 
-## 2. Progressive disclosure
+- [ ] Selecting an optional prompt appends the player's message at the bottom.
+- [ ] Thread stays pinned to newest content after sending/replying.
+- [ ] Coworker shows a short “X is typing…” state.
+- [ ] Unused optional prompts remain visible but disabled while typing.
+- [ ] Controls do not collapse or jump while typing.
+- [ ] Once the reply arrives, unused prompts become active again.
+- [ ] Optional prompts are hidden while a required coworker/Dana request is waiting.
+- [ ] Dana's raccoon callback cannot appear before Marcus's raccoon story.
+- [ ] Recurring character patterns are obvious before their NARC cases:
+  - [ ] Marcus is repeatedly late/missing things.
+  - [ ] Luis is repeatedly away / in the bathroom.
+  - [ ] Priya is repeatedly chatty/collaborative.
 
-Verify each app appears only when relevant.
+## 3. NARC persistent status
 
-- [ ] Email starts visible.
-- [ ] Messages appears with Dana.
-- [ ] Calendar appears when Dana asks the player to check it.
-- [ ] NARC becomes clearly available with the first NARC case.
-- [ ] Files appears when evidence becomes relevant.
-- [ ] Utilities appears when a tool/workaround becomes relevant.
-- [ ] No newly revealed app feels like it appeared without context.
-- [ ] No needed action is hidden inside an app that has not been introduced.
+- [ ] Top-bar NARC status is visible throughout the workday.
+- [ ] Initial status reads as normal/safe, not mysterious danger.
+- [ ] Meter shifts toward warning/risk when NARC opens a meaningful review/assessment.
+- [ ] Review Open produces an intuitively more dangerous status.
+- [ ] Status changes do not imply actual work quality.
+- [ ] Clicking the top-bar NARC status opens NARC details.
 
-## 3. First NARC case: does the AI idea land?
+## 4. Visible Activity
 
-- [ ] The player can see the distinction between **workplace signals**, **NARC inference**, and **company action**.
-- [ ] "What NARC observed" contains only data NARC plausibly sees.
-- [ ] "What NARC inferred" includes a confidence value.
-- [ ] The human reality (printed contract / $40,000 discrepancy) is discoverable elsewhere.
-- [ ] At least two plausible responses/workarounds are discoverable without outside help.
-- [ ] Mouse-helper and Focus-time routes feel meaningfully different.
+- [ ] Never shown as a naked number like “61”.
+- [ ] Reads as `X/100`.
+- [ ] Includes Low / Normal / High label.
+- [ ] Range meaning is understandable:
+  - 0–49 low
+  - 50–74 normal
+  - 75–100 high
+- [ ] UI says it reflects observable activity, not quality/performance.
+- [ ] A player can explain why a high activity score can still accompany bad/rushed work.
 
-Question to answer after play:
-> Did this feel like an AI/algorithmic inference problem, or just generic monitoring software?
+## 5. NARC detail screen
 
-## 4. Luis
+For each meaningful NARC assessment, verify the screen clearly separates:
 
-- [ ] Luis's first message makes sense even if the player has not opened the NARC alert.
-- [ ] Dana gives both confirm and decline-to-confirm options.
-- [ ] The player's coworker replies sound like actual messages, not branch labels.
-- [ ] Mouse Activity Helper cannot be shared before it is acquired.
-- [ ] Support-output evidence is understandable as counter-evidence.
-- [ ] If NARC 2.0 catches fixed synthetic input, the cause is obvious.
-- [ ] If the player protects Luis another way, the later result is understandable.
+- [ ] **What NARC saw** — concrete observable signal.
+- [ ] **What NARC inferred** — the system's interpretation.
+- [ ] **What that changes** — standing/consequence.
+- [ ] **What you can do** — concrete player response.
 
-## 5. Marcus
+Also:
+- [ ] no generic “Add context” button without explaining the actual action
+- [ ] first low-activity assessment says “Explain the quiet file review” or equivalent
+- [ ] positive activity assessment makes the Trusted Operator bargain clear
+- [ ] midmorning assessment wording changes appropriately for the earlier signal
+- [ ] NARC 2.0 response says what happened to Focus Time and what responding means
+- [ ] categorized recent-event timeline is readable
+- [ ] newest event is easy to identify
+- [ ] the screen feels like a product the fictional company would actually use, not a debug log
 
-- [ ] Marcus's rapid-fire excuse chain is readable rather than overwhelming.
-- [ ] The player can help, expose, or stay out of it.
-- [ ] Dana's replies do not force the player to narc.
-- [ ] Calendar/transit/location evidence is discoverable.
-- [ ] If fabricated/late records are caught later, the reason is understandable.
-- [ ] If the ridiculous bird/goose story is true, NARC's historical weighting is legible.
+## 6. NARC notifications
 
-## 6. NARC 2.0 escalation
+- [ ] Notification states current NARC status.
+- [ ] Player can tell whether action may be required.
+- [ ] Notification points to NARC for full reasoning.
+- [ ] Notification remains recoverable in notification history.
+- [ ] Opening NARC makes the notification understandable in hindsight.
+- [ ] transient toast is never the only place required information exists.
 
-- [ ] Announcement gets its own readable beat.
-- [ ] New capabilities do not act before the announcement is opened.
-- [ ] Synthetic-activity detection feels like NARC adapting to prior gaming.
-- [ ] Behavioral forecast is noticeable.
-- [ ] Forecast reads as a prediction, not established truth.
-- [ ] Ambient workstyle/baseline nudge feels creepy/annoying rather than confusing.
-- [ ] Notification volume feels more intrusive than Monday/Tuesday without becoming unreadable.
+## 7. Pacing / density
 
-Question:
-> By this point, does NARC feel like it has moved from watching → inferring → adapting → predicting?
+- [ ] Around 10:15 there are multiple things worth checking/doing.
+- [ ] Coworker activity is discoverable through unread state.
+- [ ] “Work until…” does not appear while meaningful unread activity is waiting.
+- [ ] Quiet-time prompt is not the default rhythm of the game.
+- [ ] No long dead-air stretch.
+- [ ] No stretch is so overloaded that causal relationships are impossible to follow.
+- [ ] Most beats teach, force a tradeoff, create consequence, reveal character, enable counterplay, or pay off earlier action.
 
-## 7. Priya
+## 8. Core social choices
 
-- [ ] Priya's opening message sounds natural.
-- [ ] Culture Champion email already exists before the incident.
-- [ ] Player can discover the exemption without being handed a puzzle answer.
-- [ ] If player suggests posting less, NARC first rewards the lower communication load.
-- [ ] The later Collaboration collapse clearly follows from that earlier change.
-- [ ] If Priya is terminated, it is obvious that she followed one NARC metric and was punished by another.
-- [ ] This reads as a feedback-loop/conflicting-objectives problem, not random punishment.
+For Priya, Luis, and Marcus:
+- [ ] player can protect/help
+- [ ] player can decline/stay out when appropriate
+- [ ] player can report/weaponize NARC
+- [ ] Culture Champion exemption can materially change a consequence
+- [ ] later outcome reflects the earlier player choice
 
-## 8. Dana / player agency
+## 9. Adaptive-system arc
 
-For every direct Dana question:
+- [ ] Focus Time initially works.
+- [ ] coworkers adopt it.
+- [ ] NARC 2.0 update clearly connects spread -> adaptation.
+- [ ] Focus Time becomes less useful rather than simply disappearing.
+- [ ] `keepalive.pkg` arrives after the adaptation.
+- [ ] player understands that keepalive creates visible signals rather than better work.
+- [ ] ending can call out NARC counting synthetic input.
 
-- [ ] There is no moment where the only reply is "report them."
-- [ ] Protect/help, expose/report, and neutral/decline options exist when the scenario supports them.
-- [ ] Replies sound conversational.
-- [ ] Multiple unanswered Dana questions do not stack into a quest log.
-- [ ] Dana sounds like a manager, not a tutorial system.
+## 10. Ending
 
-## 9. Notifications and pacing
+- [ ] coworker outcomes match actual state.
+- [ ] Trusted Operator / Review Open state is reflected.
+- [ ] major earlier choices have recognizable payoff.
+- [ ] if NARC rated bad work highly, the contradiction is visible.
+- [ ] ending offers replay.
+- [ ] replay resets game/tutorial/chat/notification state.
 
-- [ ] Important NARC notifications persist until opened/closed.
-- [ ] Closing a toast never resolves the underlying incident.
-- [ ] Max visible toast stack remains manageable.
-- [ ] Player never loses an option because they spent time reading/exploring.
-- [ ] No unrelated events land too quickly to understand.
-- [ ] The player can always tell whether NARC actually needs something from them.
-- [ ] "Needs attention" / team alert / history distinctions are obvious.
+## 11. Portfolio comprehension test
 
-## 10. Endings
+Without explaining the thesis, ask:
 
-Test at least these outcome shapes:
+- [ ] What does NARC actually measure?
+- [ ] What is it assuming from those signals?
+- [ ] What did the NARC status meter mean?
+- [ ] Did you intentionally game it?
+- [ ] Why did Marcus/Luis/Priya get flagged?
+- [ ] Did you ever benefit from a misleading NARC interpretation?
+- [ ] Did you change strategy during the run?
+- [ ] What happened when people discovered the Focus Time workaround?
+- [ ] What did the game make you think about AI/automated management?
+- [ ] How long did the run take?
 
-- [ ] Everyone survives.
-- [ ] Luis is fired.
-- [ ] Marcus is fired.
-- [ ] Priya is fired.
-- [ ] Multiple coworkers are fired.
-- [ ] Player is under review.
-- [ ] Player is terminated.
-- [ ] Player is terminated while all three coworkers remain employed.
-- [ ] Someone is absurdly rewarded for gaming a metric.
-
-For each:
-- [ ] The player can connect the ending to earlier choices.
-- [ ] No ending feels like an arbitrary hidden morality score.
-- [ ] Employment statuses shown in recap match what happened in the week.
-
-## 11. Replay
-
-- [ ] Ending button says **Replay this week**.
-- [ ] Replay returns to Monday 09:02.
-- [ ] Welcome email is open again.
-- [ ] Progressive disclosure resets.
-- [ ] Prior unread state, alerts, flags, helper state, threads, and outcomes are gone.
-- [ ] It feels like replaying the scenario, not entering a mysterious literal Week 2.
-
-## 12. Portfolio test
-
-Ask a first-time player, without explaining the design:
-
-- [ ] What did you think NARC was measuring?
-- [ ] What did you think it was *assuming*?
-- [ ] Did you intentionally game it? How?
-- [ ] Did anything surprise you?
-- [ ] Did you understand why someone was fired/rewarded?
-- [ ] Did the game teach you anything about AI/algorithmic systems without feeling educational?
-- [ ] Did you want to replay?
-- [ ] How long did your run take?
-
-### Pacing benchmark (issue #13)
-
-The question to track above all others:
-
-- [ ] **From the moment a problem appears, how many seconds until you can do something interesting that visibly changes what NARC believes?** Aim for ~10 s or less most of the time. (The engine now points at each incident's main move by +8 s; the tests assert a pointer within 10 s and the first prompted choice within 20 s.)
-- [ ] Choosing to do nothing still produces a clear belief/action update, not just a notice.
-- [ ] The case reads in about five seconds: what NARC thinks, why, what happens because of it.
-- [ ] The Employee 4417 prediction before the report lands as a turn, and its cost (frozen index / Predictive Integrity Review) is noticed.
-
-### Success target
-
-A first-time player should:
-- understand the premise in roughly the first minute
-- discover at least two satisfying "I can game this" moments unaided
-- notice at least one AI-style inference/confidence mismatch
-- see one consequence from an earlier choice
-- reach a complete ending in under ~15 minutes
-- not need the creator to explain what to click next
-
-## 13. Case-study evidence to capture
-
-During the next public/live playtest, record:
-- run time
-- hesitation points
-- screenshots of orientation, first NARC inference, NARC 2.0 forecast, Priya conflict, and ending
-- exact places where the player asks "what do I do?"
-- any line that sounds written/unnatural
-- any route the player expected but could not take
-- whether they choose to replay without prompting
-
-Add meaningful findings to:
-- `docs/CASE_STUDY_NOTES.md`
+Record findings in issue #70 and `docs/CASE_STUDY_NOTES.md`.
