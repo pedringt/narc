@@ -27,3 +27,13 @@ assert.match(app, /chatOptions\(state, id\)/, 'idle message threads should offer
 assert.match(app, /priyaCase/, 'coworker consequence choices should be wired into Messages');
 assert.match(app, /narc-action-buttons/, 'NARC response buttons should be laid out in a dedicated action row');
 assert.match(app, /workUntilUses/, 'repetitive floating work-until prompts should be limited');
+
+assert.match(app, /tutorialVisited/, 'tutorial progress should reconcile against apps actually visited');
+assert.match(app, /while \(!ui\.tutorialDone\)/, 'tutorial should retire already-completed steps instead of leaving stale CTAs');
+assert.match(app, /sendChat\(who, topic\)/, 'optional conversations should use paced chat delivery');
+assert.match(app, /is typing/, 'message threads should show a typing indicator');
+assert.match(app, /scrollThreadToBottom/, 'sending or opening a conversation should keep the latest messages in view');
+assert.match(app, /pendingReplies/, 'chat replies should not appear immediately');
+assert.match(app, /Accept NARC's positive activity assessment/, 'Trusted Operator choice should explain that the assessment is positive');
+assert.match(app, /positive adoption signal/, 'NARC should explain why accepting the assessment can improve standing');
+assert.match(app, /ui\.notifications\.some\(\(n\) => !n\.read\)/, 'quiet-time fast-forward should not cover unread activity');
