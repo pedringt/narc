@@ -20,3 +20,10 @@ assert.match(app, /NARC SYSTEM UPDATE · 2\.0/, 'Focus Time adaptation should be
 assert.match(app, /narc-checkpoint-facts/, '11:20 assessment should show concrete evidence');
 
 console.log('desktop integration checks passed');
+
+assert.match(app, /Culture Champion nominations/, 'culture nomination email should exist in the one-day build');
+assert.match(app, /NARC 2\.0: new capabilities/, 'NARC 2.0 rollout email should be restored');
+assert.match(app, /chatOptions\(state, id\)/, 'idle message threads should offer optional conversations');
+assert.match(app, /priyaCase/, 'coworker consequence choices should be wired into Messages');
+assert.match(app, /narc-action-buttons/, 'NARC response buttons should be laid out in a dedicated action row');
+assert.match(app, /workUntilUses/, 'repetitive floating work-until prompts should be limited');

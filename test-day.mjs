@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { newGame, act, ending, START, END, nextEvent } from './day.js';
+import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.js';
 
 // -------------------------------------------------------- time is spent
 {
@@ -325,3 +325,58 @@ import { newGame, act, ending, START, END, nextEvent } from './day.js';
 }
 
 console.log('day.js tests passed');
+
+
+// -------------------------------------- busy-day social layer is restored
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: (11 * 60 + 35) - s.t });
+  assert.equal(s.flags.cultureEmailAvailable, true, 'Culture Champion nomination email becomes available during the busy day');
+  s = act(s, { do: 'nominate', who: 'priya' });
+  assert.equal(s.people.priya.champion, true, 'the player can nominate a coworker for the monitoring exemption');
+
+  s = act(s, { do: 'idle', minutes: (12 * 60 + 40) - s.t });
+  assert.equal(s.requests.priyaCase.status, 'open', 'Priya gets a consequential NARC case');
+  s = act(s, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  assert.equal(s.people.priya.status, 'protected', 'Culture Champion routes the harmful automatic action away from termination');
+
+  let sabotage = newGame();
+  sabotage = act(sabotage, { do: 'idle', minutes: (12 * 60 + 40) - sabotage.t });
+  sabotage = act(sabotage, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  assert.equal(sabotage.people.priya.status, 'fired', 'the player can weaponize NARC against a coworker');
+  assert.equal(sabotage.flags.coworkerReports, 1);
+}
+
+// ------------------------------------------ coworker cases can be helped too
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: (14 * 60 + 5) - s.t });
+  assert.equal(s.requests.luisCase.status, 'open');
+  s = act(s, { do: 'respond', id: 'luisCase', choice: 'context' });
+  assert.equal(s.people.luis.status, 'employed');
+
+  s = act(s, { do: 'idle', minutes: (15 * 60 + 20) - s.t });
+  assert.equal(s.requests.marcusCase.status, 'open');
+  s = act(s, { do: 'respond', id: 'marcusCase', choice: 'evidence' });
+  assert.equal(s.people.marcus.status, 'employed');
+  assert.ok(ending(s).lines.some((line) => /Coworker outcomes/.test(line)), 'ending names what happened to coworkers');
+}
+
+// ------------------------------------ optional chats make quiet threads useful
+{
+  let s = newGame();
+  assert.ok(chatOptions(s, 'luis').length > 0, 'Luis has optional conversation starters');
+  const topic = chatOptions(s, 'luis')[0][0];
+  s = act(s, { do: 'chat', who: 'luis', topic });
+  assert.equal(s.chats[topic], true);
+  assert.ok(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'me'), 'player chat is represented in the thread');
+  assert.ok(s.log.some((e) => e.kind === 'message' && e.who === 'luis' && e.from === 'them'), 'coworker replies to optional chat');
+}
+
+// -------------------------------------- NARC 2.0 keeps its explanatory email
+{
+  let s = act(newGame(), { do: 'focus' });
+  s = act(s, { do: 'idle', minutes: 270 });
+  assert.equal(s.narc.adaptation, true);
+  assert.equal(s.flags.narc2EmailAvailable, true, 'NARC 2.0 rollout email is available when Focus Time weighting changes');
+}

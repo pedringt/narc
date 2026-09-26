@@ -11,14 +11,15 @@
   border-top: 1px solid var(--app-line);
 }
 .loop-task:first-of-type { border-top: 0; }
-.loop-task > div { min-width: 220px; flex: 1 1 auto; }
+.loop-task > div:first-child { min-width: 0; flex: 1 1 auto; }
 .loop-task .loop-link { width: auto; flex: none; align-self: flex-start; white-space: nowrap; }
 .loop-task-actions {
   display: flex;
-  flex: none;
+  flex: 0 0 auto;
+  min-width: 0;
   align-items: flex-start;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 .loop-task-actions .loop-link {
@@ -175,7 +176,17 @@
 }
 .narc-checkpoint-facts span { color: var(--n-muted); }
 .narc-checkpoint-facts b { color: var(--n-text); text-align: right; }
-.narc-action .btn { margin: 10px 8px 0 0; }
+.narc-action-title {
+  display: block;
+  margin-bottom: 8px;
+}
+.narc-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.narc-action-buttons .btn { margin: 0; }
 .narc-log-row {
   display: grid;
   grid-template-columns: 88px 1fr;
@@ -395,4 +406,38 @@
 }
 .deadline-event {
   border-left-color: #b07b2f;
+}
+
+
+.optional-chat {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--app-line);
+}
+.optional-chat .compose-state { margin-bottom: 6px; }
+.chip.secondary { background: #f7f6f2; }
+
+.mail-form,
+.mail-form-result {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  background: var(--app-panel);
+}
+.mail-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.mail-form b { flex-basis: 100%; }
+.mail-form .btn { margin: 0; }
+
+@media (max-width: 760px) {
+  .loop-task-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 }
