@@ -9,7 +9,7 @@ assert.match(app, /setMobileDetail\('files', true\)/, 'file selection should ope
 assert.match(app, /markNotificationsRead\('messages', id\)/, 'reading a thread should reconcile notification unread state');
 assert.match(app, /const ids = \['vendor', 'client', 'project'\]/, 'Marcus project file should remain visible after completion');
 assert.match(app, /Measures what NARC can observe, not the quality or value of your work\./, 'NARC should explain the Visible Activity Index');
-assert.match(app, /Add context to NARC's assessment/, 'midmorning checkpoint should be framed as an assessment response');
+assert.match(app, /Explain the quiet work NARC missed/, 'midmorning checkpoint should describe the concrete player action');
 assert.match(app, /state\.flags\.loggedOffEarly/, 'end screen should distinguish early logoff');
 assert.match(app, /The Loop is our employee home base/, 'Dana should explain what The Loop is during onboarding');
 assert.doesNotMatch(app, /completeTutorialTarget[\s\S]*?ui\.tutorialUnread = false;[\s\S]*?if \(step\.final\)/, 'advancing tutorial targets must not mark Dana read');
@@ -40,4 +40,18 @@ assert.match(app, /ui\.notifications\.some\(\(n\) => !n\.read\)/, 'quiet-time fa
 
 assert.match(app, /unreadMessages/, 'ambient coworker messages should contribute to the Messages badge');
 assert.match(app, /n\.thread === id/, 'each coworker row should surface unread ambient messages');
-assert.match(app, /ui\.typingThreads\[id\] \? \[\] : chatOptions/, 'do not allow stacked canned replies while a coworker is typing');
+assert.match(app, /optional-chat\$\{typing \? ' is-waiting' : ''\}/, 'conversation starters should remain visible while a coworker is typing');
+assert.match(app, /disabled: ''/, 'remaining conversation starters should be disabled while a coworker is typing');
+
+assert.match(app, /function narcRisk\(/, 'NARC should expose a derived intervention-risk state');
+assert.match(app, /NARC status/, 'persistent UI should name the NARC status directly');
+assert.match(app, /Visible activity: \$\{state\.index\}\/100/, 'Visible Activity should include a denominator and plain-English band');
+assert.match(app, /WHAT NARC SAW/, 'NARC details should separate observed evidence');
+assert.match(app, /WHAT NARC INFERRED/, 'NARC details should separate inference from evidence');
+assert.match(app, /WHAT THAT CHANGES/, 'NARC details should state the consequence');
+assert.match(app, /WHAT YOU CAN DO/, 'NARC details should give a concrete next action');
+assert.match(app, /Start a conversation/, 'optional social prompts remain available when no required interaction is active');
+assert.match(app, /hasRequiredAction/, 'optional social prompts should be hidden while a required/tutorial action is active');
+assert.match(app, /Explain that the fast work was rushed/, 'NARC response labels should describe the actual action rather than generic context');
+assert.match(app, /Explain why Focus Time spread/, 'NARC 2.0 response should use concrete language');
+assert.match(app, /RECENT NARC EVENTS/, 'NARC history should be presented as a categorized event timeline');
