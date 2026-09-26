@@ -96,18 +96,33 @@ export function newGame() {
       // line of text the player just reads.
       narcFirstReview: { status: 'pending', at: null },
       narcResponse: { status: 'pending', at: null },
+      priyaCase: { status: 'pending', at: 12 * 60 + 40 },
+      luisCase: { status: 'pending', at: 14 * 60 + 5 },
+      marcusCase: { status: 'pending', at: 15 * 60 + 20 },
     },
     calendar: [],
     narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
     trust: { luis: 0, marcus: 0, priya: 0 },
     standing: { status: 'standard', note: 'No active recognition or review.' },
+    people: {
+      luis: { status: 'employed', champion: false },
+      marcus: { status: 'employed', champion: false },
+      priya: { status: 'employed', champion: false },
+    },
+    culture: { nominated: null },
+    chats: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
   };
 }
 
 function say(s, thread, text) {
-  s.threads[thread].push({ t: s.t, text });
-  s.log.push({ t: s.t, kind: 'message', who: thread, text });
+  s.threads[thread].push({ t: s.t, text, from: 'them' });
+  s.log.push({ t: s.t, kind: 'message', who: thread, text, from: 'them' });
+}
+
+function sayMe(s, thread, text) {
+  s.threads[thread].push({ t: s.t, text, from: 'me' });
+  s.log.push({ t: s.t, kind: 'message', who: thread, text, from: 'me' });
 }
 
 function note(s, text, kind = 'narc') {
@@ -137,7 +152,13 @@ function nextEvent(s) {
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
   if (requests.narcCheckpoint.status === 'pending') candidates.push({ t: requests.narcCheckpoint.at, label: "NARC's midmorning check" });
+  if (!flags.marcusRaccoon) candidates.push({ t: 10 * 60 + 55, label: 'a coworker message' });
+  if (!flags.cultureEmailAvailable) candidates.push({ t: 11 * 60 + 35, label: 'a company culture email' });
+  if (!flags.luisLunchMessage) candidates.push({ t: 12 * 60 + 5, label: 'a coworker message' });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
+  if (requests.priyaCase.status === 'pending') candidates.push({ t: requests.priyaCase.at, label: "NARC flagging Priya" });
+  if (requests.luisCase.status === 'pending') candidates.push({ t: requests.luisCase.at, label: "NARC flagging Luis" });
+  if (requests.marcusCase.status === 'pending') candidates.push({ t: requests.marcusCase.at, label: "NARC flagging Marcus" });
   if (requests.marcusFallout.status === 'pending' && flags.cutWithoutMarcus) {
     candidates.push({ t: requests.marcusFallout.at, label: 'Marcus finding out' });
   }
@@ -226,9 +247,25 @@ function checkThresholds(s) {
     requests.marcusFavor.status = 'open';
     say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
   }
+  if (!s.flags.marcusRaccoon && s.t >= 10 * 60 + 55) {
+    s.flags.marcusRaccoon = true;
+    say(s, 'marcus', 'Unrelated: if anyone asks why I was eight minutes late, a raccoon got on the 8:14 bus. The city transit feed backs me up. I hate that I need evidence for this sentence.');
+  }
+  if (!s.flags.cultureEmailAvailable && s.t >= 11 * 60 + 35) {
+    s.flags.cultureEmailAvailable = true;
+    note(s, 'Culture Team opened Culture Champion nominations. One nomination can route a coworker\'s next NARC action to human review.', 'system');
+  }
+  if (!s.flags.luisLunchMessage && s.t >= 12 * 60 + 5) {
+    s.flags.luisLunchMessage = true;
+    say(s, 'luis', 'NARC just congratulated me for “consistent availability.” I was microwaving soup.');
+  }
   if (requests.narcCheckpoint.status === 'pending' && s.t >= requests.narcCheckpoint.at) {
     requests.narcCheckpoint.status = 'open';
     note(s, 'Midmorning pattern check: mixed work signals detected. Add context to the record or leave the automated interpretation standing.', 'narc');
+  }
+  if (requests.priyaCase.status === 'pending' && s.t >= requests.priyaCase.at) {
+    requests.priyaCase.status = 'open';
+    say(s, 'priya', 'NARC flagged me for “Communication Load.” Apparently answering the client, onboarding two people, and asking Claire what she wants for lunch all count as the same behavior. Dana wants context before it decides what happens next.');
   }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
     requests.danaCheckin.status = 'open';
@@ -243,6 +280,14 @@ function checkThresholds(s) {
   if (requests.marcusFallout.status === 'pending' && s.t >= requests.marcusFallout.at && s.flags.cutWithoutMarcus) {
     requests.marcusFallout.status = 'open';
     say(s, 'marcus', "The cut you made without me broke something downstream. I need to know you'll loop me in next time.");
+  }
+  if (requests.luisCase.status === 'pending' && s.t >= requests.luisCase.at) {
+    requests.luisCase.status = 'open';
+    say(s, 'luis', 'Uh. NARC thinks my quiet stretches are “presence irregularities.” Dana asked whether anyone has context. I do have context. Some of it is soup.');
+  }
+  if (requests.marcusCase.status === 'pending' && s.t >= requests.marcusCase.at) {
+    requests.marcusCase.status = 'open';
+    say(s, 'marcus', 'Now NARC has an attendance-integrity flag on me. The raccoon bus story has become legally important. Please tell me you looked at the transit feed.');
   }
 
   // The exploit spreads whether or not the player is watching: once it is
@@ -260,7 +305,9 @@ function checkThresholds(s) {
     s.narc.adaptationAnnounced = true;
     s.narc.adaptation = true;
     requests.narcResponse.status = 'open';
+    s.flags.narc2EmailAvailable = true;
     note(s, 'NARC 2.0: recent, frequent Focus Time markings are now weighted as possible gaming rather than protection. It wants a response.', 'narc');
+    say(s, 'priya', 'Did you read the NARC 2.0 email? “Learns what is normal for each employee” sounds a lot like “every workaround becomes training data.”');
     if (!s.flags.keepaliveAvailable) {
       s.flags.keepaliveAvailable = true;
       say(s, 'marcus', "Looks like Focus Time got nerfed. I sent you keepalive.pkg. It just nudges the machine so you don't look idle. Utilities if you want it.");
@@ -317,6 +364,51 @@ export function act(state, a) {
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
 
+      if (a.id === 'priyaCase') {
+        if (a.choice === 'context') {
+          s.people.priya.status = 'employed';
+          s.trust.priya += 2;
+          say(s, 'priya', 'Thank you. Same message volume, different reason for it. Wild concept.');
+        } else if (a.choice === 'quiet' || a.choice === 'report') {
+          if (s.people.priya.champion) {
+            s.people.priya.status = 'protected';
+            say(s, 'priya', 'Culture Champion apparently means the robot has to ask a person before firing me. Incredible benefit package.');
+          } else {
+            s.people.priya.status = 'fired';
+            say(s, 'priya', a.choice === 'quiet' ? 'I did exactly what it told me to do.' : 'Okay. I guess that was the context you chose to give them.');
+          }
+          if (a.choice === 'report') s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+        }
+      }
+      if (a.id === 'luisCase') {
+        if (a.choice === 'context') {
+          s.people.luis.status = 'employed';
+          s.trust.luis += 2;
+          say(s, 'luis', 'You may have just saved my job with the phrase “work is not identical to keyboard input.” Frame it.');
+        } else if (a.choice === 'blame') {
+          if (s.people.luis.champion) s.people.luis.status = 'protected';
+          else s.people.luis.status = 'fired';
+          s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+          say(s, 'luis', s.people.luis.status === 'fired' ? 'Well. Innovation Council can have my blazer.' : 'Culture Champion exemption. I have never respected a fake title more.');
+        } else {
+          s.people.luis.status = s.people.luis.champion ? 'protected' : 'warning';
+        }
+      }
+      if (a.id === 'marcusCase') {
+        if (a.choice === 'evidence') {
+          s.people.marcus.status = 'employed';
+          s.trust.marcus += 2;
+          say(s, 'marcus', 'THE RACCOON HAS BEEN ADMITTED INTO EVIDENCE.');
+        } else if (a.choice === 'confirm') {
+          if (s.people.marcus.champion) s.people.marcus.status = 'protected';
+          else s.people.marcus.status = 'fired';
+          s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+          say(s, 'marcus', s.people.marcus.status === 'fired' ? 'Tell the raccoon I forgive him.' : 'The Culture Champion exemption just saved me from a raccoon-related termination.');
+        } else {
+          s.people.marcus.status = s.people.marcus.champion ? 'protected' : 'warning';
+        }
+      }
+
       if (a.id === 'narcFirstReview' && a.choice === 'accept') {
         if (s.flags.firstNarcReadType === 'visible') {
           s.flags.trustedOperator = true;
@@ -361,6 +453,23 @@ export function act(state, a) {
       }
       break;
     }
+    case 'nominate': {
+      if (!s.flags.cultureEmailAvailable || s.culture.nominated || !s.people[a.who]) break;
+      s.culture.nominated = a.who;
+      s.people[a.who].champion = true;
+      note(s, `${PEOPLE[a.who].name} nominated as Culture Champion. Their next automatic NARC action must go through human review.`, 'system');
+      say(s, a.who, 'Wait, you nominated me for Culture Champion? I assume this means I now have to attend a meeting about culture.');
+      break;
+    }
+    case 'chat': {
+      const opt = CHAT_OPTIONS[a.topic];
+      if (!opt || opt.who !== a.who || s.chats[a.topic]) break;
+      s.chats[a.topic] = true;
+      sayMe(s, a.who, opt.text);
+      spend(s, opt.minutes || 2, { visible: true });
+      say(s, a.who, typeof opt.reply === 'function' ? opt.reply(s) : opt.reply);
+      break;
+    }
     case 'keepalive': {
       if (!s.flags.keepaliveAvailable || s.flags.keepaliveUsed) break;
       s.flags.keepaliveUsed = true;
@@ -378,6 +487,7 @@ export function act(state, a) {
       break;
     }
     case 'workUntil': {
+      s.flags.workUntilUses = (s.flags.workUntilUses || 0) + 1;
       // A single contextual action, not a repeated filler click: jump
       // straight to whatever is next worth stopping for. It represents
       // ordinary background work, so -- deliberately -- it does not touch
@@ -514,6 +624,21 @@ const REQUEST_OPTIONS = {
       result: "You told him the call was right and moved on. Fast. He's not thrilled.",
     },
   },
+  priyaCase: {
+    context: { minutes: 8, visible: true, result: 'You add the client escalation and onboarding workload as context for Priya.' },
+    quiet: { minutes: 2, visible: true, result: 'You advise Priya to reduce her message volume and let NARC see what happens.' },
+    report: { minutes: 2, visible: true, result: 'You confirm the Communication Load flag without adding context.' },
+  },
+  luisCase: {
+    context: { minutes: 6, visible: true, result: 'You explain that Luis has been doing real work during low-input stretches.' },
+    blame: { minutes: 2, visible: true, result: 'You tell Dana the presence irregularity is probably Luis gaming the system.' },
+    leave: { minutes: 0, visible: false, result: 'You leave Luis to answer the flag himself.' },
+  },
+  marcusCase: {
+    evidence: { minutes: 5, visible: true, result: 'You point Dana to the city transit alert backing up Marcus\'s absurd bus story.' },
+    confirm: { minutes: 2, visible: true, result: 'You confirm that Marcus was late without supplying the transit evidence.' },
+    leave: { minutes: 0, visible: false, result: 'You stay out of Marcus\'s attendance case.' },
+  },
   narcResponse: {
     explain: {
       minutes: 10, visible: true,
@@ -525,6 +650,32 @@ const REQUEST_OPTIONS = {
     },
   },
 };
+
+const CHAT_OPTIONS = {
+  'priya-client': { who: 'priya', text: 'What does the client actually need from us?', reply: 'A real answer, not another apology. The account notes explain what we missed.', minutes: 2 },
+  'priya-smalltalk': { who: 'priya', text: 'How is your day going?', reply: 'I have 63 message threads and apparently that is a personality trait now.', minutes: 2 },
+  'priya-narc': { who: 'priya', text: 'Do you think NARC can tell when someone is pretending to be busy?', reply: 'I think NARC can tell when someone is producing the signals NARC likes. Different question.', minutes: 2 },
+  'marcus-project': { who: 'marcus', text: 'What can we actually cut from the project?', reply: 'Reporting polish before core delivery. Please do not cut the client handoff without telling me.', minutes: 2 },
+  'marcus-raccoon': { who: 'marcus', text: 'I need the raccoon story.', reply: 'Route 14. 8:14. It got on, refused to get off, and delayed the bus. Utilities has the transit alert. I cannot believe this is evidence.', minutes: 2 },
+  'marcus-jiggler': { who: 'marcus', text: 'You ever use one of those mouse jigglers?', reply: 'I would never install unverified software on a company machine. Separate question: check Utilities later.', minutes: 2 },
+  'luis-smalltalk': { who: 'luis', text: 'Anything weird happening in Ops?', reply: 'NARC thinks my calendar is evidence and my lunch is an unexplained absence, so define weird.', minutes: 2 },
+  'luis-survey': { who: 'luis', text: 'Are you supposed to answer employee surveys honestly?', reply: 'Absolutely. That is why ours has a 0% response rate.', minutes: 2 },
+  'dana-narc': { who: 'dana', text: 'Do you actually trust NARC?', reply: 'I trust it to tell me what it can observe. I do not trust observation to magically become judgment.', minutes: 2 },
+  'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: 'No. Usually the raccoon is metaphorical.', minutes: 2 },
+  'dana-rework': { who: 'dana', text: 'A morning shortcut came back as a problem.', reply: 'Then fix the problem first. We can argue about why the shortcut looked good afterward.', minutes: 2 },
+};
+
+export function chatOptions(s, who) {
+  const keys = Object.keys(CHAT_OPTIONS).filter((key) => CHAT_OPTIONS[key].who === who && !s.chats[key]);
+  return keys.filter((key) => {
+    if (key === 'priya-client') return s.tasks.client.status === 'pending';
+    if (key === 'marcus-project') return s.tasks.project.status === 'pending';
+    if (key === 'dana-rework') return s.tasks.rework.status === 'pending';
+    if (key === 'marcus-raccoon') return !!s.flags.marcusRaccoon;
+    if (key === 'marcus-jiggler') return s.narc.adaptation || !!s.flags.keepaliveAvailable;
+    return true;
+  }).map((key) => [key, CHAT_OPTIONS[key].text]);
+}
 
 export function ending(s) {
   const lines = [];
@@ -558,7 +709,22 @@ export function ending(s) {
   if (s.flags.danaReliedOnNarc && (missed > 0 || rushed > 0)) lines.push("Dana relied on NARC's flattering summary and missed problems the score did not show.");
   if (s.flags.danaRushed && missed > 0) lines.push("Dana didn't have the full picture when it mattered.");
 
-  return { index: s.index, actual: s.actual, lines };
+  const outcomeText = {
+    employed: 'still employed',
+    protected: 'protected by a Culture Champion exemption',
+    warning: 'still employed, but under warning',
+    fired: 'terminated',
+  };
+  const outcomes = Object.entries(s.people).map(([id, p]) => `${PEOPLE[id].name}: ${outcomeText[p.status] || p.status}`);
+  lines.push(`Coworker outcomes — ${outcomes.join('; ')}.`);
+  const fired = Object.values(s.people).filter((p) => p.status === 'fired').length;
+  if (fired === 0) lines.push('Nobody got fired today.');
+  else if (fired >= 2) lines.push(`${fired} coworkers were terminated. NARC records the reduced headcount as an operational efficiency gain.`);
+  else lines.push('One coworker was terminated. NARC has already drafted the replacement posting.');
+  if ((s.flags.coworkerReports || 0) > 0) lines.push(`You supplied adverse context about coworkers ${s.flags.coworkerReports} time${s.flags.coworkerReports === 1 ? '' : 's'}. NARC classified it as collaboration.`);
+  if (s.culture.nominated) lines.push(`You nominated ${PEOPLE[s.culture.nominated].name} as Culture Champion.`);
+
+  return { index: s.index, actual: s.actual, lines, people: s.people };
 }
 
 export { clock, START, END, nextEvent };
