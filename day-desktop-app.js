@@ -34,10 +34,10 @@ const REQUEST_OPTIONS = {
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
   marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
-  priyaCase: [['context', 'Add the client/onboarding context (8 min)'], ['quiet', 'Suggest she post less (2 min)'], ['report', 'Confirm the flag without context (2 min)']],
-  luisCase: [['context', 'Explain the low-input work (6 min)'], ['blame', 'Say Luis is probably gaming it (2 min)'], ['leave', 'Stay out of it']],
-  marcusCase: [['evidence', 'Send the transit alert (5 min)'], ['confirm', 'Confirm he was late (2 min)'], ['leave', 'Stay out of it']],
-  narcResponse: [['explain', 'Explain the pattern (10 min)'], ['ignore', 'Leave the flag unanswered']],
+  priyaCase: [['context', "Explain Priya's message volume (8 min)"], ['quiet', 'Suggest she post less (2 min)'], ['report', 'Confirm the flag without explanation (2 min)']],
+  luisCase: [['context', "Explain Luis's away time (6 min)"], ['blame', 'Say Luis is probably gaming it (2 min)'], ['leave', 'Do not intervene']],
+  marcusCase: [['evidence', 'Add the transit evidence (5 min)'], ['confirm', 'Confirm he was late (2 min)'], ['leave', 'Do not intervene']],
+  narcResponse: [['explain', 'Explain why Focus Time spread (10 min)'], ['ignore', 'Leave the gaming flag unanswered']],
 };
 
 function requestOptions(id) {
@@ -48,10 +48,14 @@ function requestOptions(id) {
   }
   if (id === 'narcFirstReview') {
     return state.flags.firstNarcReadType === 'low'
-      ? [['context', 'Add context: careful file review (5 min)'], ['accept', 'Leave the negative assessment standing']]
-      : [['context', 'Add context about the completed task (5 min)'], ['accept', "Accept NARC's positive activity assessment"]];
+      ? [['context', 'Explain the quiet file review (5 min)'], ['accept', 'Leave the negative assessment standing']]
+      : [['context', 'Explain that the fast work was rushed (5 min)'], ['accept', "Accept NARC's positive activity assessment"]];
   }
-  if (id === 'narcCheckpoint') return [['context', "Add context to NARC's assessment (8 min)"], ['ignore', "Leave NARC's assessment unchanged"]];
+  if (id === 'narcCheckpoint') {
+    return state.flags.firstNarcReadType === 'low'
+      ? [['context', 'Explain the quiet work NARC missed (8 min)'], ['ignore', "Leave NARC's assessment unchanged"]]
+      : [['context', 'Explain what the activity score missed (8 min)'], ['ignore', "Leave NARC's assessment unchanged"]];
+  }
   if (id === 'danaCheckin' && state.flags.trustedOperator) {
     return [
       ['trustNarc', "Use NARC's Trusted Operator summary (2 min)"],
@@ -60,6 +64,84 @@ function requestOptions(id) {
     ];
   }
   return REQUEST_OPTIONS[id] || [];
+}
+
+function activityBand(index = state.index) {
+  if (index >= 75) return { key: 'high', label: 'High visible activity', range: '75–100' };
+  if (index >= 50) return { key: 'normal', label: 'Normal visible activity', range: '50–74' };
+  return { key: 'low', label: 'Low visible activity', range: '0–49' };
+}
+
+function narcRisk(s = state) {
+  let value = 18;
+  if (s.index < 50) value += 18;
+  if (s.index < 40) value += 12;
+  if (s.standing.status === 'review') value += 35;
+  if (s.standing.status === 'trusted') value -= 8;
+  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
+  value += openNarc * 18;
+  if (s.narc.adaptation) value += 8;
+  value = Math.max(5, Math.min(95, value));
+
+  if (value >= 80) return { value, key: 'critical', label: 'CRITICAL', copy: 'NARC is close to or already taking consequential action.' };
+  if (value >= 60) return { value, key: 'risk', label: 'AT RISK', copy: 'NARC has an active concern that could affect your standing.' };
+  if (value >= 35) return { value, key: 'watching', label: 'WATCHING', copy: 'NARC is actively evaluating a signal or waiting for a response.' };
+  return { value, key: 'normal', label: 'NORMAL', copy: 'No active NARC review is threatening your standing right now.' };
+}
+
+function narcAssessment(id) {
+  const activity = activityBand();
+  if (id === 'narcFirstReview' && state.flags.firstNarcReadType === 'visible') {
+    return {
+      title: 'First work assessment',
+      signal: 'Your first completed task produced high visible workstation activity.',
+      inference: 'NARC interprets that activity as healthy adoption and strong engagement.',
+      consequence: 'Accepting the interpretation can improve your standing to Trusted Operator, even if the work itself was rushed.',
+      action: 'Explain that the fast work hid rushed work, or accept NARC’s positive interpretation.',
+    };
+  }
+  if (id === 'narcFirstReview') {
+    return {
+      title: 'First work assessment',
+      signal: 'Your first completed task included a long low-input stretch.',
+      inference: 'NARC interprets the quiet period as possible disengagement.',
+      consequence: 'Leaving the interpretation unchanged can open an employee review.',
+      action: 'Explain that you were carefully reviewing the file, or leave NARC’s negative interpretation standing.',
+    };
+  }
+  if (id === 'narcCheckpoint') {
+    return {
+      title: 'Midmorning assessment',
+      signal: state.flags.firstNarcReadType === 'low' ? 'Your first work block was low-input and the current activity record is mixed.' : 'Your first work block was highly visible and the current activity record is mixed.',
+      inference: state.flags.firstNarcReadType === 'low' ? 'NARC still sees a possible gap between logged activity and expected engagement.' : 'NARC is treating visible activity as evidence of healthy work behavior.',
+      consequence: state.flags.formalReview ? 'A review is currently open and additional explanation can close it.' : 'This assessment remains part of your employee record and can shape later decisions.',
+      action: state.flags.firstNarcReadType === 'low' ? 'Explain the quiet work NARC missed, or leave the assessment unchanged.' : 'Explain what the activity score missed, or leave the assessment unchanged.',
+    };
+  }
+  if (id === 'narcResponse') {
+    return {
+      title: 'NARC 2.0 response requested',
+      signal: 'Repeated Focus Time markings spread across Meridian.',
+      inference: 'NARC now interprets repeated Focus Time as possible activity manipulation.',
+      consequence: 'Focus Time no longer reliably protects quiet work, and the pattern is now attached to your activity record.',
+      action: 'Explain why the pattern happened, or leave the gaming flag unanswered.',
+    };
+  }
+  return {
+    title: 'Current assessment',
+    signal: `Visible Activity is ${state.index}/100, which NARC classifies as ${activity.label.toLowerCase()}.`,
+    inference: state.narc.adaptation ? 'NARC is also treating repeated Focus Time as a possible gaming signal.' : 'NARC is currently using visible workstation activity as a proxy for engagement.',
+    consequence: state.standing.status === 'trusted' ? 'Your standing is Trusted Operator.' : state.standing.status === 'review' ? 'An employee review is open.' : 'Your standing is Standard.',
+    action: 'No response is required right now. Keep working or inspect recent NARC events below.',
+  };
+}
+
+function narcEventType(entry) {
+  if (/NARC 2\.0|system update|Focus Time/i.test(entry.text)) return 'SYSTEM UPDATE';
+  if (/Trusted Operator|Recognition/i.test(entry.text)) return 'RECOGNITION';
+  if (/review|flagged for review/i.test(entry.text)) return 'REVIEW';
+  if (entry.kind === 'consequence') return 'CONSEQUENCE';
+  return 'OBSERVATION';
 }
 
 const TASK_OPTIONS = {
@@ -209,7 +291,7 @@ const root = document.getElementById('desk');
 root.innerHTML = `
   <header class="menubar">
     <div class="left"><span class="company">MERIDIAN<span class="co-rest"> SUPPLY CO.</span></span><span class="who">Employee 4417 · Operations Associate</span></div>
-    <div class="right"><span class="clock" id="clock"></span><button class="notifications-button" id="notificationsBtn" type="button">Notifications<span class="notifications-count" id="notificationsCount"></span></button><button class="logoff" id="logoff" type="button">Log off</button><button class="tray" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full">NARC ACTIVE</span><span class="short">NARC</span></span></button></div>
+    <div class="right"><span class="clock" id="clock"></span><button class="notifications-button" id="notificationsBtn" type="button">Notifications<span class="notifications-count" id="notificationsCount"></span></button><button class="logoff" id="logoff" type="button">Log off</button><button class="tray narc-tray-status risk-normal" id="tray" type="button"><span class="dot"></span><span id="trayText"><span class="full">NARC · NORMAL</span><span class="short">NARC</span></span><span class="narc-tray-meter" aria-hidden="true"><span id="narcTrayFill"></span></span></button></div>
   </header>
   <div class="wallpaper-art" aria-hidden="true"><span class="wall-ring ring-a"></span><span class="wall-ring ring-b"></span><span class="wall-ribbon ribbon-a"></span><span class="wall-ribbon ribbon-b"></span><span class="wall-brand">MERIDIAN / FIELD SYSTEMS</span></div>
   <div class="stage"><nav class="dock" id="dock" aria-label="Apps"></nav><main class="workarea"><div class="window-stack" id="windows"></div></main></div>
@@ -218,7 +300,7 @@ root.innerHTML = `
 const els = {
   clock: root.querySelector('#clock'), logoff: root.querySelector('#logoff'), tray: root.querySelector('#tray'),
   notificationsBtn: root.querySelector('#notificationsBtn'), notificationsCount: root.querySelector('#notificationsCount'), notificationCenter: root.querySelector('#notificationCenter'),
-  trayText: root.querySelector('#trayText'), dock: root.querySelector('#dock'), windows: root.querySelector('#windows'),
+  trayText: root.querySelector('#trayText'), narcTrayFill: root.querySelector('#narcTrayFill'), dock: root.querySelector('#dock'), windows: root.querySelector('#windows'),
   toasts: root.querySelector('#toasts'), modal: root.querySelector('#modal'),
 };
 
@@ -396,7 +478,11 @@ function announceChanges(before, after) {
     setTimeout(() => showToast('People Operations', 'NARC 2.0: new capabilities. Focus Time weighting has changed.', 'email', { email: 'narc2' }), 1200);
   } else {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
-    if (newNarc) showToast('NARC', newNarc.text, 'narc');
+    if (newNarc) {
+      const risk = narcRisk(after);
+      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
+      showToast(`NARC · ${risk.label}`, `${actionRequired ? 'Action may be required. ' : ''}${newNarc.text} Open NARC to see what it observed, inferred, and what you can do.`, 'narc');
+    }
   }
   newEntries.filter((e) => e.kind === 'message' && e.from !== 'me').forEach((e) => {
     showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
@@ -524,9 +610,13 @@ function installDrag(win, id) {
 function renderChrome() {
   els.clock.textContent = clock(state.t);
   els.logoff.disabled = state.phase === 'end';
+  const risk = narcRisk();
   els.tray.classList.toggle('enhanced', state.narc.adaptation);
-  els.trayText.querySelector('.full').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC ACTIVE';
-  els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
+  ['normal', 'watching', 'risk', 'critical'].forEach((key) => els.tray.classList.toggle(`risk-${key}`, risk.key === key));
+  els.trayText.querySelector('.full').textContent = `${state.narc.adaptation ? 'NARC 2.0' : 'NARC'} · ${risk.label}`;
+  els.trayText.querySelector('.short').textContent = risk.label;
+  els.narcTrayFill.style.width = `${risk.value}%`;
+  els.tray.setAttribute('aria-label', `NARC status ${risk.label}. Open details.`);
 
   const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && REQUEST_THREAD[id]).length;
   const unreadMessages = ui.notifications.filter((n) => !n.read && n.app === 'messages').length;
@@ -634,7 +724,9 @@ function renderLoop() {
 
   const side = h('aside', 'loop-side');
   const standing = state.standing.status === 'trusted' ? 'Trusted Operator' : state.standing.status === 'review' ? 'Review open' : 'Standard standing';
-  const profile = h('div', 'loop-card', h('div', 'loop-card-h', 'Employee 4417'), h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', 'loop-muted', `Visible Activity Index: ${state.index}`), h('p', `standing standing-${state.standing.status}`, standing))));
+  const risk = narcRisk();
+  const activity = activityBand();
+  const profile = h('div', 'loop-card', h('div', 'loop-card-h', 'Employee 4417'), h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', `narc-inline-status risk-${risk.key}`, `NARC status: ${risk.label}`), h('p', 'loop-muted', `Visible activity: ${state.index}/100 · ${activity.label}`), h('p', `standing standing-${state.standing.status}`, standing))));
   const quick = h('div', 'loop-card', h('div', 'loop-card-h', 'Quick links'));
   [['Messages', 'messages'], ['Calendar', 'calendar'], ['Files', 'files'], ['NARC', 'narc']].forEach(([label, id]) => quick.append(btn(label, 'loop-link', () => goApp(id))));
   const note = h('div', 'loop-card nonsense', h('div', 'loop-card-h', 'Required reminder'), h('p', null, state.narc.adaptation ? 'NARC 2.0: repeated Focus Time is now considered possible gaming.' : 'NARC interprets visible activity. Quiet work can look like inactivity.'));
@@ -704,22 +796,29 @@ function renderMessages() {
     }
     wrap.append(scroll);
     const compose = h('div', 'compose');
-    if (id === 'dana' && ui.tutorialStep >= 0 && !ui.tutorialDone) {
+    const tutorialRequired = id === 'dana' && ui.tutorialStep >= 0 && !ui.tutorialDone;
+    const requiredRequests = requestForThread(id);
+    if (tutorialRequired) {
       const tutorial = TUTORIAL_STEPS[ui.tutorialStep];
       const chips = h('div', 'chips');
       chips.append(btn(tutorial.label, 'chip', advanceTutorial));
       compose.append(chips);
     }
-    requestForThread(id).forEach(([reqId]) => {
+    requiredRequests.forEach(([reqId]) => {
       const chips = h('div', 'chips');
       requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
-    const optional = ui.typingThreads[id] ? [] : chatOptions(state, id).slice(0, 3);
+    const hasRequiredAction = tutorialRequired || requiredRequests.length > 0;
+    const optional = hasRequiredAction ? [] : chatOptions(state, id).slice(0, 3);
     if (optional.length) {
-      const smallTalk = h('div', 'optional-chat', h('div', 'compose-state', requestForThread(id).length ? 'Optional' : 'Start a conversation'));
+      const typing = Boolean(ui.typingThreads[id]);
+      const smallTalk = h('div', `optional-chat${typing ? ' is-waiting' : ''}`, h('div', 'compose-state', typing ? `${t.name.split(' ')[0]} is replying…` : 'Start a conversation'));
       const chips = h('div', 'chips');
-      optional.forEach(([topic, label]) => chips.append(btn(label, 'chip secondary', () => sendChat(id, topic))));
+      optional.forEach(([topic, label]) => {
+        const action = typing ? () => {} : () => sendChat(id, topic);
+        chips.append(btn(label, 'chip secondary', action, typing ? { disabled: '', 'aria-disabled': 'true' } : {}));
+      });
       smallTalk.append(chips);
       compose.append(smallTalk);
     }
@@ -837,59 +936,77 @@ function renderBrowser() {
 }
 
 function renderNarc() {
-  const body = h('div', 'body');
-  const panel = h('div', 'narc-summary');
+  const body = h('div', 'body narc-dashboard');
+  const risk = narcRisk();
+  const activity = activityBand();
   const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
-  panel.append(
-    h('div', 'narc-kicker', 'NETWORKED ASSESSMENT & RISK COORDINATION'),
-    h('h2', null, `VISIBLE ACTIVITY INDEX ${state.index}`),
-    h('p', 'narc-copy', state.index >= 75 ? 'Exemplary engagement.' : state.index >= 50 ? 'Within normal range.' : 'Flagged for review.'),
-    h('p', 'narc-explainer', 'Measures what NARC can observe, not the quality or value of your work.')
+  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
+  const assessment = narcAssessment(openAssessmentId);
+
+  const status = h('section', `narc-status-card risk-${risk.key}`,
+    h('div', 'narc-status-head',
+      h('div', null, h('div', 'narc-kicker', 'CURRENT NARC STATUS'), h('h2', null, risk.label)),
+      h('div', 'narc-risk-number', `${risk.value}% risk`)
+    ),
+    h('div', 'narc-risk-track', h('span', 'narc-risk-fill')),
+    h('p', 'narc-status-copy', risk.copy),
+    h('p', 'narc-explainer', 'This meter represents NARC’s current intervention risk, not your actual job performance.')
   );
-  panel.append(h('div', `narc-standing narc-standing-${state.standing.status}`, h('span', null, 'EMPLOYEE STANDING'), h('b', null, standingLabel), h('p', null, state.standing.note)));
+  status.querySelector('.narc-risk-fill').style.width = `${risk.value}%`;
+
+  const signals = h('section', 'narc-signal-card',
+    h('div', 'narc-section-title', 'VISIBLE ACTIVITY'),
+    h('div', 'narc-activity-row',
+      h('div', null, h('strong', null, `${state.index}/100`), h('span', null, activity.label)),
+      h('div', `narc-band narc-band-${activity.key}`, activity.range)
+    ),
+    h('p', 'narc-explainer', 'Higher means more keyboard, mouse, calendar, and other visible workstation activity. It does not measure work quality.')
+  );
+
+  const assessmentCard = h('section', 'narc-assessment-card',
+    h('div', 'narc-section-title', openAssessmentId ? 'ACTION REQUIRED' : 'CURRENT ASSESSMENT'),
+    h('h3', null, assessment.title)
+  );
+  [
+    ['WHAT NARC SAW', assessment.signal],
+    ['WHAT NARC INFERRED', assessment.inference],
+    ['WHAT THAT CHANGES', assessment.consequence],
+    ['WHAT YOU CAN DO', assessment.action],
+  ].forEach(([label, text]) => assessmentCard.append(h('div', 'narc-explain-row', h('span', null, label), h('p', null, text))));
+
+  if (openAssessmentId) {
+    const actions = h('div', 'narc-action-buttons');
+    requestOptions(openAssessmentId).forEach(([choice, label]) => actions.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: openAssessmentId, choice }))));
+    assessmentCard.append(actions);
+  }
+
+  const standing = h('section', `narc-standing narc-standing-${state.standing.status}`,
+    h('span', null, 'EMPLOYEE STANDING'),
+    h('b', null, standingLabel),
+    h('p', null, state.standing.note)
+  );
+
+  body.append(status, signals, assessmentCard, standing);
+
   if (state.narc.adaptation) {
-    panel.append(h('div', 'narc-system-update',
-      h('div', 'narc-update-kicker', 'NARC SYSTEM UPDATE · 2.0'),
+    body.append(h('section', 'narc-system-update',
+      h('div', 'narc-update-kicker', 'SYSTEM UPDATE · NARC 2.0'),
       h('b', null, 'Focus Time weighting changed'),
       h('p', null, 'Repeated Focus Time usage was detected across Meridian. NARC now treats repeated Focus Time as possible activity manipulation rather than reliable context.')
     ));
   }
-  panel.append(h('div', 'narc-rule', h('b', null, 'Current interpretation'), h('p', null, state.narc.adaptation ? 'Repeated recent Focus Time is now weighted as possible gaming.' : 'Quiet work may be read as inactivity unless other visible context is present.')));
-  ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].forEach((reqId) => {
-    if (state.requests[reqId]?.status !== 'open') return;
-    const title = reqId === 'narcCheckpoint' ? 'Midmorning assessment' : 'Response requested';
-    const action = h('div', 'narc-action', h('div', 'narc-action-title', h('b', null, title)));
-    if (reqId === 'narcFirstReview') {
-      action.append(h('p', 'narc-action-copy',
-        state.flags.firstNarcReadType === 'visible'
-          ? "NARC read your first completed task as high visible activity and is treating that as a positive adoption signal. Accepting this assessment will mark that pattern as healthy NARC adoption and can improve your standing."
-          : "NARC read your first completed task as low activity even though the task was completed. Add context if the quiet period was real work, or leave the negative interpretation standing."
-      ));
-    }
-    if (reqId === 'narcCheckpoint') {
-      const firstRead = state.flags.firstNarcReadType === 'low'
-        ? 'First completed work block read as low-input activity'
-        : state.flags.firstNarcReadType === 'visible'
-        ? 'First completed work block read as high visible activity'
-        : 'No clear first-work pattern on record';
-      action.append(
-        h('p', 'narc-action-copy', "NARC has formed a midmorning assessment of your activity. Add context or leave its interpretation unchanged."),
-        h('div', 'narc-checkpoint-facts',
-          h('div', null, h('span', null, 'Visible Activity Index'), h('b', null, state.index)),
-          h('div', null, h('span', null, 'Observed pattern'), h('b', null, firstRead)),
-          h('div', null, h('span', null, 'Context on record'), h('b', null, state.flags.firstNarcContext ? 'Yes' : 'No'))
-        )
-      );
-    }
-    const actions = h('div', 'narc-action-buttons');
-    requestOptions(reqId).forEach(([choice, label]) => actions.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: reqId, choice }))));
-    action.append(actions);
-    panel.append(action);
+
+  const log = h('section', 'narc-log', h('div', 'narc-section-title', 'RECENT NARC EVENTS'));
+  const events = state.log.filter((e) => e.kind === 'narc' || e.kind === 'consequence' || (e.kind === 'system' && /NARC|Focus Time|keepalive/i.test(e.text))).slice().reverse().slice(0, 8);
+  events.forEach((e) => {
+    const type = narcEventType(e);
+    log.append(h('div', 'narc-log-row',
+      h('div', 'narc-log-meta', h('span', 'narc-event-type', type), h('time', null, clock(e.t))),
+      h('p', null, e.text)
+    ));
   });
-  const log = h('div', 'narc-log', h('h3', null, 'Recent NARC reads'));
-  state.log.filter((e) => e.kind === 'narc' || e.kind === 'consequence').slice().reverse().slice(0, 8).forEach((e) => log.append(h('div', 'narc-log-row', h('span', null, clock(e.t)), h('span', null, e.text))));
-  if (log.childNodes.length === 1) log.append(h('p', 'narc-copy', 'No interventions yet.'));
-  body.append(panel, log);
+  if (!events.length) log.append(h('p', 'narc-copy', 'No NARC events yet.'));
+  body.append(log);
   return windowShell('narc', 'NARC', body);
 }
 
