@@ -529,6 +529,7 @@ function renderChrome() {
   els.trayText.querySelector('.short').textContent = state.narc.adaptation ? 'NARC · 2.0' : 'NARC';
 
   const openReq = Object.entries(state.requests).filter(([id, r]) => r.status === 'open' && REQUEST_THREAD[id]).length;
+  const unreadMessages = ui.notifications.filter((n) => !n.read && n.app === 'messages').length;
   const pendingTasks = Object.values(state.tasks).filter((t) => t.status === 'pending').length;
   const visibleApps = ui.oriented ? APPS : APPS.filter(([id]) => id === 'email' || id === 'intranet');
   els.dock.replaceChildren(...visibleApps.map(([id, label]) => {
@@ -538,7 +539,7 @@ function renderChrome() {
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
     const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
-    const count = id === 'messages' ? openReq + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
+    const count = id === 'messages' ? Math.max(openReq, unreadMessages) + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
     return b;
@@ -660,7 +661,8 @@ function latestThreadPreview(thread) {
 function renderMessages() {
   const list = h('div', 'list');
   Object.entries(THREADS).forEach(([id, t]) => {
-    const active = requestForThread(id).length + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
+    const unread = ui.notifications.filter((n) => !n.read && n.app === 'messages' && n.thread === id).length;
+    const active = Math.max(requestForThread(id).length, unread) + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
     const preview = latestThreadPreview(id);
     const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', preview)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
@@ -713,7 +715,7 @@ function renderMessages() {
       requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
       compose.append(chips);
     });
-    const optional = chatOptions(state, id).slice(0, 3);
+    const optional = ui.typingThreads[id] ? [] : chatOptions(state, id).slice(0, 3);
     if (optional.length) {
       const smallTalk = h('div', 'optional-chat', h('div', 'compose-state', requestForThread(id).length ? 'Optional' : 'Start a conversation'));
       const chips = h('div', 'chips');
