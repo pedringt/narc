@@ -101,25 +101,36 @@ Research notes live in `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`.
 
 ## Current development
 
-The active polish branch is:
+`main` includes PR **#101**, which completed the latest NARC-status and interaction-hierarchy polish.
 
-`narc-polish-status-redesign-sept25`
+Current handoff/copy branch:
 
-Draft PR: **#101 — Redesign NARC status and clarify interaction hierarchy**
+`game-copy-export-sept26`
 
-This pass makes NARC's system state easier to understand:
-- persistent NARC intervention-risk status
-- Visible Activity shown as X/100 with Low / Normal / High meaning
-- evidence -> inference -> consequence -> action detail flow
-- concrete response labels instead of generic “Add context”
-- clearer event history / notifications
-- required message actions take priority over optional conversation
-- optional conversation prompts remain visible but disabled while a reply is being typed
-- callback dialogue only appears after the relevant story beat
+That branch contains:
+- the latest `docs/HANDOFF.md`
+- the editable master copy inventory at `docs/GAME_COPY_EDITABLE.md`
+- the current Claude continuation prompt in `docs/AGENT_PROMPT.md`
 
-Do not merge to `main` or deploy production without Paige explicitly naming that destination.
+Current expansion issues should be worked in this order:
 
-Human/browser validation is still required. See:
+1. **#105** NARC tool comprehension
+2. **#103 + #102** NARC overhead + in-game urgency/time pressure
+3. **#104** coworker consequences / moral compromise
+4. **#106** end-of-day dashboard
+5. **#70** full ~15-minute playtest
+6. **#88** analytics only after #70 stabilizes
+
+Important constraints:
+- keep the first run around 15 minutes
+- use in-game time, never real-time punishment while reading
+- keep NARC's interface clear even when its language is bureaucratic
+- do not turn coworker choices into explicit good/bad morality buttons
+- do not force a universal “you cannot win” ending
+- teach AI/product ideas through system behavior and consequences, not lectures
+- do not merge to `main` or deploy production without Paige explicitly naming that destination
+
+Human/browser validation remains required. See:
 - `docs/HANDOFF.md`
 - `docs/PLAYTEST_CHECKLIST.md`
 - GitHub issue #70
