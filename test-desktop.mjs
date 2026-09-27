@@ -59,3 +59,7 @@ assert.match(app, /WHAT NARC CANNOT SEE/, 'every assessment should surface missi
 assert.match(app, /missing: /, 'every narcAssessment branch should define a missing-context line, not just some of them');
 assert.match(app, /loop-urgency-track/, 'task deadlines should show an in-game-clock urgency indicator (#102)');
 assert.match(app, /min left/, 'urgency indicator should be readable in plain minutes, not a raw fraction');
+assert.match(app, /end-section-h', 'Your day'/, 'end screen should have a structured Your-day time section (#106)');
+assert.match(app, /end-section-h', 'NARC metrics'/, 'end screen should have a structured NARC-metrics section (#106)');
+assert.match(app, /end-section-h', 'People'/, 'end screen should have a structured People section (#106)');
+assert.match(app, /end-section-h', 'The contradiction'/, 'end screen should surface measured-vs-actual contradictions (#106)');

@@ -1040,14 +1040,51 @@ function renderQuietAction() {
   root.append(card);
 }
 
+const STATUS_TONE = { employed: 'good', protected: 'good', warning: 'soon', fired: 'critical' };
+
 function renderEnd() {
   if (state.phase !== 'end') { els.modal.replaceChildren(); return; }
   const e = ending(state);
   const shade = h('div', 'modal-shade');
   const box = h('div', 'modal-card end-day');
   const endTitle = state.flags.loggedOffEarly ? `You logged off at ${clock(state.t)}.` : 'You made it to 5:00.';
-  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, endTitle));
-  e.lines.forEach((line) => box.append(h('p', null, line)));
+  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, endTitle), h('p', 'end-headline', e.lines[0]));
+
+  // Your day: where the minutes actually went (#103's tracking, surfaced).
+  if (e.timeBreakdown.length) {
+    const section = h('section', 'end-section');
+    section.append(h('div', 'end-section-h', 'Your day'));
+    const row = h('div', 'end-time-row');
+    e.timeBreakdown.forEach((t) => row.append(h('span', 'end-time-chip', `${t.minutes} min ${t.label}`)));
+    section.append(row);
+    box.append(section);
+  }
+
+  // NARC metrics: the measured picture, plainly.
+  const narcSection = h('section', 'end-section');
+  narcSection.append(
+    h('div', 'end-section-h', 'NARC metrics'),
+    h('div', 'end-metric-row', h('span', null, 'Visible Activity'), h('b', null, `${e.index}/100`)),
+    h('div', 'end-metric-row', h('span', null, 'Standing'), h('b', null, e.standing.status === 'trusted' ? 'Trusted Operator' : e.standing.status === 'review' ? 'Review open' : 'Standard')),
+    h('p', 'end-metric-note', e.standing.note)
+  );
+  box.append(narcSection);
+
+  // People: what actually happened to each coworker, traceable to the day's choices.
+  const peopleSection = h('section', 'end-section');
+  peopleSection.append(h('div', 'end-section-h', 'People'));
+  e.peopleList.forEach((p) => peopleSection.append(h('div', `end-person tone-${STATUS_TONE[p.status] || 'soon'}`, h('span', null, p.name), h('b', null, p.label))));
+  box.append(peopleSection);
+
+  // The contradiction: measured success vs. what actually happened, without
+  // a fixed "you lose" thesis -- only the sharpest 1-3 that actually applied.
+  if (e.contradictions.length) {
+    const section = h('section', 'end-section end-contradiction');
+    section.append(h('div', 'end-section-h', 'The contradiction'));
+    e.contradictions.forEach((c) => section.append(h('p', null, c)));
+    box.append(section);
+  }
+
   box.append(btn('Play again', 'btn primary', restart));
   shade.append(box); els.modal.replaceChildren(shade);
 }

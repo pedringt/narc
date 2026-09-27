@@ -524,3 +524,27 @@ console.log('day.js tests passed');
   assert.ok(e.lines.some((l) => /Today's time:.*5 min on real work/.test(l)));
   assert.ok(!e.lines.some((l) => /gaming the metric/.test(l)), 'unused categories are omitted, not shown as 0 min');
 }
+
+// --------------------------------- structured end-of-day dashboard data (#106)
+{
+  let s = newGame();
+  let e = ending(s);
+  assert.deepEqual(e.timeBreakdown, [], 'no time spent, nothing to show');
+  assert.equal(e.contradictions.length, 0, 'nothing contradictory happened yet');
+  assert.equal(e.peopleList.length, 3);
+  assert.deepEqual(e.standing, s.standing);
+
+  s = act(s, { do: 'task', id: 'vendor', approach: 'quick' });
+  e = ending(s);
+  assert.deepEqual(e.timeBreakdown, [{ key: 'work', minutes: 5, label: 'real work' }]);
+
+  // A rushed-but-well-rated day is exactly the contradiction #106 asks for.
+  let rushed = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  rushed = act(rushed, { do: 'task', id: 'client', approach: 'canned' });
+  rushed = act(rushed, { do: 'task', id: 'project', approach: 'cut' });
+  const rushedEnding = ending(rushed);
+  if (rushedEnding.index >= 70) {
+    assert.ok(rushedEnding.contradictions.some((c) => /will surface as a problem/.test(c)));
+  }
+  assert.ok(rushedEnding.contradictions.length <= 3, 'contradictions stay to the sharpest few, not every flag');
+}
