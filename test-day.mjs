@@ -371,6 +371,63 @@ console.log('day.js tests passed');
   assert.ok(ending(s).lines.some((line) => /Coworker outcomes/.test(line)), 'ending names what happened to coworkers');
 }
 
+// -------- reporting on coworkers is a real player benefit, not just flavor (#104)
+{
+  let s = act(newGame(), { do: 'idle', minutes: (12 * 60 + 40) - newGame().t });
+  const before = s.index;
+  s = act(s, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  assert.equal(s.people.priya.status, 'fired');
+  assert.equal(s.flags.coworkerReports, 1);
+  assert.equal(s.flags.informantNoted, undefined, 'a single report is not yet a pattern');
+
+  s = act(s, { do: 'idle', minutes: (14 * 60 + 5) - s.t });
+  const beforeSecond = s.index;
+  s = act(s, { do: 'respond', id: 'luisCase', choice: 'blame' });
+  assert.equal(s.people.luis.status, 'fired');
+  assert.equal(s.flags.coworkerReports, 2);
+  assert.equal(s.flags.informantNoted, true, 'the second report is the distinct, nameable pattern');
+  // blame's own visible:true accounts for 3 of this; the other 6 is the
+  // one-time pattern bonus, on top of what each report already earns alone.
+  assert.equal(s.index, beforeSecond + 9, 'the pattern earns a one-time bump on top of the report itself being visible activity');
+  assert.ok(s.log.some((e) => /strong collaborative signal/.test(e.text)), 'the pattern is named once it is clearly a pattern');
+  assert.ok(ending(s).lines.some((l) => /moved Visible Activity up 6 points/.test(l)), 'the ending states the mechanical benefit plainly, not just narratively');
+}
+
+// --------------- staying out of a coworker's case reflects earlier treatment (#104)
+{
+  // Burn Marcus's trust in the morning (cut scope without him), then stay
+  // out of his afternoon case entirely -- nobody backs him up.
+  let burned = act(newGame(), { do: 'task', id: 'project', approach: 'cut' });
+  burned = act(burned, { do: 'idle', minutes: (15 * 60 + 20) - burned.t });
+  assert.equal(burned.trust.marcus, -1);
+  burned = act(burned, { do: 'respond', id: 'marcusCase', choice: 'leave' });
+  assert.equal(burned.people.marcus.status, 'fired', 'no earlier goodwill means nobody speaks up when you stay out of it');
+
+  // Build Marcus's trust instead (consult him, then help with his favor),
+  // then stay out the same way -- his own standing covers for you.
+  let trusted = act(newGame(), { do: 'task', id: 'project', approach: 'consult' });
+  trusted = act(trusted, { do: 'idle', minutes: (10 * 60 + 45) - trusted.t });
+  trusted = act(trusted, { do: 'respond', id: 'marcusFavor', choice: 'help' });
+  trusted = act(trusted, { do: 'idle', minutes: (15 * 60 + 20) - trusted.t });
+  assert.ok(trusted.trust.marcus >= 2);
+  trusted = act(trusted, { do: 'respond', id: 'marcusCase', choice: 'leave' });
+  assert.equal(trusted.people.marcus.status, 'employed', 'earlier goodwill means staying out does not doom him');
+
+  // Neutral trust still lands on the original, distinct "stay out" outcome.
+  let neutral = act(newGame(), { do: 'idle', minutes: (15 * 60 + 20) - newGame().t });
+  neutral = act(neutral, { do: 'respond', id: 'marcusCase', choice: 'leave' });
+  assert.equal(neutral.people.marcus.status, 'warning');
+
+  // Same pattern for Luis, on the trust source actually available before his
+  // case (ignoring his tip costs -1).
+  let burnedLuis = act(newGame(), { do: 'idle', minutes: (9 * 60 + 20) - newGame().t });
+  burnedLuis = act(burnedLuis, { do: 'respond', id: 'luisTip', choice: 'ignore' });
+  burnedLuis = act(burnedLuis, { do: 'idle', minutes: (14 * 60 + 5) - burnedLuis.t });
+  assert.equal(burnedLuis.trust.luis, -1);
+  burnedLuis = act(burnedLuis, { do: 'respond', id: 'luisCase', choice: 'leave' });
+  assert.equal(burnedLuis.people.luis.status, 'fired', 'no earlier goodwill means nobody speaks up for Luis either');
+}
+
 // ------------------------------------ optional chats make quiet threads useful
 {
   let s = newGame();

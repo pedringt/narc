@@ -135,6 +135,22 @@ function note(s, text, kind = 'narc') {
   s.log.push({ t: s.t, kind, text });
 }
 
+// A choice that benefits the player at a coworker's expense (#104): supplying
+// adverse context isn't just flavor -- NARC reads it as collaboration and
+// nudges Visible Activity up. The second time it happens, that becomes
+// concrete enough to name.
+function markCoworkerReport(s) {
+  s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+  // A one-time reward for a *pattern*, not a per-instance bump -- each report
+  // already reads as visible activity on its own (spend's visible:true).
+  // This is the distinct, nameable payoff for doing it twice.
+  if (s.flags.coworkerReports === 2 && !s.flags.informantNoted) {
+    s.flags.informantNoted = true;
+    s.index = Math.min(100, s.index + 6);
+    note(s, 'Pattern noted: adverse context supplied about two coworkers today. NARC logs this as strong collaborative signal. Visible Activity Index adjusted upward.', 'narc');
+  }
+}
+
 // What's next worth stopping for, given the current state -- so the player
 // can say "work until something needs attention" instead of clicking through
 // empty half-hours one at a time. Only clock thresholds that could actually
@@ -416,7 +432,7 @@ export function act(state, a) {
             s.people.priya.status = 'fired';
             say(s, 'priya', a.choice === 'quiet' ? 'I did exactly what it told me to do.' : 'Okay. I guess that was the context you chose to give them.');
           }
-          if (a.choice === 'report') s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+          if (a.choice === 'report') markCoworkerReport(s);
         }
       }
       if (a.id === 'luisCase') {
@@ -427,10 +443,20 @@ export function act(state, a) {
         } else if (a.choice === 'blame') {
           if (s.people.luis.champion) s.people.luis.status = 'protected';
           else s.people.luis.status = 'fired';
-          s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+          markCoworkerReport(s);
           say(s, 'luis', s.people.luis.status === 'fired' ? 'Well. Innovation Council can have my blazer.' : 'Culture Champion exemption. I have never respected a fake title more.');
+        } else if (s.people.luis.champion) {
+          s.people.luis.status = 'protected';
+        } else if (s.trust.luis >= 2) {
+          // Earlier goodwill reflected here (#104): staying out doesn't mean
+          // nobody speaks up. Someone he trusts already does.
+          s.people.luis.status = 'employed';
+          say(s, 'luis', 'Someone else vouched for me this time. You get to stay uninvolved. I noticed, though.');
+        } else if (s.trust.luis <= -1) {
+          s.people.luis.status = 'fired';
+          say(s, 'luis', "Nobody had anything good to say about me today. That tracks.");
         } else {
-          s.people.luis.status = s.people.luis.champion ? 'protected' : 'warning';
+          s.people.luis.status = 'warning';
         }
       }
       if (a.id === 'marcusCase') {
@@ -441,10 +467,18 @@ export function act(state, a) {
         } else if (a.choice === 'confirm') {
           if (s.people.marcus.champion) s.people.marcus.status = 'protected';
           else s.people.marcus.status = 'fired';
-          s.flags.coworkerReports = (s.flags.coworkerReports || 0) + 1;
+          markCoworkerReport(s);
           say(s, 'marcus', s.people.marcus.status === 'fired' ? 'Tell the raccoon I forgive him.' : 'The Culture Champion exemption just saved me from a raccoon-related termination.');
+        } else if (s.people.marcus.champion) {
+          s.people.marcus.status = 'protected';
+        } else if (s.trust.marcus >= 2) {
+          s.people.marcus.status = 'employed';
+          say(s, 'marcus', 'Somebody backed me up without you. Small office. Word gets around.');
+        } else if (s.trust.marcus <= -1) {
+          s.people.marcus.status = 'fired';
+          say(s, 'marcus', "Guess the raccoon's credibility only stretches so far.");
         } else {
-          s.people.marcus.status = s.people.marcus.champion ? 'protected' : 'warning';
+          s.people.marcus.status = 'warning';
         }
       }
 
@@ -782,7 +816,10 @@ export function ending(s) {
   if (fired === 0) lines.push('Nobody got fired today.');
   else if (fired >= 2) lines.push(`${fired} coworkers were terminated. NARC records the reduced headcount as an operational efficiency gain.`);
   else lines.push('One coworker was terminated. NARC has already drafted the replacement posting.');
-  if ((s.flags.coworkerReports || 0) > 0) lines.push(`You supplied adverse context about coworkers ${s.flags.coworkerReports} time${s.flags.coworkerReports === 1 ? '' : 's'}. NARC classified it as collaboration.`);
+  if ((s.flags.coworkerReports || 0) > 0) {
+    const bonus = s.flags.informantNoted ? ' NARC classified the pattern as strong collaboration and moved Visible Activity up 6 points for it.' : '';
+    lines.push(`You supplied adverse context about coworkers ${s.flags.coworkerReports} time${s.flags.coworkerReports === 1 ? '' : 's'}.${bonus}`);
+  }
   if (s.culture.nominated) lines.push(`You nominated ${PEOPLE[s.culture.nominated].name} as Culture Champion.`);
 
   return { index: s.index, actual: s.actual, lines, people: s.people };
