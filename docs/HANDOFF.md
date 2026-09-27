@@ -163,40 +163,57 @@ This is a compact playable feedback loop: users adapt to the model; the model ad
 
 ## Immediate next steps
 
-There are now two parallel next-step tracks:
+Claude should work from the current repository state rather than restarting product discovery.
 
-1. **Copy review:** Paige may edit `docs/GAME_COPY_EDITABLE.md` and hand it back for application.
-2. **Gameplay validation:** issue #70 remains the main browser/playtest gate for the current production build.
+### Recommended implementation order
 
-Validate:
+1. **#105 — Simplify the NARC tool for instant comprehension**
+   - This is first because every later mechanic depends on the player understanding what NARC saw, inferred, missed, changed, and expects next.
+   - Preserve the current derived status model. Do not add another hidden score.
+   - Add/strengthen **WHAT NARC CANNOT SEE** where the player has relevant context.
 
-### NARC clarity
-- top-bar NARC status is visible but not distracting
-- NORMAL/WATCHING/AT RISK/CRITICAL changes make intuitive sense
-- clicking NARC explains **why** the status changed
-- Visible Activity always reads as X/100 plus Low/Normal/High
-- player understands that Visible Activity is not job performance
-- every active NARC event clearly separates signal -> inference -> consequence -> action
-- concrete action wording is understandable without prior knowledge of “add context”
-- event history is readable rather than a log dump
+2. **#103 + #102 — Make NARC overhead and urgency meaningful**
+   - Treat these together as the time-management layer.
+   - NARC compliance should consume authored in-game minutes.
+   - Hard/soft urgency should use **in-game time only**. Never punish real-world reading time.
+   - Make time costs visible enough that the player can deliberately triage work, coworkers, and NARC.
 
-### Messages
-- optional conversation prompts are hidden while required/tutorial actions are active
-- while someone is typing, remaining optional prompts stay visible but disabled
-- layout does not collapse/jump during typing
-- new replies stay at the bottom
-- Dana does not mention the raccoon before the player has heard the story
+3. **#104 — Deepen coworker consequences and moral compromise**
+   - Build on the existing Priya/Luis/Marcus cases.
+   - Let ordinary workplace actions protect, expose, exploit, or ignore coworkers.
+   - Do not present universal help/sabotage/ignore morality buttons.
+   - Preserve ambiguity: NARC often has a real signal but incomplete context.
 
-### Pacing
-- 10:15 still feels busy
-- unread coworker activity is discoverable
-- “Work until...” does not appear while meaningful unread activity is waiting
-- no new NARC UI causes the run to slow down significantly
+4. **#106 — Rebuild the end-of-day dashboard**
+   - Implement after the underlying time/coworker state exists.
+   - Surface actual work, NARC-management overhead, meaningful coworker outcomes, Visible Activity/standing, and the contradiction between measured success and real outcomes.
+   - There is **no clean win**, but do not force one universal “you lose” conclusion.
 
-### Ending / consequences
-- coworker employment/protection outcomes still match choices
-- Trusted Operator / Review Open still affect later play
-- Focus Time -> NARC 2.0 -> keepalive remains causally legible
+5. **#70 — Full ~15-minute playtest**
+   - Re-run the complete experience after the expansion work.
+   - Validate comprehension, pacing, tradeoffs, coworker consequences, and ending payoff.
+   - Cut or tighten before adding more.
+
+6. **#88 — Analytics**
+   - Still blocked until #70 stabilizes the revised loop.
+
+### Parallel copy-review track
+
+Paige may edit `docs/GAME_COPY_EDITABLE.md` at any time. Treat that as a separate copy pass. Do not silently combine those edits with gameplay/system redesign.
+
+### Settled expansion direction
+
+NARC is becoming a short **moral-compromise and time-triage simulator**, not a larger narrative game.
+
+The player should regularly feel tension between:
+- doing actual work
+- maintaining NARC-visible productivity / personal standing
+- helping or protecting coworkers
+- spending time managing NARC itself
+
+NARC concepts should be learned through system behavior and consequences, not tutorial lectures.
+
+The NARC interface itself must remain easy to understand even when NARC's *voice* is bureaucratic.
 
 ## Verification state
 
@@ -211,18 +228,15 @@ Environment limitation from the last implementation pass:
 
 ## GitHub issue state
 
-Primary current issue:
+Active expansion sequence:
+- **#105** Simplify the NARC tool for instant comprehension
+- **#103** Make NARC overhead a real gameplay cost
+- **#102** Explore in-game urgency timers for consequential decisions
+- **#104** Deepen coworker consequences and moral compromise
+- **#106** Rebuild the end-of-day dashboard around tradeoffs and consequences
 - **#70** Playtest the ~15-minute core loop for agency, pacing, and payoff
 
-New design exploration:
-- **#102** Explore in-game urgency timers for consequential decisions
-  - inspiration: Cooking Fever-style draining urgency
-  - must use **in-game time**, never real-world countdown pressure
-  - intended to make action-time costs and prioritization more meaningful
-  - selectively test hard deadlines, soft deadlines, and NARC attention pressure
-  - do not implement automatically without a new explicit implementation instruction
-
-Blocked until #70 stabilizes:
+Blocked until the revised #70 stabilizes:
 - **#88** lightweight Vercel gameplay analytics
 
 Deferred, do not implement automatically:
@@ -231,6 +245,24 @@ Deferred, do not implement automatically:
 
 Completed:
 - **#87** opening context
+- **#101** NARC status / interaction hierarchy polish, merged to `main`
+
+## Authority / release boundaries
+
+- GitHub may be used to inspect and implement branch work.
+- Do not merge or push to `main`, deploy production, or publish externally unless Paige explicitly names that destination in the current instruction.
+- Implementation approval is not production approval.
+- Preserve unrelated work and existing branches.
+- Never request or store raw credentials. Use available platform/brokered access.
+
+## Start here
+
+1. Read `docs/CORE_GAME_SPEC.md`.
+2. Read this handoff.
+3. Read issues **#105, #103, #102, #104, #106, and #70**.
+4. Inspect `day.js`, `day-desktop-app.js`, `single-day-desktop.css`, `test-day.mjs`, and `test-desktop.mjs`.
+5. Work in the implementation order above unless Paige changes priority.
+6. After each implementation pass, verify before asking for promotion.
 
 ## Portfolio / case-study framing worth preserving
 
