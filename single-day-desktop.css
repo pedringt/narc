@@ -13,6 +13,17 @@
 .loop-task:first-of-type { border-top: 0; }
 .loop-task > div:first-child { min-width: 0; flex: 1 1 auto; }
 .loop-task .loop-link { width: auto; flex: none; align-self: flex-start; white-space: nowrap; }
+.loop-urgency-label { margin: 6px 0 4px; font-size: 12px; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.loop-urgency-track {
+  height: 6px;
+  max-width: 220px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--app-line);
+}
+.loop-urgency-fill { display: block; height: 100%; border-radius: inherit; background: var(--app-accent); transition: width .25s ease, background .25s ease; }
+.urgency-soon .loop-urgency-fill { background: #c68a1f; }
+.urgency-critical .loop-urgency-fill { background: #c0392b; }
 .loop-task-actions {
   display: flex;
   flex: 0 0 auto;

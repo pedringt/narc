@@ -47,6 +47,11 @@ export function newGame() {
     phase: 'day', // day | end
     index: 61, // NARC's Visible Activity Index -- a proxy, and known to the player
     actual: 0, // real contribution, hidden as a number; only ever shown as narrative
+    // Where the day's minutes actually went (#103): not perfect accounting,
+    // just enough to make the overhead legible at the end. workUntil/idle
+    // jumps are deliberately not counted here -- they're background time
+    // passing, not a choice the player made about what to spend it on.
+    time: { work: 0, narc: 0, social: 0, gamed: 0 },
     flags: {}, // small named facts consequences key off later
     log: [
       { t: START, kind: 'system', text: 'You log in. Three things are already on your plate.' },
@@ -174,12 +179,16 @@ function nextEvent(s) {
 
 // Every meaningful action goes through here so time is always the resource
 // being spent, and the "what changed" feed always sees it.
-function spend(s, minutes, { visible = null } = {}) {
+function spend(s, minutes, { visible = null, category = null } = {}) {
   s.t = Math.min(END, s.t + minutes);
   // Visibility changes only make sense when time actually passes. A zero-minute
   // "leave/ignore" choice should not manufacture activity or inactivity.
   if (minutes > 0 && visible === true) s.index = Math.min(100, s.index + 3);
   if (minutes > 0 && visible === false) s.index = Math.max(0, s.index - 2);
+  // category is omitted for workUntil/idle: that's background time passing,
+  // not a choice about what to spend it on, so it stays out of the #103
+  // breakdown rather than diluting it.
+  if (category && minutes > 0) s.time[category] += minutes;
   checkThresholds(s);
 }
 
@@ -357,7 +366,7 @@ export function act(state, a) {
       task.approach = a.approach;
       task.status = 'done';
       s.actual += opt.actual;
-      spend(s, opt.minutes, { visible: opt.visible });
+      spend(s, opt.minutes, { visible: opt.visible, category: 'work' });
       if (!s.flags.firstNarcRead) {
         s.flags.firstNarcRead = true;
         s.flags.firstNarcReadType = opt.visible === false ? 'low' : 'visible';
@@ -387,7 +396,8 @@ export function act(state, a) {
       const opt = REQUEST_OPTIONS[a.id][a.choice];
       if (!opt) break;
       req.status = 'handled';
-      spend(s, opt.minutes, { visible: opt.visible });
+      const narcRequestIds = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'];
+      spend(s, opt.minutes, { visible: opt.visible, category: narcRequestIds.includes(a.id) ? 'narc' : 'social' });
       note(s, opt.result, 'social');
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
@@ -472,7 +482,7 @@ export function act(state, a) {
       // to notice that on their own the way they noticed it worked.
       s.calendar.push({ id: `c${s.calendar.length + 1}`, at: s.t, label: a.label || 'Focus time' });
       s.narc.focusUses += 1;
-      spend(s, 5);
+      spend(s, 5, { category: 'gamed' });
       if (s.narc.adaptation) {
         s.index = Math.max(0, s.index - 1);
         note(s, 'Focus Time logged. NARC 2.0 flags it as recent and frequent -- barely counted.', 'narc');
@@ -495,7 +505,7 @@ export function act(state, a) {
       if (!opt || opt.who !== a.who || s.chats[a.topic]) break;
       s.chats[a.topic] = true;
       sayMe(s, a.who, opt.text);
-      spend(s, opt.minutes || 2, { visible: true });
+      spend(s, opt.minutes || 2, { visible: true, category: 'social' });
       s.pendingReplies[a.topic] = {
         who: a.who,
         text: typeof opt.reply === 'function' ? opt.reply(s) : opt.reply,
@@ -512,7 +522,7 @@ export function act(state, a) {
     case 'keepalive': {
       if (!s.flags.keepaliveAvailable || s.flags.keepaliveUsed) break;
       s.flags.keepaliveUsed = true;
-      spend(s, 5, { visible: true });
+      spend(s, 5, { visible: true, category: 'gamed' });
       s.index = Math.min(100, s.index + 7);
       note(s, 'keepalive.pkg is running. Simulated input is now being counted as visible workstation activity.', 'system');
       break;
@@ -730,6 +740,18 @@ export function ending(s) {
       ? `${summaryLabel}: Visible Activity Index ${s.index}. Within normal range.`
       : `${summaryLabel}: Visible Activity Index ${s.index}. Flagged for review.`
   );
+
+  // Where the day actually went (#103): a plain-language breakdown, not a
+  // dashboard -- #106 can build the fuller version. Only named categories
+  // that happened, so a run that never gamed anything doesn't get a
+  // patronizing "0 min gaming the metric" line.
+  const timeParts = [
+    [s.time.work, 'on real work'],
+    [s.time.narc, 'managing NARC'],
+    [s.time.social, 'on coworkers'],
+    [s.time.gamed, 'gaming the metric'],
+  ].filter(([m]) => m > 0).map(([m, label]) => `${m} min ${label}`);
+  if (timeParts.length) lines.push(`Today's time: ${timeParts.join(', ')}.`);
 
   if (s.flags.loggedOffEarly) {
     const stillPending = Object.values(s.tasks).filter((t) => t.status === 'pending').length;

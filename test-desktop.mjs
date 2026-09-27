@@ -57,3 +57,5 @@ assert.match(app, /Explain why Focus Time spread/, 'NARC 2.0 response should use
 assert.match(app, /RECENT NARC EVENTS/, 'NARC history should be presented as a categorized event timeline');
 assert.match(app, /WHAT NARC CANNOT SEE/, 'every assessment should surface missing context, not just what NARC saw/inferred (#105)');
 assert.match(app, /missing: /, 'every narcAssessment branch should define a missing-context line, not just some of them');
+assert.match(app, /loop-urgency-track/, 'task deadlines should show an in-game-clock urgency indicator (#102)');
+assert.match(app, /min left/, 'urgency indicator should be readable in plain minutes, not a raw fraction');

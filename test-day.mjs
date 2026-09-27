@@ -437,3 +437,33 @@ console.log('day.js tests passed');
   assert.match(s.standing.note, /first completed task produced high visible activity/i);
   assert.ok(s.log.some((e) => e.kind === 'narc' && /positive assessment unchallenged/i.test(e.text)));
 }
+
+// ------------------------------------------- time is tracked by category (#103)
+{
+  let s = newGame();
+  assert.deepEqual(s.time, { work: 0, narc: 0, social: 0, gamed: 0 });
+
+  s = act(s, { do: 'task', id: 'vendor', approach: 'quick' });
+  assert.equal(s.time.work, 5, 'a task action counts as work time');
+
+  s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
+  assert.equal(s.time.narc, 5, 'answering a NARC assessment counts as NARC overhead, not work');
+
+  s = act(s, { do: 'focus' });
+  assert.equal(s.time.gamed, 5, 'Focus Time counts as gaming the metric');
+
+  const before = s.time.work + s.time.narc + s.time.social + s.time.gamed;
+  s = act(s, { do: 'idle', minutes: 20 });
+  assert.equal(s.time.work + s.time.narc + s.time.social + s.time.gamed, before, 'idle/workUntil time is not attributed to any category');
+
+  const withSocial = act(newGame(), { do: 'idle', minutes: 25 });
+  const responded = act(withSocial, { do: 'respond', id: 'luisTip', choice: 'thank' });
+  assert.ok(responded.time.social > 0, 'a coworker reply counts as social time');
+  assert.equal(responded.time.narc, 0);
+
+  // Surfaced in the ending, plainly, only for categories that actually happened.
+  const rushed = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  const e = ending(rushed);
+  assert.ok(e.lines.some((l) => /Today's time:.*5 min on real work/.test(l)));
+  assert.ok(!e.lines.some((l) => /gaming the metric/.test(l)), 'unused categories are omitted, not shown as 0 min');
+}

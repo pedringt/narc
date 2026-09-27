@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, nextEvent, chatOptions } from './day.js';
+import { newGame, act, ending, clock, nextEvent, chatOptions, START } from './day.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -709,8 +709,18 @@ function renderLoop() {
 
   const taskBox = h('div', 'loop-card', h('div', 'loop-card-h', 'Today · your work'));
   Object.entries(state.tasks).filter(([, t]) => t.status !== 'hidden').forEach(([id, t]) => {
-    const row = h('div', 'loop-task', h('div', null, h('b', null, t.label), h('p', 'loop-muted', `Due ${clock(t.deadline)} · ${t.status}`)));
+    const labelBox = h('div', null, h('b', null, t.label), h('p', 'loop-muted', `Due ${clock(t.deadline)} · ${t.status}`));
+    const row = h('div', 'loop-task', labelBox);
     if (t.status === 'pending') {
+      // In-game-clock urgency (#102): drains only as game time passes, never
+      // for real-world reading/thinking time. Window is START -> deadline,
+      // since that's the whole stretch the player actually had for it.
+      const remaining = Math.max(0, t.deadline - state.t);
+      const fraction = Math.max(0, Math.min(1, remaining / (t.deadline - START)));
+      const urgencyKey = fraction <= 0.15 ? 'critical' : fraction <= 0.4 ? 'soon' : 'normal';
+      const track = h('div', `loop-urgency-track urgency-${urgencyKey}`, h('span', 'loop-urgency-fill'));
+      track.querySelector('.loop-urgency-fill').style.width = `${Math.round(fraction * 100)}%`;
+      labelBox.append(h('p', 'loop-urgency-label', `${remaining} min left`), track);
       const actions = h('div', 'loop-task-actions');
       actions.append(btn('Open file', 'loop-link', () => {
         ui.selectedFile = id;
