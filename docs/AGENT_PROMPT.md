@@ -1,5 +1,12 @@
 # Agent Prompt: Continue NARC Expansion
 
+> **STATUS (2026-09-27): the expansion this prompt describes is done.**
+> #105/#103/#102/#104/#106 are all merged to `main`. The only open item is
+> #70 (Paige playing the result) — nothing else should start until she
+> reports back. Read `docs/HANDOFF.md`'s "Current status" and "GitHub issue
+> state" sections first; this file is kept as a record of the plan that was
+> executed, not a current to-do list.
+
 You are continuing work on `pedringt/narc`. Do not restart product discovery. Read the repository handoff and spec first, then continue from the documented state.
 
 ## Start here

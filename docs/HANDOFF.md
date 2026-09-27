@@ -1,6 +1,8 @@
 # NARC Handoff
 
-## Current status (2026-09-26)
+## Current status (2026-09-27)
+
+**The full #102–#106 expansion is merged to `main` (commit `1caa754`) and Paige is playing it now.** There is nothing left to implement until she reports back from that playtest (#70) — do not start new feature work speculatively.
 
 The canonical experience is the **single-workday desktop build** at `/` and `/day.html`.
 
@@ -15,11 +17,10 @@ The old one-week build remains at `/week.html` only as an archive/reference.
 
 ## Branch / PR state
 
-- `main` includes PR **#101**, merged at commit `c514c46d27d478ad61efb73448935b9c3db4eb09`.
-- Current working branch for copy review/export: `game-copy-export-sept26`.
-- `docs/GAME_COPY_EDITABLE.md` exists on that branch as the editable master inventory of current player-facing text.
-- The copy-export branch has **not** been merged to `main`.
-- Do not merge/push/deploy this branch to `main` or production unless Paige explicitly names that destination in the current instruction.
+- `main` is the **only branch** in the repo (all feature branches, including `game-copy-export-sept26`, were merged/deleted after landing).
+- `docs/GAME_COPY_EDITABLE.md` merged to `main` along with everything else — it's the current source for the copy-review workflow below, not stuck on a stale branch.
+- All three test suites (`test.mjs`, `test-day.mjs`, `test-desktop.mjs`) are green on `main` as of this commit.
+- Do not merge/push/deploy anything to `main` or production unless Paige explicitly names that destination in the current instruction — same rule as always, just noting nothing is currently pending that decision.
 
 ## Copy editing workflow
 
@@ -163,9 +164,14 @@ This is a compact playable feedback loop: users adapt to the model; the model ad
 
 ## Immediate next steps
 
-Claude should work from the current repository state rather than restarting product discovery.
+**#105, #103, #102, #104, and #106 are all done and merged to `main`.** The section below (kept for reference) was the plan going in; every item in it shipped. Do not re-implement any of it — read "What #102–#106 actually shipped" further down for what's real, and diff against `day.js`/`day-desktop-app.js` if in doubt.
 
-### Recommended implementation order
+**The only real next step is #70** — a full ~15-minute playthrough by Paige. That's happening now, outside this repo. Nothing else should start until she reports back with what she hit. If she comes back with specific friction, turn it into scoped issues rather than a new broad redesign pass — that's the pattern that worked for #105-#106 (audit what exists before building, fix the 1-2 real gaps, verify live, stop).
+
+**#88 (analytics)** stays blocked until then. **#45 and #48** stay explicitly deferred — do not implement without Paige asking.
+
+<details>
+<summary>Original recommended implementation order (historical — all shipped)</summary>
 
 1. **#105 — Simplify the NARC tool for instant comprehension**
    - This is first because every later mechanic depends on the player understanding what NARC saw, inferred, missed, changed, and expects next.
@@ -187,7 +193,7 @@ Claude should work from the current repository state rather than restarting prod
 4. **#106 — Rebuild the end-of-day dashboard**
    - Implement after the underlying time/coworker state exists.
    - Surface actual work, NARC-management overhead, meaningful coworker outcomes, Visible Activity/standing, and the contradiction between measured success and real outcomes.
-   - There is **no clean win**, but do not force one universal “you lose” conclusion.
+   - There is **no clean win**, but do not force one universal "you lose" conclusion.
 
 5. **#70 — Full ~15-minute playtest**
    - Re-run the complete experience after the expansion work.
@@ -197,9 +203,19 @@ Claude should work from the current repository state rather than restarting prod
 6. **#88 — Analytics**
    - Still blocked until #70 stabilizes the revised loop.
 
-### Parallel copy-review track
+</details>
 
-Paige may edit `docs/GAME_COPY_EDITABLE.md` at any time. Treat that as a separate copy pass. Do not silently combine those edits with gameplay/system redesign.
+### What #102–#106 actually shipped
+
+Audited what already existed before building anything new in every case — most of the acceptance criteria for each issue turned out to already be satisfied by earlier passes (#99–#101). Only the real gaps got new code:
+
+- **#105**: added a "WHAT NARC CANNOT SEE" row to every NARC assessment (between INFERRED and CHANGES) — the one genuinely missing piece; everything else in the issue was already built.
+- **#103**: NARC-overhead time was already real (narcFirstReview/narcCheckpoint/narcResponse already cost 5-10 min and already competed with deadlines) — it just wasn't tracked. Added `s.time = { work, narc, social, gamed }`, categorized every time-spending action, surfaced it in the ending.
+- **#102**: each pending task in The Loop now shows "N min left" plus a draining progress bar, in-game clock only, no reflex pressure.
+- **#104**: coworker cases already existed; added a real mechanical payoff for reporting on coworkers (a one-time Visible Activity bump at the second report, not per-instance) and made trust from earlier choices change what happens when you stay out of a later coworker's case.
+- **#106**: replaced the flat `ending().lines` text dump with four real sections in the end screen — Your day, NARC metrics, People, The contradiction — each collapsing away when empty. `ending()` keeps returning `lines` unchanged for backward compatibility; the new structured fields (`timeBreakdown`, `standing`, `peopleList`, `contradictions`) are additive.
+
+All three test suites green throughout, every new rule mutation-checked, every change verified live in browser (desktop + mobile, no console errors) before merging.
 
 ### Settled expansion direction
 
@@ -215,37 +231,36 @@ NARC concepts should be learned through system behavior and consequences, not tu
 
 The NARC interface itself must remain easy to understand even when NARC's *voice* is bureaucratic.
 
+### Parallel copy-review track
+
+Paige may edit `docs/GAME_COPY_EDITABLE.md` at any time. Treat that as a separate copy pass. Do not silently combine those edits with gameplay/system redesign.
+
 ## Verification state
 
-PR #101 was merged to `main` after a successful Vercel preview build.
+`main` @ `1caa754` (the #102-#106 merge) has all three suites green: `node test.mjs`, `node test-day.mjs`, `node test-desktop.mjs`. Every change in that range was also verified live in browser (desktop + mobile widths, no console errors) before merging — this was run locally with real Node, not inferred from a Vercel build.
 
-The current copy-export branch only adds documentation/copy-review material; it does not change gameplay behavior.
-
-Environment limitation from the last implementation pass:
-- local Node test execution was not available in the ChatGPT environment
-- Vercel build status was used for deployment verification
-- do not claim a full automated-test pass unless it is actually run elsewhere
+If a future session can't run local Node, say so explicitly rather than claiming a pass based on build status alone.
 
 ## GitHub issue state
 
-Active expansion sequence:
+Completed and merged to `main`:
+- **#87** opening context
+- **#101** NARC status / interaction hierarchy redesign
 - **#105** Simplify the NARC tool for instant comprehension
 - **#103** Make NARC overhead a real gameplay cost
-- **#102** Explore in-game urgency timers for consequential decisions
+- **#102** In-game urgency timers for consequential decisions
 - **#104** Deepen coworker consequences and moral compromise
 - **#106** Rebuild the end-of-day dashboard around tradeoffs and consequences
-- **#70** Playtest the ~15-minute core loop for agency, pacing, and payoff
 
-Blocked until the revised #70 stabilizes:
+In progress, outside this repo:
+- **#70** Playtest the ~15-minute core loop — Paige is playing it now; nothing else should start until she reports back
+
+Blocked until #70 stabilizes:
 - **#88** lightweight Vercel gameplay analytics
 
 Deferred, do not implement automatically:
 - **#45** promotion/replay authority/settings
 - **#48** benignly invasive personalization
-
-Completed:
-- **#87** opening context
-- **#101** NARC status / interaction hierarchy polish, merged to `main`
 
 ## Authority / release boundaries
 
@@ -258,11 +273,11 @@ Completed:
 ## Start here
 
 1. Read `docs/CORE_GAME_SPEC.md`.
-2. Read this handoff.
-3. Read issues **#105, #103, #102, #104, #106, and #70**.
-4. Inspect `day.js`, `day-desktop-app.js`, `single-day-desktop.css`, `test-day.mjs`, and `test-desktop.mjs`.
-5. Work in the implementation order above unless Paige changes priority.
-6. After each implementation pass, verify before asking for promotion.
+2. Read this handoff, especially "Current status" and "GitHub issue state" at the top — #105/#103/#102/#104/#106 are done, not a to-do list.
+3. Check whether Paige has reported back on the #70 playtest. If not, don't start new feature work — ask, or do read-only investigation at most.
+4. If she has reported friction, read the specific issue(s) she wants addressed and scope narrowly to those, the same way #105-#106 were each scoped to their real gaps rather than a rebuild.
+5. Inspect `day.js`, `day-desktop-app.js`, `single-day-desktop.css`, `test-day.mjs`, and `test-desktop.mjs` directly — this doc can drift, the code is the source of truth for current behavior.
+6. Run all three suites and verify live in browser before claiming anything is done.
 
 ## Portfolio / case-study framing worth preserving
 

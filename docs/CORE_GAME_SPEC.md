@@ -139,14 +139,14 @@ The end screen should make the player curious about another path, not just dump 
 
 ### Implementation order
 
-Use this sequence unless Paige explicitly changes priority:
+1. #105 NARC comprehension — **done, merged to `main`**
+2. #103 + #102 NARC overhead and urgency — **done, merged to `main`**
+3. #104 coworker consequences — **done, merged to `main`**
+4. #106 ending dashboard — **done, merged to `main`**
+5. #70 full playtest — **in progress**, outside this repo; nothing else starts until Paige reports back
+6. #88 analytics — still blocked until #70 stabilizes
 
-1. #105 NARC comprehension
-2. #103 + #102 NARC overhead and urgency
-3. #104 coworker consequences
-4. #106 ending dashboard
-5. #70 full playtest
-6. #88 analytics after stabilization
+See `docs/HANDOFF.md`'s "What #102–#106 actually shipped" for what each pass actually did (mostly auditing what already existed and closing the 1-2 real gaps, not full rebuilds).
 
 ## Current single-day arc
 
