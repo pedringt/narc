@@ -55,3 +55,5 @@ assert.match(app, /hasRequiredAction/, 'optional social prompts should be hidden
 assert.match(app, /Explain that the fast work was rushed/, 'NARC response labels should describe the actual action rather than generic context');
 assert.match(app, /Explain why Focus Time spread/, 'NARC 2.0 response should use concrete language');
 assert.match(app, /RECENT NARC EVENTS/, 'NARC history should be presented as a categorized event timeline');
+assert.match(app, /WHAT NARC CANNOT SEE/, 'every assessment should surface missing context, not just what NARC saw/inferred (#105)');
+assert.match(app, /missing: /, 'every narcAssessment branch should define a missing-context line, not just some of them');

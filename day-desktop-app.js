@@ -96,6 +96,7 @@ function narcAssessment(id) {
       title: 'First work assessment',
       signal: 'Your first completed task produced high visible workstation activity.',
       inference: 'NARC interprets that activity as healthy adoption and strong engagement.',
+      missing: 'NARC cannot see whether that activity came from a careful review or a quick skim -- only that it looked active.',
       consequence: 'Accepting the interpretation can improve your standing to Trusted Operator, even if the work itself was rushed.',
       action: 'Explain that the fast work hid rushed work, or accept NARC’s positive interpretation.',
     };
@@ -105,6 +106,7 @@ function narcAssessment(id) {
       title: 'First work assessment',
       signal: 'Your first completed task included a long low-input stretch.',
       inference: 'NARC interprets the quiet period as possible disengagement.',
+      missing: 'NARC cannot see what happened during that stretch -- careful reading and disengagement look identical to it.',
       consequence: 'Leaving the interpretation unchanged can open an employee review.',
       action: 'Explain that you were carefully reviewing the file, or leave NARC’s negative interpretation standing.',
     };
@@ -114,6 +116,7 @@ function narcAssessment(id) {
       title: 'Midmorning assessment',
       signal: state.flags.firstNarcReadType === 'low' ? 'Your first work block was low-input and the current activity record is mixed.' : 'Your first work block was highly visible and the current activity record is mixed.',
       inference: state.flags.firstNarcReadType === 'low' ? 'NARC still sees a possible gap between logged activity and expected engagement.' : 'NARC is treating visible activity as evidence of healthy work behavior.',
+      missing: 'NARC cannot see the content of any task -- only keyboard, mouse, and calendar traces around it.',
       consequence: state.flags.formalReview ? 'A review is currently open and additional explanation can close it.' : 'This assessment remains part of your employee record and can shape later decisions.',
       action: state.flags.firstNarcReadType === 'low' ? 'Explain the quiet work NARC missed, or leave the assessment unchanged.' : 'Explain what the activity score missed, or leave the assessment unchanged.',
     };
@@ -123,6 +126,7 @@ function narcAssessment(id) {
       title: 'NARC 2.0 response requested',
       signal: 'Repeated Focus Time markings spread across Meridian.',
       inference: 'NARC now interprets repeated Focus Time as possible activity manipulation.',
+      missing: 'NARC cannot tell your own Focus Time block apart from anyone else’s -- it only sees that the pattern is now common.',
       consequence: 'Focus Time no longer reliably protects quiet work, and the pattern is now attached to your activity record.',
       action: 'Explain why the pattern happened, or leave the gaming flag unanswered.',
     };
@@ -131,8 +135,9 @@ function narcAssessment(id) {
     title: 'Current assessment',
     signal: `Visible Activity is ${state.index}/100, which NARC classifies as ${activity.label.toLowerCase()}.`,
     inference: state.narc.adaptation ? 'NARC is also treating repeated Focus Time as a possible gaming signal.' : 'NARC is currently using visible workstation activity as a proxy for engagement.',
+    missing: 'NARC cannot see the actual content or quality of your work, only the visible signals around it.',
     consequence: state.standing.status === 'trusted' ? 'Your standing is Trusted Operator.' : state.standing.status === 'review' ? 'An employee review is open.' : 'Your standing is Standard.',
-    action: 'No response is required right now. Keep working or inspect recent NARC events below.',
+    action: 'No response is required right now. Keep working -- NARC will raise something here if that changes.',
   };
 }
 
@@ -970,6 +975,7 @@ function renderNarc() {
   [
     ['WHAT NARC SAW', assessment.signal],
     ['WHAT NARC INFERRED', assessment.inference],
+    ['WHAT NARC CANNOT SEE', assessment.missing],
     ['WHAT THAT CHANGES', assessment.consequence],
     ['WHAT YOU CAN DO', assessment.action],
   ].forEach(([label, text]) => assessmentCard.append(h('div', 'narc-explain-row', h('span', null, label), h('p', null, text))));
