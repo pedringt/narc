@@ -1,7 +1,7 @@
 # NARC Core Game Spec
 
 **Status:** Active single-workday portfolio build  
-**Updated:** 2026-09-25  
+**Updated:** 2026-09-26  
 **Project:** NARC — Networked Assessment & Risk Coordination
 
 ## Purpose
@@ -74,6 +74,79 @@ The player should experience rather than be lectured about:
 - optimizing a metric can make the metric less meaningful
 - anti-gaming systems create an arms race
 - model outputs become more consequential when institutions trust them too much
+
+
+## Approved expansion direction
+
+Keep the single-workday structure and the ~15-minute portfolio target. The next expansion should deepen the existing loop rather than turn NARC into a larger narrative game.
+
+The player should increasingly have to triage among:
+
+- actual work
+- NARC-visible productivity / personal standing
+- coworker welfare and trust
+- time spent managing NARC itself
+
+### NARC comprehension
+
+The NARC app must be understandable in seconds. For any active assessment, the player should be able to identify:
+
+1. current NARC status and why
+2. **what NARC saw**
+3. **what NARC thinks it means**
+4. **what NARC cannot see**, when relevant context is available to the player
+5. **what changes** because of the assessment
+6. **what the player can do**
+
+NARC's own language can stay bureaucratic. Interface labels, consequences, and actions should be plain and legible.
+
+Avoid adding more numbers. The main quantitative concepts should remain NARC status/risk, Visible Activity, and time remaining when something is genuinely urgent.
+
+### Time and NARC overhead
+
+NARC clarification requests, reviews, check-ins, and similar compliance actions may consume meaningful in-game time.
+
+This should create a playable contradiction: the productivity system can consume the time it claims to optimize.
+
+Urgency/deadlines must advance only when **in-game time** advances. Real-world reading/thinking time must never count against the player.
+
+Use urgency selectively. Do not put a countdown on every choice.
+
+### Coworker moral compromise
+
+Strengthen consequences around Priya, Luis, and Marcus without exposing a generic morality menu.
+
+The player may protect, expose, exploit, or stay out through ordinary workplace actions. At least some choices should create genuine tension between self-interest and coworker welfare.
+
+Keep ambiguity. NARC should often observe something real while missing the context needed to judge it correctly.
+
+### End-of-day payoff
+
+The ending should summarize the meaningful tradeoffs of the run, including when available:
+
+- actual work completed/missed
+- time spent managing NARC
+- meaningful coworker outcomes
+- Visible Activity / standing
+- synthetic or metric-gaming behavior
+- a short NARC assessment reflecting the run
+
+Do not force one universal “you cannot win” ending. A stronger principle is:
+
+> **There is no clean win. Every strategy protects something and sacrifices something else.**
+
+The end screen should make the player curious about another path, not just dump state variables.
+
+### Implementation order
+
+Use this sequence unless Paige explicitly changes priority:
+
+1. #105 NARC comprehension
+2. #103 + #102 NARC overhead and urgency
+3. #104 coworker consequences
+4. #106 ending dashboard
+5. #70 full playtest
+6. #88 analytics after stabilization
 
 ## Current single-day arc
 
