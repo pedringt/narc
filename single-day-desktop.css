@@ -758,6 +758,8 @@
 }
 .window:not(.app-narc) .btn.primary:hover {
   color: #fff;
+  background: #2f5f78;
+  border-color: #2f5f78;
 }
 
 .narc-assessment-card.needs-action {
