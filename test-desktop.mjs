@@ -24,9 +24,9 @@ console.log('desktop integration checks passed');
 assert.match(app, /Culture Champion nominations/, 'culture nomination email should exist in the one-day build');
 assert.match(app, /NARC 2\.0: new capabilities/, 'NARC 2.0 rollout email should be restored');
 assert.match(app, /chatOptions\(state, id\)/, 'idle message threads should offer optional conversations');
-assert.match(app, /priyaCase/, 'coworker consequence choices should be wired into Messages');
+assert.match(app, /\['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'\]/, 'coworker consequence choices should be handled in NARC');
 assert.match(app, /narc-action-buttons/, 'NARC response buttons should be laid out in a dedicated action row');
-assert.match(app, /workUntilUses/, 'repetitive floating work-until prompts should be limited');
+assert.match(app, /Advance to \$\{clock\(next\.t\)\}/, 'quiet stretches should use one contextual advance action rather than repeated background-work copy');
 
 assert.match(app, /tutorialVisited/, 'tutorial progress should reconcile against apps actually visited');
 assert.match(app, /while \(!ui\.tutorialDone\)/, 'tutorial should retire already-completed steps instead of leaving stale CTAs');
@@ -46,16 +46,16 @@ assert.match(app, /disabled: ''/, 'remaining conversation starters should be dis
 assert.match(app, /function narcRisk\(/, 'NARC should expose a derived intervention-risk state');
 assert.match(app, /NARC status/, 'persistent UI should name the NARC status directly');
 assert.match(app, /Visible activity: \$\{state\.index\}\/100/, 'Visible Activity should include a denominator and plain-English band');
-assert.match(app, /WHAT NARC SAW/, 'NARC details should separate observed evidence');
-assert.match(app, /WHAT NARC INFERRED/, 'NARC details should separate inference from evidence');
-assert.match(app, /WHAT THAT CHANGES/, 'NARC details should state the consequence');
-assert.match(app, /WHAT YOU CAN DO/, 'NARC details should give a concrete next action');
+assert.match(app, /'SIGNAL'/, 'NARC details should name the observed signal');
+assert.match(app, /'NARC SAYS'/, 'NARC details should separate the interpretation from the signal');
+assert.match(app, /'IMPACT'/, 'NARC details should state the consequence');
+assert.match(app, /Choose a response/, 'NARC details should make active decisions visually explicit');
 assert.match(app, /Start a conversation/, 'optional social prompts remain available when no required interaction is active');
 assert.match(app, /hasRequiredAction/, 'optional social prompts should be hidden while a required/tutorial action is active');
 assert.match(app, /Explain that the fast work was rushed/, 'NARC response labels should describe the actual action rather than generic context');
 assert.match(app, /Explain why Focus Time spread/, 'NARC 2.0 response should use concrete language');
 assert.match(app, /RECENT NARC EVENTS/, 'NARC history should be presented as a categorized event timeline');
-assert.match(app, /WHAT NARC CANNOT SEE/, 'every assessment should surface missing context, not just what NARC saw/inferred (#105)');
+assert.match(app, /What NARC cannot see/, 'missing context should remain available behind progressive disclosure (#105)');
 assert.match(app, /missing: /, 'every narcAssessment branch should define a missing-context line, not just some of them');
 assert.match(app, /loop-urgency-track/, 'task deadlines should show an in-game-clock urgency indicator (#102)');
 assert.match(app, /min left/, 'urgency indicator should be readable in plain minutes, not a raw fraction');
@@ -63,3 +63,9 @@ assert.match(app, /end-section-h', 'Your day'/, 'end screen should have a struct
 assert.match(app, /end-section-h', 'NARC metrics'/, 'end screen should have a structured NARC-metrics section (#106)');
 assert.match(app, /end-section-h', 'People'/, 'end screen should have a structured People section (#106)');
 assert.match(app, /end-section-h', 'The contradiction'/, 'end screen should surface measured-vs-actual contradictions (#106)');
+
+assert.match(app, /Quarterly employee pulse survey/, 'survey setup should exist before the survey conversation can unlock');
+assert.match(app, /Compose work email/, 'Email should expose player-initiated outbound work actions');
+assert.match(app, /Review supporting details \(3 min\)/, 'work files should require an evidence-review step before the final task choice');
+assert.match(app, /notification-source/, 'notifications should render an explicit unread indicator');
+assert.match(app, /primary-decision/, 'consequential NARC choices should have a stronger visual hierarchy');

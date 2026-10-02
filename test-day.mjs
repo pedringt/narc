@@ -249,7 +249,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   // the ones this test originally knew about.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
-    rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
+    rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
     priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank',
   };
   for (let hops = 0; hops < 60 && consulted.phase !== 'end'; hops += 1) {
@@ -305,7 +305,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   // contextual jumps rather than a click-to-burn-time loop.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
-    rework: 'escalate', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
+    rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
     priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave',
   };
   let hops = 0;
@@ -426,6 +426,38 @@ console.log('day.js tests passed');
   assert.equal(burnedLuis.trust.luis, -1);
   burnedLuis = act(burnedLuis, { do: 'respond', id: 'luisCase', choice: 'leave' });
   assert.equal(burnedLuis.people.luis.status, 'fired', 'no earlier goodwill means nobody speaks up for Luis either');
+}
+
+// ------------------------------------- survey conversation is context-gated
+{
+  let s = newGame();
+  assert.equal(chatOptions(s, 'luis').some(([key]) => key === 'luis-survey'), false, 'survey joke stays hidden before the survey exists');
+  s = act(s, { do: 'idle', minutes: (11 * 60 + 50) - s.t });
+  assert.equal(s.flags.surveyEmailAvailable, true);
+  assert.equal(chatOptions(s, 'luis').some(([key]) => key === 'luis-survey'), true, 'survey conversation unlocks after the survey email');
+}
+
+// ----------------------------------------- afternoon work keeps the day active
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: (13 * 60 + 5) - s.t });
+  assert.equal(s.tasks.audit.status, 'pending', 'a real afternoon operations task appears');
+  s = act(s, { do: 'task', id: 'audit', approach: 'trace' });
+  assert.equal(s.tasks.audit.status, 'done');
+  assert.ok(s.actual > 0, 'doing the substantive version contributes real work');
+
+  s = act(s, { do: 'idle', minutes: (14 * 60 + 10) - s.t });
+  assert.equal(s.tasks.handoff.status, 'pending', 'a second afternoon work task appears');
+}
+
+// ------------------------------------- outbound email can change the workday
+{
+  let s = newGame();
+  const oldDeadline = s.tasks.vendor.deadline;
+  s = act(s, { do: 'emailAction', id: 'procurementExtension' });
+  assert.equal(s.outbound.procurementExtension, true);
+  assert.equal(s.tasks.vendor.deadline, oldDeadline + 20);
+  assert.ok(s.time.social > 0);
 }
 
 // ------------------------------------ optional chats make quiet threads useful

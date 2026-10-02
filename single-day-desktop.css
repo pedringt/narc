@@ -721,3 +721,102 @@
     gap: 4px;
   }
 }
+
+
+/* Oct 2 playtest pass: stronger unread state, safer hover contrast, clearer NARC decisions. */
+.notification-item.unread {
+  position: relative;
+  background: #dfeefa;
+  border-left: 4px solid #2f6f9f;
+  padding-left: 8px;
+}
+.notification-item.unread .notification-preview {
+  color: var(--app-text);
+}
+.notification-item.unread .notification-meta b {
+  font-weight: 800;
+}
+.notification-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #2f6f9f;
+}
+
+.window:not(.app-narc) .btn:hover,
+.window:not(.app-narc) .chip:hover,
+.window:not(.app-narc) .loop-link:hover {
+  color: #17384f;
+  background: #eef4f8;
+  border-color: #7f9caf;
+}
+.window:not(.app-narc) .btn.primary:hover {
+  color: #fff;
+  background: #2f5f78;
+  border-color: #2f5f78;
+}
+
+.narc-assessment-card.needs-action {
+  border-color: #7a6530 !important;
+  box-shadow: inset 4px 0 0 var(--n-warn);
+}
+.narc-decision-label {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--n-line);
+  color: var(--n-warn);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.narc-action-buttons .primary-decision {
+  border-color: var(--n-accent);
+  color: #111;
+  background: var(--n-accent);
+  font-weight: 800;
+}
+.narc-action-buttons .primary-decision:hover {
+  border-color: #d7f0ba;
+  color: #111;
+  background: #d7f0ba;
+}
+.narc-details {
+  margin-top: 8px;
+  border-top: 1px solid var(--n-line);
+  padding-top: 10px;
+}
+.narc-details summary {
+  cursor: pointer;
+  color: var(--n-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.narc-details p {
+  margin: 8px 0 0;
+  color: var(--n-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.message-row.unread {
+  background: #e7f1f8;
+  box-shadow: inset 4px 0 0 #2f6f9f;
+}
+.message-row.unread .name,
+.message-row.unread .sub {
+  color: var(--app-text);
+  font-weight: 700;
+}
+.notifications-button.has-unread {
+  background: rgba(214,69,69,.16);
+  border-color: #d66b6b;
+  color: #fff;
+  font-weight: 800;
+}
