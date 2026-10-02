@@ -130,6 +130,7 @@ export function newGame() {
     },
     culture: { nominated: null },
     outbound: { statusDana: false, procurementExtension: false, clientForward: false },
+    inspected: {},
     chats: {},
     pendingReplies: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
@@ -352,6 +353,7 @@ function checkThresholds(s) {
   }
   if (requests.priyaCase.status === 'pending' && s.t >= requests.priyaCase.at) {
     requests.priyaCase.status = 'open';
+    note(s, 'Coworker review opened: Priya Shah · Communication Load. Context can be submitted in NARC.', 'narc');
     say(s, 'priya', 'NARC opened a Communication Load review on me. Client work, onboarding, lunch chat — same bucket. If you have context, it wants it in NARC.');
   }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
@@ -370,20 +372,33 @@ function checkThresholds(s) {
   }
   if (requests.luisCase.status === 'pending' && s.t >= requests.luisCase.at) {
     requests.luisCase.status = 'open';
+    note(s, 'Coworker review opened: Luis Perez · Presence Irregularity. Context can be submitted in NARC.', 'narc');
     say(s, 'luis', 'NARC opened a presence review on me. If you want to add context, it is in NARC. I promise at least one quiet stretch was just soup.');
   }
   if (requests.marcusCase.status === 'pending' && s.t >= requests.marcusCase.at) {
     requests.marcusCase.status = 'open';
+    note(s, 'Coworker review opened: Marcus Reed · Attendance Integrity. Evidence can be submitted in NARC.', 'narc');
     say(s, 'marcus', 'NARC opened an attendance review. The raccoon bus story is now evidence. If you found the transit alert, NARC is where it goes.');
   }
 
   if (tasks.audit.status === 'hidden' && s.t >= 13 * 60 + 5) {
-    tasks.audit.status = 'pending';
-    note(s, 'Operations added a carrier exception queue task. Cutoff is 2:15 PM.', 'task');
+    if (s.t >= tasks.audit.deadline) {
+      tasks.audit.status = 'missed';
+      s.index = Math.max(0, s.index - 4);
+      note(s, 'The carrier cutoff passed before you got to the exception queue. Ops cleared it manually.', 'consequence');
+    } else {
+      tasks.audit.status = 'pending';
+      note(s, 'Operations added a carrier exception queue task. Cutoff is 2:15 PM.', 'task');
+    }
   }
   if (tasks.handoff.status === 'hidden' && s.t >= 14 * 60 + 10) {
-    tasks.handoff.status = 'pending';
-    note(s, 'Dana added an end-of-day client handoff. A usable summary is due by 4:15 PM.', 'task');
+    if (s.t >= tasks.handoff.deadline) {
+      tasks.handoff.status = 'missed';
+      note(s, 'The handoff request arrived and expired before you got to it. Dana sent tomorrow’s team an incomplete status note instead.', 'consequence');
+    } else {
+      tasks.handoff.status = 'pending';
+      note(s, 'Dana added an end-of-day client handoff. A usable summary is due by 4:15 PM.', 'task');
+    }
   }
   if (!s.flags.narcObservationMessages && s.t >= 10 * 60 + 50) {
     s.flags.narcObservationMessages = true;
@@ -562,6 +577,14 @@ export function act(state, a) {
         s.standing.note = 'Midmorning context accepted. Review closed.';
         note(s, 'Review closed after additional context was added to the activity record.', 'narc');
       }
+      break;
+    }
+    case 'inspect': {
+      const task = s.tasks[a.id];
+      if (!task || task.status !== 'pending' || s.inspected[a.id]) break;
+      s.inspected[a.id] = true;
+      spend(s, 3, { visible: false, category: 'work' });
+      note(s, `You reviewed the supporting details for ${task.label}.`, 'task');
       break;
     }
     case 'emailAction': {
