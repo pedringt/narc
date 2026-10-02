@@ -26,7 +26,6 @@ const THREADS = {
 
 const REQUEST_THREAD = {
   danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
-  priyaCase: 'priya', luisCase: 'luis', marcusCase: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
@@ -154,6 +153,8 @@ const TASK_OPTIONS = {
   client: [['canned', 'Send a quick apology (5 min)'], ['investigate', 'Dig into what happened (25 min)']],
   project: [['cut', 'Cut scope yourself (10 min)'], ['consult', 'Loop in Marcus first (20 min)']],
   rework: [['quiet', 'Deal with it yourself (20 min)'], ['escalate', 'Tell Dana now (8 min)']],
+  audit: [['clear', 'Clear the obvious exception (8 min)'], ['trace', 'Trace the recurring cause (18 min)']],
+  handoff: [['summary', 'Send the activity summary (5 min)'], ['reconcile', 'Build a usable handoff (15 min)']],
 };
 
 const FILES = {
@@ -172,6 +173,14 @@ const FILES = {
   rework: {
     name: 'FOLLOW_UP_REQUIRED.txt', meta: 'Generated from an earlier shortcut',
     body: ['An earlier decision created a problem that now needs attention.', 'The exact consequence depends on what you rushed this morning.'],
+  },
+  audit: {
+    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 2:15 PM',
+    body: ['Three shipments are stuck on the same routing exception.', 'Clearing the queue is quick. Tracing the recurring rule takes longer and produces very little visible activity.', 'The stale routing rule is in the notes attached to the third exception.'],
+  },
+  handoff: {
+    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 4:15 PM',
+    body: ['Tomorrow’s team needs the decisions, unresolved risks, and client context from today.', 'A short activity summary is easy to produce but does not explain why the current state looks the way it does.', 'The source notes are spread across the client file, project scope, and today’s follow-up.'],
   },
 };
 
@@ -200,6 +209,15 @@ const CULTURE_EMAIL = {
   ],
 };
 
+const SURVEY_EMAIL = {
+  id: 'survey', from: 'People Operations', subject: 'Quarterly employee pulse survey',
+  body: [
+    'The quarterly employee pulse survey is now open.',
+    'Responses are described as confidential and will be reviewed in aggregate.',
+    'Please submit by end of week. Participation is optional.',
+  ],
+};
+
 const NARC2_EMAIL = {
   id: 'narc2', from: 'People Operations', subject: 'NARC 2.0: new capabilities',
   body: [
@@ -213,6 +231,7 @@ const NARC2_EMAIL = {
 function currentEmails() {
   const out = [...EMAILS];
   if (state.flags.cultureEmailAvailable) out.unshift(CULTURE_EMAIL);
+  if (state.flags.surveyEmailAvailable) out.unshift(SURVEY_EMAIL);
   if (state.flags.narc2EmailAvailable) out.unshift(NARC2_EMAIL);
   return out;
 }
@@ -475,6 +494,15 @@ function announceChanges(before, after) {
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
+  if (after.tasks.audit.status === 'pending' && before.tasks.audit.status !== 'pending') {
+    showToast('The Loop', 'New task: clear the carrier exception queue by 2:15 PM.', 'intranet');
+  }
+  if (after.tasks.handoff.status === 'pending' && before.tasks.handoff.status !== 'pending') {
+    showToast('Dana Whitfield', 'New task: prepare the client handoff by 4:15 PM.', 'intranet');
+  }
+  if (after.flags.surveyEmailAvailable && !before.flags.surveyEmailAvailable) {
+    setTimeout(() => showToast('People Operations', 'Quarterly employee pulse survey is open.', 'email', { email: 'survey' }), 500);
+  }
   if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
     setTimeout(() => showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' }), 700);
   }
@@ -486,7 +514,7 @@ function announceChanges(before, after) {
     if (newNarc) {
       const risk = narcRisk(after);
       const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
-      showToast(`NARC · ${risk.label}`, `${actionRequired ? 'Action may be required. ' : ''}${newNarc.text} Open NARC to see what it observed, inferred, and what you can do.`, 'narc');
+      showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc');
     }
   }
   newEntries.filter((e) => e.kind === 'message' && e.from !== 'me').forEach((e) => {
@@ -524,7 +552,7 @@ function renderNotificationCenter() {
   if (!ui.notifications.length) list.append(h('div', 'notification-empty', 'No notifications yet.'));
   ui.notifications.slice().reverse().forEach((item) => {
     const row = btn('', `notification-item${item.read ? '' : ' unread'}`, () => openNotification(item));
-    row.append(h('div', 'notification-meta', h('b', null, item.source), h('span', null, clock(item.t))), h('div', 'notification-preview', item.text));
+    row.append(h('div', 'notification-meta', h('div', 'notification-source', item.read ? null : h('span', 'unread-dot'), h('b', null, item.source)), h('span', null, clock(item.t))), h('div', 'notification-preview', item.text));
     list.append(row);
   });
   els.notificationCenter.replaceChildren(header, list);
@@ -687,6 +715,13 @@ function renderEmail() {
       ['luis', 'marcus', 'priya'].forEach((who) => form.append(btn(THREADS[who].name, 'btn', () => dispatch({ do: 'nominate', who }))));
       detail.append(form);
     }
+  }
+  if (m.id === 'welcome' && ui.oriented) {
+    const actions = h('div', 'mail-form', h('b', null, 'Send a work email'));
+    if (!state.outbound.statusDana) actions.append(btn('Send Dana a real status update (5 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'statusDana' })));
+    if (state.tasks.vendor.status === 'pending' && !state.outbound.procurementExtension) actions.append(btn('Ask Procurement for 20 more minutes (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'procurementExtension' })));
+    if (state.tasks.client.status === 'pending' && !state.outbound.clientForward) actions.append(btn('Forward Priya the account-note excerpt (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'clientForward' })));
+    if (actions.childNodes.length > 1) detail.append(actions);
   }
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
@@ -864,6 +899,8 @@ function renderCalendar() {
 function visibleFiles() {
   const ids = ['vendor', 'client', 'project'];
   if (state.tasks.rework.status !== 'hidden') ids.push('rework');
+  if (state.tasks.audit.status !== 'hidden') ids.push('audit');
+  if (state.tasks.handoff.status !== 'hidden') ids.push('handoff');
   return ids;
 }
 
@@ -955,7 +992,7 @@ function renderNarc() {
   const risk = narcRisk();
   const activity = activityBand();
   const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
-  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
+  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
   const assessment = narcAssessment(openAssessmentId);
 
   const status = h('section', `narc-status-card risk-${risk.key}`,
@@ -978,21 +1015,25 @@ function renderNarc() {
     h('p', 'narc-explainer', 'Higher means more keyboard, mouse, calendar, and other visible workstation activity. It does not measure work quality.')
   );
 
-  const assessmentCard = h('section', 'narc-assessment-card',
+  const assessmentCard = h('section', `narc-assessment-card${openAssessmentId ? ' needs-action' : ''}`,
     h('div', 'narc-section-title', openAssessmentId ? 'ACTION REQUIRED' : 'CURRENT ASSESSMENT'),
     h('h3', null, assessment.title)
   );
   [
-    ['WHAT NARC SAW', assessment.signal],
-    ['WHAT NARC INFERRED', assessment.inference],
-    ['WHAT NARC CANNOT SEE', assessment.missing],
-    ['WHAT THAT CHANGES', assessment.consequence],
-    ['WHAT YOU CAN DO', assessment.action],
+    ['SIGNAL', assessment.signal],
+    ['NARC SAYS', assessment.inference],
+    ['IMPACT', assessment.consequence],
   ].forEach(([label, text]) => assessmentCard.append(h('div', 'narc-explain-row', h('span', null, label), h('p', null, text))));
+  if (assessment.missing) {
+    const details = h('details', 'narc-details');
+    details.append(h('summary', null, 'What NARC cannot see'), h('p', null, assessment.missing));
+    assessmentCard.append(details);
+  }
 
   if (openAssessmentId) {
+    assessmentCard.append(h('div', 'narc-decision-label', 'Choose a response'));
     const actions = h('div', 'narc-action-buttons');
-    requestOptions(openAssessmentId).forEach(([choice, label]) => actions.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: openAssessmentId, choice }))));
+    requestOptions(openAssessmentId).forEach(([choice, label], index) => actions.append(btn(label, index === 0 ? 'btn primary-decision' : 'btn', () => dispatch({ do: 'respond', id: openAssessmentId, choice }))));
     assessmentCard.append(actions);
   }
 
@@ -1033,10 +1074,8 @@ function renderQuietAction() {
   const unread = ui.notifications.some((n) => !n.read);
   if (!nothingOpen || unread || state.phase === 'end' || !ui.oriented) return;
   const next = nextEvent(state);
-  const used = state.flags.workUntilUses || 0;
-  const label = next.t >= 17 * 60 ? 'Finish the workday' : used >= 2 ? 'Continue background work' : `Work until ${clock(next.t)}`;
-  const title = used >= 2 ? 'Quiet stretch' : 'Nothing urgent right now';
-  const card = h('div', 'quiet-card', h('div', null, h('b', null, title), h('span', null, used >= 2 ? 'You can also poke around Messages, Browser, or Utilities.' : `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
+  const label = next.t >= 17 * 60 ? 'Finish the workday' : `Advance to ${clock(next.t)}`;
+  const card = h('div', 'quiet-card', h('div', null, h('b', null, 'Current work is caught up'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
   root.append(card);
 }
 
