@@ -101,25 +101,21 @@ Research notes live in `docs/RESEARCH_ALGORITHMIC_MANAGEMENT.md`.
 
 ## Current development
 
-`main` includes PR **#101**, which completed the latest NARC-status and interaction-hierarchy polish.
+The latest expansion work is merged to `main`.
 
-Current handoff/copy branch:
+Recent work added:
+- clearer NARC assessments that separate what the system saw, inferred, and could not see
+- in-game urgency and explicit time costs
+- tracked time spent on real work, NARC management, social interactions, and gaming the system
+- stronger coworker consequences and trust-dependent outcomes
+- an end-of-day dashboard built around tradeoffs instead of a paragraph dump
+- runnable project-quality checks and regression coverage
 
-`game-copy-export-sept26`
+The main product question now is not “what feature comes next?” It is whether the current ~15-minute loop is clear, paced well, and makes the intended tradeoffs legible in play.
 
-That branch contains:
-- the latest `docs/HANDOFF.md`
-- the editable master copy inventory at `docs/GAME_COPY_EDITABLE.md`
-- the current Claude continuation prompt in `docs/AGENT_PROMPT.md`
+**Next step:** full playtest / feedback pass for issue #70.
 
-Current expansion issues should be worked in this order:
-
-1. **#105** NARC tool comprehension
-2. **#103 + #102** NARC overhead + in-game urgency/time pressure
-3. **#104** coworker consequences / moral compromise
-4. **#106** end-of-day dashboard
-5. **#70** full ~15-minute playtest
-6. **#88** analytics only after #70 stabilizes
+Analytics work in #88 remains secondary until that playtest stabilizes the experience.
 
 Important constraints:
 - keep the first run around 15 minutes
