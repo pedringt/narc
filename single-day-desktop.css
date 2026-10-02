@@ -804,3 +804,19 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+.message-row.unread {
+  background: #e7f1f8;
+  box-shadow: inset 4px 0 0 #2f6f9f;
+}
+.message-row.unread .name,
+.message-row.unread .sub {
+  color: var(--app-text);
+  font-weight: 700;
+}
+.notifications-button.has-unread {
+  background: rgba(214,69,69,.16);
+  border-color: #d66b6b;
+  color: #fff;
+  font-weight: 800;
+}
