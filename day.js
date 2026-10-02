@@ -278,6 +278,15 @@ function checkThresholds(s) {
     s.index = Math.max(0, s.index - 5);
     note(s, "It went over your manager's head to resolve. NARC noticed the escalation.", 'consequence');
   }
+  if (tasks.audit.status === 'pending' && s.t >= tasks.audit.deadline) {
+    tasks.audit.status = 'missed';
+    s.index = Math.max(0, s.index - 4);
+    note(s, 'The carrier cutoff passed with the exception queue still open. Ops cleared it manually.', 'consequence');
+  }
+  if (tasks.handoff.status === 'pending' && s.t >= tasks.handoff.deadline) {
+    tasks.handoff.status = 'missed';
+    note(s, 'The handoff deadline passed. Dana sent tomorrow’s team an incomplete status note instead.', 'consequence');
+  }
 
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
