@@ -239,6 +239,11 @@ const CULTURE_EMAIL = {
   ],
 };
 
+const COMPOSE_EMAIL = {
+  id: 'compose', from: 'You', subject: 'Compose work email',
+  body: ['Send a useful work email. Each option spends in-game time and can change what happens next.'],
+};
+
 const SURVEY_EMAIL = {
   id: 'survey', from: 'People Operations', subject: 'Quarterly employee pulse survey',
   body: [
@@ -260,6 +265,7 @@ const NARC2_EMAIL = {
 
 function currentEmails() {
   const out = [...EMAILS];
+  if (ui.oriented) out.unshift(COMPOSE_EMAIL);
   if (state.flags.cultureEmailAvailable) out.unshift(CULTURE_EMAIL);
   if (state.flags.surveyEmailAvailable) out.unshift(SURVEY_EMAIL);
   if (state.flags.narc2EmailAvailable) out.unshift(NARC2_EMAIL);
@@ -543,7 +549,7 @@ function announceChanges(before, after) {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) {
       const risk = narcRisk(after);
-      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
+      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc');
     }
   }
@@ -746,12 +752,13 @@ function renderEmail() {
       detail.append(form);
     }
   }
-  if (m.id === 'welcome' && ui.oriented) {
-    const actions = h('div', 'mail-form', h('b', null, 'Send a work email'));
+  if (m.id === 'compose') {
+    const actions = h('div', 'mail-form', h('b', null, 'Choose a message'));
     if (!state.outbound.statusDana) actions.append(btn('Send Dana a real status update (5 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'statusDana' })));
     if (state.tasks.vendor.status === 'pending' && !state.outbound.procurementExtension) actions.append(btn('Ask Procurement for 20 more minutes (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'procurementExtension' })));
     if (state.tasks.client.status === 'pending' && !state.outbound.clientForward) actions.append(btn('Forward Priya the account-note excerpt (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'clientForward' })));
     if (actions.childNodes.length > 1) detail.append(actions);
+    else detail.append(h('div', 'mail-form-result', 'No useful outbound emails are available right now.'));
   }
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
@@ -952,13 +959,19 @@ function renderFiles() {
   else {
     const f = FILES[id]; const t = state.tasks[id];
     detail.append(h('h2', null, f.name), h('div', 'meta', `${f.meta} · ${t.status}`));
+    const inspected = Boolean(state.inspected?.[id]);
     if (id === 'rework' && t.kind === 'vendor') detail.append(h('p', null, 'Procurement found the 30% Halcyon increase after approval and wants an explanation.'));
     else if (id === 'rework' && t.kind === 'client') detail.append(h('p', null, 'The canned client reply did not hold. The issue escalated again.'));
+    else if (!inspected && t.status === 'pending') detail.append(h('p', null, f.body[0]));
     else f.body.forEach((p) => detail.append(h('p', null, p)));
     if (t.status === 'pending') {
-      const actions = h('div', 'file-actions');
-      TASK_OPTIONS[id].forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
-      detail.append(actions);
+      if (!inspected) {
+        detail.append(h('div', 'file-actions', btn('Review supporting details (3 min)', 'btn primary', () => dispatch({ do: 'inspect', id }))));
+      } else {
+        const actions = h('div', 'file-actions');
+        TASK_OPTIONS[id].forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
+        detail.append(actions);
+      }
     }
   }
   return windowShell('files', 'Files', h('div', 'body', list, detail));
