@@ -77,7 +77,7 @@ function narcRisk(s = state) {
   if (s.index < 40) value += 12;
   if (s.standing.status === 'review') value += 35;
   if (s.standing.status === 'trusted') value -= 8;
-  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
+  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
   value += openNarc * 18;
   if (s.narc.adaptation) value += 8;
   value = Math.max(5, Math.min(95, value));
@@ -118,6 +118,36 @@ function narcAssessment(id) {
       missing: 'NARC cannot see the content of any task -- only keyboard, mouse, and calendar traces around it.',
       consequence: state.flags.formalReview ? 'A review is currently open and additional explanation can close it.' : 'This assessment remains part of your employee record and can shape later decisions.',
       action: state.flags.firstNarcReadType === 'low' ? 'Explain the quiet work NARC missed, or leave the assessment unchanged.' : 'Explain what the activity score missed, or leave the assessment unchanged.',
+    };
+  }
+  if (id === 'priyaCase') {
+    return {
+      title: 'Priya Shah · Communication Load review',
+      signal: 'Priya has unusually high message volume across client work, onboarding, and internal chat.',
+      inference: 'NARC interprets the volume as inefficient coordination and a possible productivity risk.',
+      missing: 'The same message count includes client replies, onboarding help, and ordinary social chatter. NARC does not distinguish why each thread exists.',
+      consequence: 'Without context, the review can affect Priya’s employment status.',
+      action: 'Add the work context, advise Priya to reduce message volume, or confirm the flag.',
+    };
+  }
+  if (id === 'luisCase') {
+    return {
+      title: 'Luis Perez · Presence Irregularity review',
+      signal: 'Luis has repeated low-input stretches during scheduled work time.',
+      inference: 'NARC interprets the gaps as inconsistent presence and possible activity manipulation.',
+      missing: 'Luis can still be doing returns, reading carrier notes, or working away from the keyboard during the same gaps.',
+      consequence: 'Without context, the review can escalate to a warning or termination.',
+      action: 'Add the work context, suggest gaming, or leave the case alone.',
+    };
+  }
+  if (id === 'marcusCase') {
+    return {
+      title: 'Marcus Reed · Attendance Integrity review',
+      signal: 'Marcus has repeated late arrivals, including a nine-minute delay today.',
+      inference: 'NARC interprets the pattern as unreliable attendance.',
+      missing: 'Today’s delay has independent transit evidence, even though Marcus also has a real history of being late.',
+      consequence: 'The review can treat today as confirmation of the broader pattern unless someone supplies the evidence.',
+      action: 'Add the transit evidence, confirm the lateness without context, or stay out.',
     };
   }
   if (id === 'narcResponse') {
@@ -661,7 +691,7 @@ function renderChrome() {
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
-    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
+    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
     const count = id === 'messages' ? Math.max(openReq, unreadMessages) + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
