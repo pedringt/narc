@@ -309,7 +309,7 @@ function checkThresholds(s) {
   }
   if (!s.flags.luisBathroomBeat && s.t >= 10 * 60 + 15) {
     s.flags.luisBathroomBeat = true;
-    say(s, 'luis', 'I was away from my desk for six minutes. NARC logged six minutes. Accurate measurement. Extremely incomplete story.');
+    say(s, 'luis', 'I was in the bathroom for six minutes. NARC logged six minutes away from my desk. Accurate measurement. Extremely incomplete story.');
   }
   if (!s.flags.marcusAttendanceBeat && s.t >= 10 * 60 + 15) {
     s.flags.marcusAttendanceBeat = true;
