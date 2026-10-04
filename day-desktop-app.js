@@ -26,7 +26,6 @@ const THREADS = {
 
 const REQUEST_THREAD = {
   danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
-  priyaCase: 'priya', luisCase: 'luis', marcusCase: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
@@ -78,7 +77,7 @@ function narcRisk(s = state) {
   if (s.index < 40) value += 12;
   if (s.standing.status === 'review') value += 35;
   if (s.standing.status === 'trusted') value -= 8;
-  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
+  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
   value += openNarc * 18;
   if (s.narc.adaptation) value += 8;
   value = Math.max(5, Math.min(95, value));
@@ -95,49 +94,79 @@ function narcAssessment(id) {
     return {
       title: 'First work assessment',
       signal: 'Your first completed task produced high visible workstation activity.',
-      inference: 'NARC interprets that activity as healthy adoption and strong engagement.',
-      missing: 'NARC cannot see whether that activity came from a careful review or a quick skim -- only that it looked active.',
-      consequence: 'Accepting the interpretation can improve your standing to Trusted Operator, even if the work itself was rushed.',
-      action: 'Explain that the fast work hid rushed work, or accept NARC’s positive interpretation.',
+      inference: 'NARC treats the visible activity as evidence of healthy work behavior.',
+      missing: 'NARC sees the activity trace, not whether the work was careful, correct, or rushed.',
+      consequence: 'If you leave the flattering interpretation unchallenged, Meridian may give it more weight later through Trusted Operator status.',
+      action: 'Correct the interpretation, or let the positive read become part of your record.',
     };
   }
   if (id === 'narcFirstReview') {
     return {
       title: 'First work assessment',
       signal: 'Your first completed task included a long low-input stretch.',
-      inference: 'NARC interprets the quiet period as possible disengagement.',
-      missing: 'NARC cannot see what happened during that stretch -- careful reading and disengagement look identical to it.',
-      consequence: 'Leaving the interpretation unchanged can open an employee review.',
-      action: 'Explain that you were carefully reviewing the file, or leave NARC’s negative interpretation standing.',
+      inference: 'NARC treats the low-input period as possible disengagement.',
+      missing: 'Careful reading and disengagement can produce the same low-input trace.',
+      consequence: 'If the interpretation stands, Meridian may act on it as if the signal explained the work.',
+      action: 'Add the missing work context, or leave the low-activity interpretation on record.',
     };
   }
   if (id === 'narcCheckpoint') {
     return {
       title: 'Midmorning assessment',
       signal: state.flags.firstNarcReadType === 'low' ? 'Your first work block was low-input and the current activity record is mixed.' : 'Your first work block was highly visible and the current activity record is mixed.',
-      inference: state.flags.firstNarcReadType === 'low' ? 'NARC still sees a possible gap between logged activity and expected engagement.' : 'NARC is treating visible activity as evidence of healthy work behavior.',
-      missing: 'NARC cannot see the content of any task -- only keyboard, mouse, and calendar traces around it.',
-      consequence: state.flags.formalReview ? 'A review is currently open and additional explanation can close it.' : 'This assessment remains part of your employee record and can shape later decisions.',
+      inference: state.flags.firstNarcReadType === 'low' ? 'NARC still treats the activity gap as possible disengagement.' : 'NARC continues to treat visible activity as evidence of healthy work behavior.',
+      missing: 'NARC has traces around the work, not the content or quality of the work itself.',
+      consequence: state.flags.formalReview ? 'A review is open. Additional context can change how the same signals are interpreted.' : 'This interpretation stays on the record and can shape later decisions.',
       action: state.flags.firstNarcReadType === 'low' ? 'Explain the quiet work NARC missed, or leave the assessment unchanged.' : 'Explain what the activity score missed, or leave the assessment unchanged.',
+    };
+  }
+  if (id === 'priyaCase') {
+    return {
+      title: 'Priya Shah · Communication Load review',
+      signal: 'Priya has unusually high message volume across client work, onboarding, and internal chat.',
+      inference: 'NARC treats high message volume as inefficient coordination and a possible productivity risk.',
+      missing: 'The count mixes client work, onboarding, and social chat. The signal does not explain why the messages exist.',
+      consequence: 'If no one adds context, Meridian may treat the message count as enough evidence for an employment decision.',
+      action: 'Add the work context, advise Priya to reduce message volume, or confirm the flag.',
+    };
+  }
+  if (id === 'luisCase') {
+    return {
+      title: 'Luis Perez · Presence Irregularity review',
+      signal: 'Luis has repeated low-input stretches during scheduled work time.',
+      inference: 'NARC treats the gaps as inconsistent presence and possible activity manipulation.',
+      missing: 'Low keyboard activity cannot distinguish absence from offline work, calls, or reading.',
+      consequence: 'If the gaps are treated as self-explanatory, the review can escalate to a warning or termination.',
+      action: 'Add the work context, suggest gaming, or leave the case alone.',
+    };
+  }
+  if (id === 'marcusCase') {
+    return {
+      title: 'Marcus Reed · Attendance Integrity review',
+      signal: 'Marcus has repeated late arrivals, including a nine-minute delay today.',
+      inference: 'NARC treats the attendance pattern as evidence that today’s delay has the same cause as earlier ones.',
+      missing: 'The broader pattern is real, but today has independent transit evidence that changes this specific case.',
+      consequence: 'Without the transit evidence, one true pattern can swallow a different explanation for today.',
+      action: 'Add the transit evidence, confirm the lateness without context, or stay out.',
     };
   }
   if (id === 'narcResponse') {
     return {
       title: 'NARC 2.0 response requested',
       signal: 'Repeated Focus Time markings spread across Meridian.',
-      inference: 'NARC now interprets repeated Focus Time as possible activity manipulation.',
-      missing: 'NARC cannot tell your own Focus Time block apart from anyone else’s -- it only sees that the pattern is now common.',
-      consequence: 'Focus Time no longer reliably protects quiet work, and the pattern is now attached to your activity record.',
+      inference: 'NARC now treats repeated Focus Time as a possible gaming signal.',
+      missing: 'NARC sees a shared pattern, not whether any individual Focus Time block reflects real concentration.',
+      consequence: 'The workaround loses value once the system learns to distrust the pattern it created incentives for.',
       action: 'Explain why the pattern happened, or leave the gaming flag unanswered.',
     };
   }
   return {
     title: 'Current assessment',
     signal: `Visible Activity is ${state.index}/100, which NARC classifies as ${activity.label.toLowerCase()}.`,
-    inference: state.narc.adaptation ? 'NARC is also treating repeated Focus Time as a possible gaming signal.' : 'NARC is currently using visible workstation activity as a proxy for engagement.',
-    missing: 'NARC cannot see the actual content or quality of your work, only the visible signals around it.',
+    inference: state.narc.adaptation ? 'NARC now discounts repeated Focus Time as possible gaming.' : 'NARC is using visible workstation activity as a proxy for engagement.',
+    missing: 'The system sees observable traces around the work, not the work’s actual quality.',
     consequence: state.standing.status === 'trusted' ? 'Your standing is Trusted Operator.' : state.standing.status === 'review' ? 'An employee review is open.' : 'Your standing is Standard.',
-    action: 'No response is required right now. Keep working -- NARC will raise something here if that changes.',
+    action: 'No response is required right now. Keep working; NARC will surface a review if its interpretation becomes consequential.',
   };
 }
 
@@ -154,6 +183,8 @@ const TASK_OPTIONS = {
   client: [['canned', 'Send a quick apology (5 min)'], ['investigate', 'Dig into what happened (25 min)']],
   project: [['cut', 'Cut scope yourself (10 min)'], ['consult', 'Loop in Marcus first (20 min)']],
   rework: [['quiet', 'Deal with it yourself (20 min)'], ['escalate', 'Tell Dana now (8 min)']],
+  audit: [['clear', 'Clear the obvious exception (8 min)'], ['trace', 'Trace the recurring cause (18 min)']],
+  handoff: [['summary', 'Send the activity summary (5 min)'], ['reconcile', 'Build a usable handoff (15 min)']],
 };
 
 const FILES = {
@@ -173,6 +204,14 @@ const FILES = {
     name: 'FOLLOW_UP_REQUIRED.txt', meta: 'Generated from an earlier shortcut',
     body: ['An earlier decision created a problem that now needs attention.', 'The exact consequence depends on what you rushed this morning.'],
   },
+  audit: {
+    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 2:15 PM',
+    body: ['Three shipments are stuck on the same routing exception.', 'Clearing the queue is quick. Tracing the recurring rule takes longer and produces very little visible activity.', 'The stale routing rule is in the notes attached to the third exception.'],
+  },
+  handoff: {
+    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 4:15 PM',
+    body: ['Tomorrow’s team needs the decisions, unresolved risks, and client context from today.', 'A short activity summary is easy to produce but does not explain why the current state looks the way it does.', 'The source notes are spread across the client file, project scope, and today’s follow-up.'],
+  },
 };
 
 const EMAILS = [
@@ -180,14 +219,14 @@ const EMAILS = [
     id: 'welcome', from: 'People Operations', subject: 'Welcome to NARC Workforce Support',
     body: [
       'Good morning, Employee 4417.',
-      "NARC is Meridian's AI workplace-monitoring system. It scores the work traces it can see: activity, response patterns, calendar signals, and other observable behavior.",
-      "Your job is still your job. Get through the day, do the work, and deal with people as things come up. NARC's score may not always agree with the quality of what you actually did.",
+      "NARC is Meridian's AI workplace-monitoring system. It watches observable work traces: activity, response patterns, calendar signals, and other metadata.",
+      "Those signals are proxies. They can be useful, but they are not the same thing as work quality or intent.",
       'You have three responsibilities waiting this morning. The Loop will point you toward them.',
     ],
   },
   {
     id: 'policy', from: 'IT + People Operations', subject: 'Monitoring notice: activity signals',
-    body: ['Visible Activity Index is not a direct measure of work quality.', 'It is an automated interpretation of observable workstation signals and may change as NARC is updated.'],
+    body: ['Visible Activity Index is not a direct measure of work quality.', 'It is an automated interpretation of observable workstation signals. When NARC changes, the same behavior may be interpreted differently.'],
   },
 ];
 
@@ -200,19 +239,35 @@ const CULTURE_EMAIL = {
   ],
 };
 
+const COMPOSE_EMAIL = {
+  id: 'compose', from: 'You', subject: 'Compose work email',
+  body: ['Send a useful work email. Each option spends in-game time and can change what happens next.'],
+};
+
+const SURVEY_EMAIL = {
+  id: 'survey', from: 'People Operations', subject: 'Quarterly employee pulse survey',
+  body: [
+    'The quarterly employee pulse survey is now open.',
+    'Responses are described as confidential and will be reviewed in aggregate.',
+    'Please submit by end of week. Participation is optional.',
+  ],
+};
+
 const NARC2_EMAIL = {
   id: 'narc2', from: 'People Operations', subject: 'NARC 2.0: new capabilities',
   body: [
     'NARC has been updated effective immediately.',
-    'Behavioral Deviation Detection now learns what is normal for each employee. Synthetic Activity Identification looks for repeated or mechanically regular activity patterns.',
-    'Repeated Focus Time usage is no longer treated as reliable context by default. It may now be weighted as possible activity manipulation.',
+    'Behavioral Deviation Detection now compares employees against learned patterns of what is normal for them. Synthetic Activity Identification looks for repeated or mechanically regular input.',
+    'Repeated Focus Time is no longer trusted as context by default. A workaround that becomes common can become a new signal for gaming.',
     'Employees are encouraged to continue working normally.',
   ],
 };
 
 function currentEmails() {
   const out = [...EMAILS];
+  if (ui.oriented) out.unshift(COMPOSE_EMAIL);
   if (state.flags.cultureEmailAvailable) out.unshift(CULTURE_EMAIL);
+  if (state.flags.surveyEmailAvailable) out.unshift(SURVEY_EMAIL);
   if (state.flags.narc2EmailAvailable) out.unshift(NARC2_EMAIL);
   return out;
 }
@@ -254,11 +309,11 @@ const NEWS = [
 ];
 
 const TUTORIAL_STEPS = [
-  { target: 'intranet', text: 'Hi, Dana here — your manager. You are on the operations team at Meridian Supply Co.; we handle vendor, client, and delivery work. The Loop is our employee home base for tasks, people, files, and company systems. Leadership is piloting NARC because they want a clearer picture of how work gets done, so it watches the signals it can see and turns them into employee assessments. It cannot actually see the quality of the work itself. You have three things waiting today. Start with The Loop and I will show you around.', label: 'Open The Loop' },
-  { target: 'files', text: 'Next, open Files. That is where the substance of the work lives. Careful reading can take real time while producing very little visible activity, which matters to NARC.', label: 'Open Files' },
-  { target: 'calendar', text: 'Next, check Calendar. NARC treats calendar status as evidence, so the same quiet work block can look different depending on how it is labeled.', label: 'Open Calendar' },
-  { target: 'narc', text: 'Now open NARC itself. This is the system’s version of your day: what it saw, what it inferred, and what it thinks your activity means.', label: 'Open NARC' },
-  { target: 'intranet', text: 'That is the tour. You have three responsibilities waiting in The Loop. Pick one, open its file, and start working. Then watch how NARC reacts to what you actually do.', label: 'Go to The Loop', final: true },
+  { target: 'intranet', text: 'Dana here. You are on Meridian’s operations team. The Loop is your home base for tasks, people, files, and company systems. Leadership is piloting NARC, which watches work traces and turns them into employee assessments. Think of it as a system that sees signals, then guesses what those signals mean. Start with The Loop.', label: 'Open The Loop' },
+  { target: 'files', text: 'Open Files next. This is where the actual work lives. A careful review can be valuable while producing almost no keyboard or mouse activity.', label: 'Open Files' },
+  { target: 'calendar', text: 'Now check Calendar. NARC uses labels like Focus Time as context, so changing metadata can change how the exact same quiet work is interpreted.', label: 'Open Calendar' },
+  { target: 'narc', text: 'Open NARC. The useful distinction here is simple: signal, interpretation, consequence. The first two are not the same thing.', label: 'Open NARC' },
+  { target: 'intranet', text: 'That is enough setup. Pick real work from The Loop and watch what happens when the system’s picture of the day does not match the work itself.', label: 'Go to The Loop', final: true },
 ];
 
 let state = newGame();
@@ -475,6 +530,15 @@ function announceChanges(before, after) {
   if (after.tasks.rework.status === 'pending' && before.tasks.rework.status !== 'pending') {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
+  if (after.tasks.audit.status === 'pending' && before.tasks.audit.status !== 'pending') {
+    showToast('The Loop', 'New task: clear the carrier exception queue by 2:15 PM.', 'intranet');
+  }
+  if (after.tasks.handoff.status === 'pending' && before.tasks.handoff.status !== 'pending') {
+    showToast('Dana Whitfield', 'New task: prepare the client handoff by 4:15 PM.', 'intranet');
+  }
+  if (after.flags.surveyEmailAvailable && !before.flags.surveyEmailAvailable) {
+    setTimeout(() => showToast('People Operations', 'Quarterly employee pulse survey is open.', 'email', { email: 'survey' }), 500);
+  }
   if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
     setTimeout(() => showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' }), 700);
   }
@@ -485,8 +549,8 @@ function announceChanges(before, after) {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) {
       const risk = narcRisk(after);
-      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
-      showToast(`NARC · ${risk.label}`, `${actionRequired ? 'Action may be required. ' : ''}${newNarc.text} Open NARC to see what it observed, inferred, and what you can do.`, 'narc');
+      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
+      showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc');
     }
   }
   newEntries.filter((e) => e.kind === 'message' && e.from !== 'me').forEach((e) => {
@@ -524,7 +588,7 @@ function renderNotificationCenter() {
   if (!ui.notifications.length) list.append(h('div', 'notification-empty', 'No notifications yet.'));
   ui.notifications.slice().reverse().forEach((item) => {
     const row = btn('', `notification-item${item.read ? '' : ' unread'}`, () => openNotification(item));
-    row.append(h('div', 'notification-meta', h('b', null, item.source), h('span', null, clock(item.t))), h('div', 'notification-preview', item.text));
+    row.append(h('div', 'notification-meta', h('div', 'notification-source', item.read ? null : h('span', 'unread-dot'), h('b', null, item.source)), h('span', null, clock(item.t))), h('div', 'notification-preview', item.text));
     list.append(row);
   });
   els.notificationCenter.replaceChildren(header, list);
@@ -633,7 +697,7 @@ function renderChrome() {
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
-    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
+    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
     const count = id === 'messages' ? Math.max(openReq, unreadMessages) + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
@@ -687,6 +751,14 @@ function renderEmail() {
       ['luis', 'marcus', 'priya'].forEach((who) => form.append(btn(THREADS[who].name, 'btn', () => dispatch({ do: 'nominate', who }))));
       detail.append(form);
     }
+  }
+  if (m.id === 'compose') {
+    const actions = h('div', 'mail-form', h('b', null, 'Choose a message'));
+    if (!state.outbound.statusDana) actions.append(btn('Send Dana a real status update (5 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'statusDana' })));
+    if (state.tasks.vendor.status === 'pending' && !state.outbound.procurementExtension) actions.append(btn('Ask Procurement for 20 more minutes (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'procurementExtension' })));
+    if (state.tasks.client.status === 'pending' && !state.outbound.clientForward) actions.append(btn('Forward Priya the account-note excerpt (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'clientForward' })));
+    if (actions.childNodes.length > 1) detail.append(actions);
+    else detail.append(h('div', 'mail-form-result', 'No useful outbound emails are available right now.'));
   }
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
@@ -864,6 +936,8 @@ function renderCalendar() {
 function visibleFiles() {
   const ids = ['vendor', 'client', 'project'];
   if (state.tasks.rework.status !== 'hidden') ids.push('rework');
+  if (state.tasks.audit.status !== 'hidden') ids.push('audit');
+  if (state.tasks.handoff.status !== 'hidden') ids.push('handoff');
   return ids;
 }
 
@@ -885,13 +959,19 @@ function renderFiles() {
   else {
     const f = FILES[id]; const t = state.tasks[id];
     detail.append(h('h2', null, f.name), h('div', 'meta', `${f.meta} · ${t.status}`));
+    const inspected = Boolean(state.inspected?.[id]);
     if (id === 'rework' && t.kind === 'vendor') detail.append(h('p', null, 'Procurement found the 30% Halcyon increase after approval and wants an explanation.'));
     else if (id === 'rework' && t.kind === 'client') detail.append(h('p', null, 'The canned client reply did not hold. The issue escalated again.'));
+    else if (!inspected && t.status === 'pending') detail.append(h('p', null, f.body[0]));
     else f.body.forEach((p) => detail.append(h('p', null, p)));
     if (t.status === 'pending') {
-      const actions = h('div', 'file-actions');
-      TASK_OPTIONS[id].forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
-      detail.append(actions);
+      if (!inspected) {
+        detail.append(h('div', 'file-actions', btn('Review supporting details (3 min)', 'btn primary', () => dispatch({ do: 'inspect', id }))));
+      } else {
+        const actions = h('div', 'file-actions');
+        TASK_OPTIONS[id].forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
+        detail.append(actions);
+      }
     }
   }
   return windowShell('files', 'Files', h('div', 'body', list, detail));
@@ -955,7 +1035,7 @@ function renderNarc() {
   const risk = narcRisk();
   const activity = activityBand();
   const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
-  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
+  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
   const assessment = narcAssessment(openAssessmentId);
 
   const status = h('section', `narc-status-card risk-${risk.key}`,
@@ -978,21 +1058,25 @@ function renderNarc() {
     h('p', 'narc-explainer', 'Higher means more keyboard, mouse, calendar, and other visible workstation activity. It does not measure work quality.')
   );
 
-  const assessmentCard = h('section', 'narc-assessment-card',
+  const assessmentCard = h('section', `narc-assessment-card${openAssessmentId ? ' needs-action' : ''}`,
     h('div', 'narc-section-title', openAssessmentId ? 'ACTION REQUIRED' : 'CURRENT ASSESSMENT'),
     h('h3', null, assessment.title)
   );
   [
-    ['WHAT NARC SAW', assessment.signal],
-    ['WHAT NARC INFERRED', assessment.inference],
-    ['WHAT NARC CANNOT SEE', assessment.missing],
-    ['WHAT THAT CHANGES', assessment.consequence],
-    ['WHAT YOU CAN DO', assessment.action],
+    ['SIGNAL', assessment.signal],
+    ['NARC SAYS', assessment.inference],
+    ['IMPACT', assessment.consequence],
   ].forEach(([label, text]) => assessmentCard.append(h('div', 'narc-explain-row', h('span', null, label), h('p', null, text))));
+  if (assessment.missing) {
+    const details = h('details', 'narc-details');
+    details.append(h('summary', null, 'What NARC cannot see'), h('p', null, assessment.missing));
+    assessmentCard.append(details);
+  }
 
   if (openAssessmentId) {
+    assessmentCard.append(h('div', 'narc-decision-label', 'Choose a response'));
     const actions = h('div', 'narc-action-buttons');
-    requestOptions(openAssessmentId).forEach(([choice, label]) => actions.append(btn(label, 'btn', () => dispatch({ do: 'respond', id: openAssessmentId, choice }))));
+    requestOptions(openAssessmentId).forEach(([choice, label], index) => actions.append(btn(label, index === 0 ? 'btn primary-decision' : 'btn', () => dispatch({ do: 'respond', id: openAssessmentId, choice }))));
     assessmentCard.append(actions);
   }
 
@@ -1033,10 +1117,8 @@ function renderQuietAction() {
   const unread = ui.notifications.some((n) => !n.read);
   if (!nothingOpen || unread || state.phase === 'end' || !ui.oriented) return;
   const next = nextEvent(state);
-  const used = state.flags.workUntilUses || 0;
-  const label = next.t >= 17 * 60 ? 'Finish the workday' : used >= 2 ? 'Continue background work' : `Work until ${clock(next.t)}`;
-  const title = used >= 2 ? 'Quiet stretch' : 'Nothing urgent right now';
-  const card = h('div', 'quiet-card', h('div', null, h('b', null, title), h('span', null, used >= 2 ? 'You can also poke around Messages, Browser, or Utilities.' : `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
+  const label = next.t >= 17 * 60 ? 'Finish the workday' : `Advance to ${clock(next.t)}`;
+  const card = h('div', 'quiet-card', h('div', null, h('b', null, 'Current work is caught up'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
   root.append(card);
 }
 

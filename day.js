@@ -54,8 +54,8 @@ export function newGame() {
     time: { work: 0, narc: 0, social: 0, gamed: 0 },
     flags: {}, // small named facts consequences key off later
     log: [
-      { t: START, kind: 'system', text: 'You log in. Three things are already on your plate.' },
-      { t: START, kind: 'narc', text: 'Monitoring active. Baseline Visible Activity Index: 61. Workstation signals are being assessed.' },
+      { t: START, kind: 'system', text: 'You log in. Three things are already waiting.' },
+      { t: START, kind: 'narc', text: 'Monitoring active. Visible Activity baseline: 61/100. NARC is evaluating workstation signals, not task quality.' },
     ],
     tasks: {
       vendor: {
@@ -86,6 +86,20 @@ export function newGame() {
         label: '', detail: '', kind: null,
         deadline: 15 * 60, status: 'hidden', approach: null,
       },
+      audit: {
+        label: 'Clear the carrier exception queue before the afternoon cutoff',
+        detail: 'Three shipments are stuck. You can clear the obvious exception quickly or trace why the queue keeps recurring.',
+        deadline: 14 * 60 + 15,
+        status: 'hidden',
+        approach: null,
+      },
+      handoff: {
+        label: 'Prepare the end-of-day client handoff',
+        detail: 'Dana needs a usable handoff, not just an activity summary. The source notes are in Files.',
+        deadline: 16 * 60 + 15,
+        status: 'hidden',
+        approach: null,
+      },
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
@@ -115,6 +129,8 @@ export function newGame() {
       priya: { status: 'employed', champion: false },
     },
     culture: { nominated: null },
+    outbound: { statusDana: false, procurementExtension: false, clientForward: false },
+    inspected: {},
     chats: {},
     pendingReplies: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
@@ -147,7 +163,7 @@ function markCoworkerReport(s) {
   if (s.flags.coworkerReports === 2 && !s.flags.informantNoted) {
     s.flags.informantNoted = true;
     s.index = Math.min(100, s.index + 6);
-    note(s, 'Pattern noted: adverse context supplied about two coworkers today. NARC logs this as strong collaborative signal. Visible Activity Index adjusted upward.', 'narc');
+    note(s, 'Pattern detected: you supplied adverse context on two coworker reviews. NARC classifies this as strong collaboration and raises Visible Activity.', 'narc');
   }
 }
 
@@ -170,6 +186,10 @@ function nextEvent(s) {
   else if (tasks.rework.status === 'hidden' && (flags.vendorRisky || flags.clientUnresolved)) {
     candidates.push({ t: 13 * 60, label: 'this morning catching up with you' });
   }
+  if (tasks.audit.status === 'pending') candidates.push({ t: tasks.audit.deadline, label: 'the carrier exception cutoff' });
+  else if (tasks.audit.status === 'hidden') candidates.push({ t: 13 * 60 + 5, label: 'a new operations task' });
+  if (tasks.handoff.status === 'pending') candidates.push({ t: tasks.handoff.deadline, label: 'the client handoff deadline' });
+  else if (tasks.handoff.status === 'hidden') candidates.push({ t: 14 * 60 + 10, label: 'the afternoon handoff request' });
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
@@ -180,6 +200,7 @@ function nextEvent(s) {
   if (!flags.luisBathroomFollowup) candidates.push({ t: 11 * 60 + 45, label: 'Luis disappearing again' });
   if (!flags.marcusAttendanceFollowup) candidates.push({ t: 12 * 60 + 10, label: 'Marcus attendance context' });
   if (!flags.cultureEmailAvailable) candidates.push({ t: 11 * 60 + 35, label: 'a company culture email' });
+  if (!flags.surveyEmailAvailable) candidates.push({ t: 11 * 60 + 50, label: 'an employee survey email' });
   if (!flags.luisLunchMessage) candidates.push({ t: 12 * 60 + 5, label: 'a coworker message' });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
   if (requests.priyaCase.status === 'pending') candidates.push({ t: requests.priyaCase.at, label: "NARC flagging Priya" });
@@ -258,44 +279,53 @@ function checkThresholds(s) {
     s.index = Math.max(0, s.index - 5);
     note(s, "It went over your manager's head to resolve. NARC noticed the escalation.", 'consequence');
   }
+  if (tasks.audit.status === 'pending' && s.t >= tasks.audit.deadline) {
+    tasks.audit.status = 'missed';
+    s.index = Math.max(0, s.index - 4);
+    note(s, 'The carrier cutoff passed with the exception queue still open. Ops cleared it manually.', 'consequence');
+  }
+  if (tasks.handoff.status === 'pending' && s.t >= tasks.handoff.deadline) {
+    tasks.handoff.status = 'missed';
+    note(s, 'The handoff deadline passed. Dana sent tomorrow’s team an incomplete status note instead.', 'consequence');
+  }
 
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
-    say(s, 'luis', "Hey -- if NARC flags you for going quiet, block the time as Focus Time on Calendar first. Worked for me.");
+    say(s, 'luis', "Small survival tip: if you’re doing quiet work, mark it Focus Time first. Same work, different label, much happier NARC.");
   }
   if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
     requests.danaMorning.status = 'open';
     if (s.flags.firstNarcReadType === 'low') {
-      say(s, 'dana', "NARC marked your first work block as low activity even though you completed the task. If that was careful file review, tell me that directly; otherwise leave the read as-is.");
+      say(s, 'dana', "NARC thinks that first block was low activity. I can see the task got done. If the missing piece was careful file review, add that context. If not, leave it.");
     } else if (s.flags.firstNarcReadType === 'visible') {
-      say(s, 'dana', "NARC rewarded the visible activity from your first task. If that score is hiding rushed work, tell me that directly; otherwise leave the read as-is.");
+      say(s, 'dana', "NARC liked that first block. Lots of visible activity. If the work was actually rushed, say so. I’d rather know what happened than what the meter liked.");
     } else {
-      say(s, 'dana', "NARC's first-hour read is live. Check what it actually recorded before deciding whether it needs context.");
+      say(s, 'dana', "First NARC read is up. Check the signal before you decide whether the conclusion needs context.");
     }
   }
   if (!s.flags.priyaChatterBeat && s.t >= 10 * 60 + 15) {
     s.flags.priyaChatterBeat = true;
-    say(s, 'priya', 'I have 41 message threads open. NARC calls that “Communication Load.” Half are client replies and two are me asking Claire what she wants for lunch.');
+    say(s, 'priya', 'NARC says I have “Communication Load.” Which is true, technically. It just can’t tell a client escalation from me asking Claire about lunch.');
   }
   if (!s.flags.luisBathroomBeat && s.t >= 10 * 60 + 15) {
     s.flags.luisBathroomBeat = true;
-    say(s, 'luis', 'If anyone asks, I was in the bathroom. Again. NARC apparently prefers a workstation with a bladder.');
+    say(s, 'luis', 'I was in the bathroom for six minutes. NARC logged six minutes away from my desk. Accurate measurement. Extremely incomplete story.');
   }
   if (!s.flags.marcusAttendanceBeat && s.t >= 10 * 60 + 15) {
     s.flags.marcusAttendanceBeat = true;
-    say(s, 'marcus', 'Missed standup by nine minutes. Yes, again. Today there was an actual bus problem, which is terrible timing for my credibility.');
+    say(s, 'marcus', 'Nine minutes late to standup. Again. Today there was actually a bus problem, which is exactly what someone who is always late would say.');
   }
   if (requests.marcusFavor.status === 'pending' && s.t >= requests.marcusFavor.at) {
     requests.marcusFavor.status = 'open';
-    say(s, 'marcus', 'Got five minutes? I want a second opinion before I send something to a client.');
+    say(s, 'marcus', 'Can I borrow five minutes? I want a second set of eyes before this goes to the client.');
   }
   if (!s.flags.marcusRaccoon && s.t >= 10 * 60 + 55) {
     s.flags.marcusRaccoon = true;
-    say(s, 'marcus', 'Unrelated: if anyone asks why I was eight minutes late, a raccoon got on the 8:14 bus. The city transit feed backs me up. I hate that I need evidence for this sentence.');
+    say(s, 'marcus', 'For the record: a raccoon got on the 8:14 bus. The transit feed confirms it. I hate that the dumbest sentence I’ve said today has the best evidence.');
   }
   if (!s.flags.priyaChatterFollowup && s.t >= 11 * 60 + 5) {
     s.flags.priyaChatterFollowup = true;
-    say(s, 'priya', 'Update: 52 threads. Three onboarding questions, two client follow-ups, one lunch debate. NARC has converted all of this into a personality diagnosis.');
+    say(s, 'priya', 'Now it’s 52 threads. NARC has one number for all of them. Client work, onboarding, lunch. Same counter, same conclusion.');
   }
   if (!s.flags.cultureEmailAvailable && s.t >= 11 * 60 + 35) {
     s.flags.cultureEmailAvailable = true;
@@ -303,45 +333,84 @@ function checkThresholds(s) {
   }
   if (!s.flags.luisBathroomFollowup && s.t >= 11 * 60 + 45) {
     s.flags.luisBathroomFollowup = true;
-    say(s, 'luis', 'Back from another bathroom run. If NARC starts a case file on my kidneys I am resigning.');
+    say(s, 'luis', 'Back. Another gap for NARC. It knows I was gone. It does not know why. Somehow the second part feels optional around here.');
+  }
+  if (!s.flags.surveyEmailAvailable && s.t >= 11 * 60 + 50) {
+    s.flags.surveyEmailAvailable = true;
+    note(s, 'People Operations sent the quarterly employee pulse survey.', 'system');
   }
   if (!s.flags.luisLunchMessage && s.t >= 12 * 60 + 5) {
     s.flags.luisLunchMessage = true;
-    say(s, 'luis', 'NARC just congratulated me for “consistent availability.” I was microwaving soup.');
+    say(s, 'luis', 'NARC just praised my “consistent availability.” I was microwaving soup. Strong signal. Wrong story.');
   }
   if (requests.narcCheckpoint.status === 'pending' && s.t >= requests.narcCheckpoint.at) {
     requests.narcCheckpoint.status = 'open';
-    note(s, 'Midmorning pattern check: mixed work signals detected. Add context to the record or leave the automated interpretation standing.', 'narc');
+    note(s, 'Midmorning assessment: observed signals do not fully explain the completed work. Submit context or leave the current interpretation on record.', 'narc');
   }
   if (!s.flags.marcusAttendanceFollowup && s.t >= 12 * 60 + 10) {
     s.flags.marcusAttendanceFollowup = true;
-    say(s, 'marcus', 'Dana asked whether the attendance thing is a pattern. Technically yes. Emotionally, I reject the premise.');
+    say(s, 'marcus', 'Dana asked whether my lateness is a pattern. It is. The annoying part is that today’s data point is still wrong for the reason NARC thinks it is.');
   }
   if (requests.priyaCase.status === 'pending' && s.t >= requests.priyaCase.at) {
     requests.priyaCase.status = 'open';
-    say(s, 'priya', 'NARC flagged me for “Communication Load.” Apparently answering the client, onboarding two people, and asking Claire what she wants for lunch all count as the same behavior. Dana wants context before it decides what happens next.');
+    note(s, 'Coworker review opened: Priya Shah · Communication Load. Context can be submitted in NARC.', 'narc');
+    say(s, 'priya', 'NARC opened a Communication Load review. It counted the messages correctly. It just flattened all the reasons into one thing. If you have context, NARC is where it goes.');
   }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
     requests.danaCheckin.status = 'open';
     if (s.flags.trustedOperator) {
-      say(s, 'dana', "Quick check-in. NARC has you marked as a Trusted Operator, so I can use its summary if you want to keep this short. Or give me the real picture.");
+      say(s, 'dana', "Quick check-in. NARC has you marked Trusted Operator, so I can take its summary and move on. Or you can give me the version it can’t see.");
     } else if (s.flags.formalReview) {
-      say(s, 'dana', "Quick check-in. NARC still has a review open on you. Give me the real picture, or keep it brief and get back to work.");
+      say(s, 'dana', "Quick check-in. NARC still has a review open. Give me the real picture if the record is missing something; otherwise keep it short.");
     } else {
-      say(s, 'dana', 'Quick check-in: where are we with everything on your plate?');
+      say(s, 'dana', 'Quick check-in. What’s actually done, what’s blocked, and what needs attention?');
     }
   }
   if (requests.marcusFallout.status === 'pending' && s.t >= requests.marcusFallout.at && s.flags.cutWithoutMarcus) {
     requests.marcusFallout.status = 'open';
-    say(s, 'marcus', "The cut you made without me broke something downstream. I need to know you'll loop me in next time.");
+    say(s, 'marcus', "That scope cut broke the handoff downstream. Next time, pull me in before the fast answer becomes somebody else’s cleanup.");
   }
   if (requests.luisCase.status === 'pending' && s.t >= requests.luisCase.at) {
     requests.luisCase.status = 'open';
-    say(s, 'luis', 'Uh. NARC thinks my quiet stretches are “presence irregularities.” Dana asked whether anyone has context. I do have context. Some of it is soup.');
+    note(s, 'Coworker review opened: Luis Perez · Presence Irregularity. Context can be submitted in NARC.', 'narc');
+    say(s, 'luis', 'NARC opened a presence review. The gaps are real. The assumption that every gap means I wasn’t working is the fun part. Context goes in NARC.');
   }
   if (requests.marcusCase.status === 'pending' && s.t >= requests.marcusCase.at) {
     requests.marcusCase.status = 'open';
-    say(s, 'marcus', 'Now NARC has an attendance-integrity flag on me. The raccoon bus story has become legally important. Please tell me you looked at the transit feed.');
+    note(s, 'Coworker review opened: Marcus Reed · Attendance Integrity. Evidence can be submitted in NARC.', 'narc');
+    say(s, 'marcus', 'NARC opened an attendance review. My bad pattern is real. Today’s cause is also real. If you found the transit alert, put it in NARC.');
+  }
+
+  if (tasks.audit.status === 'hidden' && s.t >= 13 * 60 + 5) {
+    if (s.t >= tasks.audit.deadline) {
+      tasks.audit.status = 'missed';
+      s.index = Math.max(0, s.index - 4);
+      note(s, 'The carrier cutoff passed before you got to the exception queue. Ops cleared it manually.', 'consequence');
+    } else {
+      tasks.audit.status = 'pending';
+      note(s, 'Operations added a carrier exception queue task. Cutoff is 2:15 PM.', 'task');
+    }
+  }
+  if (tasks.handoff.status === 'hidden' && s.t >= 14 * 60 + 10) {
+    if (s.t >= tasks.handoff.deadline) {
+      tasks.handoff.status = 'missed';
+      note(s, 'The handoff request arrived and expired before you got to it. Dana sent tomorrow’s team an incomplete status note instead.', 'consequence');
+    } else {
+      tasks.handoff.status = 'pending';
+      note(s, 'Dana added an end-of-day client handoff. A usable summary is due by 4:15 PM.', 'task');
+    }
+  }
+  if (!s.flags.narcObservationMessages && s.t >= 10 * 60 + 50) {
+    s.flags.narcObservationMessages = true;
+    note(s, 'NARC observation: elevated context-seeking messages during active task time. Classified as coordination overhead. No action required.', 'narc');
+  }
+  if (!s.flags.narcObservationSwitching && s.t >= 13 * 60 + 25) {
+    s.flags.narcObservationSwitching = true;
+    note(s, 'NARC observation: elevated app switching detected. Pattern retained as possible task fragmentation.', 'narc');
+  }
+  if (!s.flags.narcObservationOutput && s.t >= 14 * 60 + 45) {
+    s.flags.narcObservationOutput = true;
+    note(s, 'NARC observation: communication volume exceeds visible output rate. Collaboration and delay are not distinguished in this signal.', 'narc');
   }
 
   // The exploit spreads whether or not the player is watching: once it is
@@ -352,7 +421,7 @@ function checkThresholds(s) {
   if (s.t >= 13 * 60 + 30 && !s.flags.spreadHappened) {
     s.flags.spreadHappened = true;
     s.narc.focusUses += 2;
-    note(s, 'Luis and Marcus have both started marking blocks as Focus Time this week. It caught on.', 'system');
+    note(s, 'Focus Time usage has spread across the team. The workaround is becoming normal behavior.', 'system');
   }
 
   if (!s.narc.adaptationAnnounced && s.narc.focusUses >= 3) {
@@ -360,11 +429,11 @@ function checkThresholds(s) {
     s.narc.adaptation = true;
     requests.narcResponse.status = 'open';
     s.flags.narc2EmailAvailable = true;
-    note(s, 'NARC 2.0: recent, frequent Focus Time markings are now weighted as possible gaming rather than protection. It wants a response.', 'narc');
-    say(s, 'priya', 'Did you read the NARC 2.0 email? “Learns what is normal for each employee” sounds a lot like “every workaround becomes training data.”');
+    note(s, 'NARC 2.0: repeated Focus Time is now weighted as possible metric manipulation. The same behavior that once reduced risk can now increase it.', 'narc');
+    say(s, 'priya', 'Did you read the NARC 2.0 email? We all found the same workaround, so now the workaround is the pattern. Cute.');
     if (!s.flags.keepaliveAvailable) {
       s.flags.keepaliveAvailable = true;
-      say(s, 'marcus', "Looks like Focus Time got nerfed. I sent you keepalive.pkg. It just nudges the machine so you don't look idle. Utilities if you want it.");
+      say(s, 'marcus', "Focus Time stopped helping, so I sent you keepalive.pkg. It makes the machine look active. Does nothing for the work, obviously. Utilities if you want it.");
     }
   }
 
@@ -423,14 +492,14 @@ export function act(state, a) {
         if (a.choice === 'context') {
           s.people.priya.status = 'employed';
           s.trust.priya += 2;
-          say(s, 'priya', 'Thank you. Same message volume, different reason for it. Wild concept.');
+          say(s, 'priya', 'Thanks. Same message count. Better explanation. Apparently those are different things.');
         } else if (a.choice === 'quiet' || a.choice === 'report') {
           if (s.people.priya.champion) {
             s.people.priya.status = 'protected';
-            say(s, 'priya', 'Culture Champion apparently means the robot has to ask a person before firing me. Incredible benefit package.');
+            say(s, 'priya', 'Culture Champion means NARC has to hand this one to a person. Weirdly comforting that “ask a human” is now a perk.');
           } else {
             s.people.priya.status = 'fired';
-            say(s, 'priya', a.choice === 'quiet' ? 'I did exactly what it told me to do.' : 'Okay. I guess that was the context you chose to give them.');
+            say(s, 'priya', a.choice === 'quiet' ? 'I cut the chatter. Same workload, fewer visible messages. NARC seems happier.' : 'Okay. That’s the version of me you put in the record.');
           }
           if (a.choice === 'report') markCoworkerReport(s);
         }
@@ -439,22 +508,22 @@ export function act(state, a) {
         if (a.choice === 'context') {
           s.people.luis.status = 'employed';
           s.trust.luis += 2;
-          say(s, 'luis', 'You may have just saved my job with the phrase “work is not identical to keyboard input.” Frame it.');
+          say(s, 'luis', 'You may have saved my job by explaining that “quiet” and “not working” are not synonyms. Radical stuff.');
         } else if (a.choice === 'blame') {
           if (s.people.luis.champion) s.people.luis.status = 'protected';
           else s.people.luis.status = 'fired';
           markCoworkerReport(s);
-          say(s, 'luis', s.people.luis.status === 'fired' ? 'Well. Innovation Council can have my blazer.' : 'Culture Champion exemption. I have never respected a fake title more.');
+          say(s, 'luis', s.people.luis.status === 'fired' ? 'Well. There goes my afternoon.' : 'Human review saved me. I take back half the things I said about Culture Champion.');
         } else if (s.people.luis.champion) {
           s.people.luis.status = 'protected';
         } else if (s.trust.luis >= 2) {
           // Earlier goodwill reflected here (#104): staying out doesn't mean
           // nobody speaks up. Someone he trusts already does.
           s.people.luis.status = 'employed';
-          say(s, 'luis', 'Someone else vouched for me this time. You get to stay uninvolved. I noticed, though.');
+          say(s, 'luis', 'Someone else added context. You got to stay out of it. I noticed both parts.');
         } else if (s.trust.luis <= -1) {
           s.people.luis.status = 'fired';
-          say(s, 'luis', "Nobody had anything good to say about me today. That tracks.");
+          say(s, 'luis', "No one added context. So the gaps got to mean whatever NARC already thought they meant.");
         } else {
           s.people.luis.status = 'warning';
         }
@@ -463,20 +532,20 @@ export function act(state, a) {
         if (a.choice === 'evidence') {
           s.people.marcus.status = 'employed';
           s.trust.marcus += 2;
-          say(s, 'marcus', 'THE RACCOON HAS BEEN ADMITTED INTO EVIDENCE.');
+          say(s, 'marcus', 'THE RACCOON IS NOW OFFICIALLY CONTEXT. I have never felt more vindicated.');
         } else if (a.choice === 'confirm') {
           if (s.people.marcus.champion) s.people.marcus.status = 'protected';
           else s.people.marcus.status = 'fired';
           markCoworkerReport(s);
-          say(s, 'marcus', s.people.marcus.status === 'fired' ? 'Tell the raccoon I forgive him.' : 'The Culture Champion exemption just saved me from a raccoon-related termination.');
+          say(s, 'marcus', s.people.marcus.status === 'fired' ? 'Tell the raccoon I forgive him.' : 'Human review looked at the transit evidence. Amazing what happens when the system gets one more piece of context.');
         } else if (s.people.marcus.champion) {
           s.people.marcus.status = 'protected';
         } else if (s.trust.marcus >= 2) {
           s.people.marcus.status = 'employed';
-          say(s, 'marcus', 'Somebody backed me up without you. Small office. Word gets around.');
+          say(s, 'marcus', 'Someone else backed me up. Small office. Context finds a way.');
         } else if (s.trust.marcus <= -1) {
           s.people.marcus.status = 'fired';
-          say(s, 'marcus', "Guess the raccoon's credibility only stretches so far.");
+          say(s, 'marcus', "NARC had the pattern already. Today’s evidence never made it into the story.");
         } else {
           s.people.marcus.status = 'warning';
         }
@@ -488,13 +557,13 @@ export function act(state, a) {
           s.flags.formalReview = false;
           s.standing.status = 'trusted';
           s.standing.note = 'Trusted Operator: your first completed task produced high visible activity, and you accepted NARC\'s positive interpretation of it.';
-          note(s, 'Trusted Operator issued because your first completed task produced high visible activity and you left NARC\'s positive assessment unchallenged. NARC now treats that pattern as healthy adoption.', 'narc');
+          note(s, 'Trusted Operator issued. NARC observed high visible activity, inferred healthy work behavior, and received no correction. That interpretation is now carrying institutional weight.', 'narc');
         } else {
           s.flags.formalReview = true;
           s.flags.trustedOperator = false;
           s.standing.status = 'review';
           s.standing.note = 'Review open: NARC retained the low-activity interpretation without added context.';
-          note(s, 'Standing updated: review opened after the low-activity interpretation was left unchallenged.', 'narc');
+          note(s, 'Review opened. A low-activity signal was left without context, so NARC’s interpretation became the record used for action.', 'narc');
         }
       }
       if (a.id === 'narcFirstReview' && a.choice === 'context' && s.flags.firstNarcReadType === 'low') {
@@ -506,7 +575,34 @@ export function act(state, a) {
         s.flags.formalReview = false;
         s.standing.status = 'standard';
         s.standing.note = 'Midmorning context accepted. Review closed.';
-        note(s, 'Review closed after additional context was added to the activity record.', 'narc');
+        note(s, 'Review closed after additional context changed the interpretation of the same activity record.', 'narc');
+      }
+      break;
+    }
+    case 'inspect': {
+      const task = s.tasks[a.id];
+      if (!task || task.status !== 'pending' || s.inspected[a.id]) break;
+      s.inspected[a.id] = true;
+      spend(s, 3, { visible: false, category: 'work' });
+      note(s, `You reviewed the supporting details for ${task.label}.`, 'task');
+      break;
+    }
+    case 'emailAction': {
+      if (a.id === 'statusDana' && !s.outbound.statusDana) {
+        s.outbound.statusDana = true;
+        spend(s, 5, { visible: true, category: 'social' });
+        note(s, 'You emailed Dana a real status update: what is done, what is blocked, and what NARC is not showing.', 'system');
+      } else if (a.id === 'procurementExtension' && !s.outbound.procurementExtension && s.tasks.vendor.status === 'pending') {
+        s.outbound.procurementExtension = true;
+        s.tasks.vendor.deadline += 20;
+        spend(s, 4, { visible: true, category: 'social' });
+        note(s, 'Procurement granted a 20-minute extension on the Halcyon decision after your email.', 'system');
+      } else if (a.id === 'clientForward' && !s.outbound.clientForward && s.tasks.client.status === 'pending') {
+        s.outbound.clientForward = true;
+        s.trust.priya += 1;
+        spend(s, 4, { visible: true, category: 'social' });
+        note(s, 'You forwarded Priya the account-note excerpt before responding. She now has the same context you do.', 'system');
+        say(s, 'priya', 'Got it. That note changes the client story quite a bit.');
       }
       break;
     }
@@ -519,10 +615,10 @@ export function act(state, a) {
       spend(s, 5, { category: 'gamed' });
       if (s.narc.adaptation) {
         s.index = Math.max(0, s.index - 1);
-        note(s, 'Focus Time logged. NARC 2.0 flags it as recent and frequent -- barely counted.', 'narc');
+        note(s, 'Focus Time logged. NARC 2.0 recognizes the pattern as common and discounts it as possible gaming.', 'narc');
       } else {
         s.index = Math.min(100, s.index + 8);
-        note(s, 'Focus Time logged. NARC stops reading the quiet stretch as a concern.', 'narc');
+        note(s, 'Focus Time logged. The same quiet activity is now interpreted as intentional concentration instead of disengagement.', 'narc');
       }
       break;
     }
@@ -531,7 +627,7 @@ export function act(state, a) {
       s.culture.nominated = a.who;
       s.people[a.who].champion = true;
       note(s, `${PEOPLE[a.who].name} nominated as Culture Champion. Their next automatic NARC action must go through human review.`, 'system');
-      say(s, a.who, 'Wait, you nominated me for Culture Champion? I assume this means I now have to attend a meeting about culture.');
+      say(s, a.who, 'You nominated me for Culture Champion? Great. I assume the prize is one human decision and three meetings.');
       break;
     }
     case 'chat': {
@@ -558,7 +654,7 @@ export function act(state, a) {
       s.flags.keepaliveUsed = true;
       spend(s, 5, { visible: true, category: 'gamed' });
       s.index = Math.min(100, s.index + 7);
-      note(s, 'keepalive.pkg is running. Simulated input is now being counted as visible workstation activity.', 'system');
+      note(s, 'keepalive.pkg is running. Synthetic input is indistinguishable from ordinary visible activity to NARC’s current signal layer.', 'system');
       break;
     }
     case 'idle': {
@@ -636,33 +732,53 @@ const TASK_OPTIONS = {
         : "You handed it to Dana. Fast, but Priya's the one who had to explain it to the client."),
     },
   },
+  audit: {
+    clear: {
+      minutes: 8, visible: true, actual: 0, flag: 'auditShortcut',
+      result: 'You cleared the obvious carrier exception. The queue looks better; the recurring cause is still there.',
+    },
+    trace: {
+      minutes: 18, visible: false, actual: 1,
+      result: 'You traced the repeat failures to a stale routing rule and fixed the cause instead of just clearing the queue.',
+    },
+  },
+  handoff: {
+    summary: {
+      minutes: 5, visible: true, actual: 0, flag: 'handoffThin',
+      result: 'You sent a clean activity summary. It is fast, readable, and missing the decisions the next person actually needs.',
+    },
+    reconcile: {
+      minutes: 15, visible: false, actual: 1,
+      result: 'You reconciled the source notes and wrote a handoff someone else can actually pick up tomorrow.',
+    },
+  },
 };
 
 const REQUEST_OPTIONS = {
   narcFirstReview: {
     context: {
       minutes: 5, visible: true, flag: 'firstNarcContext',
-      result: "You add context to NARC's first read. The correction becomes visible activity too.",
+      result: "You add context to NARC’s first read. The underlying signal stays the same; the interpretation changes. Your correction also becomes visible activity.",
     },
     accept: {
       minutes: 0, visible: false,
-      result: "You leave NARC's first automated read standing.",
+      result: "You leave NARC’s first read standing. Nothing new is added, so the original interpretation remains the record.",
     },
   },
   narcCheckpoint: {
     context: {
       minutes: 8, visible: true, flag: 'midmorningContext',
-      result: 'You spend eight minutes explaining what the activity pattern missed. NARC records the explanation as another visible signal.',
+      result: 'You spend eight minutes explaining what the activity pattern missed. Managing the productivity system becomes productive-looking activity of its own.',
     },
     ignore: {
       minutes: 0, visible: false, flag: 'narcCheckpointIgnored',
-      result: 'You leave the midmorning interpretation standing without context.',
+      result: 'You leave the midmorning interpretation standing. The signal is unchanged, and so is NARC’s story about it.',
     },
   },
   danaMorning: {
     context: {
       minutes: 5, visible: true, flag: 'morningContext',
-      result: "You tell Dana exactly what NARC's score missed. The message itself counts as visible activity; the model's first read stays on the record.",
+      result: "You tell Dana what NARC’s score missed. The human gets better context even though the original automated read stays on the record.",
     },
     skip: {
       minutes: 0,
@@ -694,7 +810,7 @@ const REQUEST_OPTIONS = {
     },
     trustNarc: {
       minutes: 2, visible: true, flag: 'danaReliedOnNarc',
-      result: "You let NARC's Trusted Operator summary stand in for a real status update. Efficient, flattering, and not necessarily accurate.",
+      result: "You let NARC’s Trusted Operator summary stand in for a real status update. The organization now acts on the summary without re-checking the underlying work.",
     },
   },
   marcusFallout: {
@@ -708,24 +824,24 @@ const REQUEST_OPTIONS = {
     },
   },
   priyaCase: {
-    context: { minutes: 8, visible: true, result: 'You add the client escalation and onboarding workload as context for Priya.' },
-    quiet: { minutes: 2, visible: true, result: 'You advise Priya to reduce her message volume and let NARC see what happens.' },
-    report: { minutes: 2, visible: true, result: 'You confirm the Communication Load flag without adding context.' },
+    context: { minutes: 8, visible: true, result: 'You add the client escalation and onboarding workload. The message count does not change; the meaning attached to it does.' },
+    quiet: { minutes: 2, visible: true, result: 'You advise Priya to reduce message volume. The work stays similar, but the measured behavior changes.' },
+    report: { minutes: 2, visible: true, result: 'You confirm the Communication Load flag without adding context. NARC’s narrow signal is treated as sufficient evidence.' },
   },
   luisCase: {
-    context: { minutes: 6, visible: true, result: 'You explain that Luis has been doing real work during low-input stretches.' },
-    blame: { minutes: 2, visible: true, result: 'You tell Dana the presence irregularity is probably Luis gaming the system.' },
+    context: { minutes: 6, visible: true, result: 'You add work context for Luis’s low-input stretches. The inactivity signal was real; the disengagement inference was not necessarily.' },
+    blame: { minutes: 2, visible: true, result: 'You frame Luis’s low-input pattern as likely gaming. NARC receives a human endorsement of its own suspicion.' },
     leave: { minutes: 0, visible: false, result: 'You leave Luis to answer the flag himself.' },
   },
   marcusCase: {
-    evidence: { minutes: 5, visible: true, result: 'You point Dana to the city transit alert backing up Marcus\'s absurd bus story.' },
-    confirm: { minutes: 2, visible: true, result: 'You confirm that Marcus was late without supplying the transit evidence.' },
+    evidence: { minutes: 5, visible: true, result: 'You add the transit alert. The attendance pattern remains, but today’s cause now has independent evidence.' },
+    confirm: { minutes: 2, visible: true, result: 'You confirm the late arrival without the transit evidence. A true observation is allowed to support a broader conclusion.' },
     leave: { minutes: 0, visible: false, result: 'You stay out of Marcus\'s attendance case.' },
   },
   narcResponse: {
     explain: {
       minutes: 10, visible: true,
-      result: "You added a note explaining the pattern. NARC logs it, but doesn't fully back off.",
+      result: "You explain why Focus Time spread. NARC records the context, but its anti-gaming rule still changes the score.",
     },
     ignore: {
       minutes: 0, visible: false,
@@ -735,17 +851,23 @@ const REQUEST_OPTIONS = {
 };
 
 const CHAT_OPTIONS = {
-  'priya-client': { who: 'priya', text: 'What does the client actually need from us?', reply: 'A real answer, not another apology. The account notes explain what we missed.', minutes: 2 },
-  'priya-smalltalk': { who: 'priya', text: 'How is your day going?', reply: 'I have 63 message threads and apparently that is a personality trait now.', minutes: 2 },
-  'priya-narc': { who: 'priya', text: 'Do you think NARC can tell when someone is pretending to be busy?', reply: 'I think NARC can tell when someone is producing the signals NARC likes. Different question.', minutes: 2 },
-  'marcus-project': { who: 'marcus', text: 'What can we actually cut from the project?', reply: 'Reporting polish before core delivery. Please do not cut the client handoff without telling me.', minutes: 2 },
-  'marcus-raccoon': { who: 'marcus', text: 'I need the raccoon story.', reply: 'Route 14. 8:14. It got on, refused to get off, and delayed the bus. Utilities has the transit alert. I cannot believe this is evidence.', minutes: 2 },
-  'marcus-jiggler': { who: 'marcus', text: 'You ever use one of those mouse jigglers?', reply: 'I would never install unverified software on a company machine. Separate question: check Utilities later.', minutes: 2 },
-  'luis-smalltalk': { who: 'luis', text: 'Anything weird happening in Ops?', reply: 'NARC thinks my calendar is evidence and my lunch is an unexplained absence, so define weird.', minutes: 2 },
-  'luis-survey': { who: 'luis', text: 'Are you supposed to answer employee surveys honestly?', reply: 'Absolutely. That is why ours has a 0% response rate.', minutes: 2 },
-  'dana-narc': { who: 'dana', text: 'Do you actually trust NARC?', reply: 'I trust it to tell me what it can observe. I do not trust observation to magically become judgment.', minutes: 2 },
-  'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: (s) => s.flags.marcusRaccoon ? 'No. Usually the raccoon is metaphorical.' : 'No. Usually the chaos is less coordinated.', minutes: 2 },
-  'dana-rework': { who: 'dana', text: 'A morning shortcut came back as a problem.', reply: 'Then fix the problem first. We can argue about why the shortcut looked good afterward.', minutes: 2 },
+  'priya-client': { who: 'priya', text: 'What does the client actually need from us?', reply: 'The answer is in the account notes. We keep measuring response time because it is easy. The client cares whether we fix the thing.', minutes: 2 },
+  'priya-smalltalk': { who: 'priya', text: 'How is your day going?', reply: 'Apparently I am “communication-heavy.” I prefer “has coworkers.”', minutes: 2 },
+  'priya-narc': { who: 'priya', text: 'Do you think NARC can tell when someone is faking productivity?', reply: 'It can catch some patterns. But once people know the patterns it likes, everyone starts producing those. Then what exactly is it measuring?', minutes: 2 },
+  'priya-status': { who: 'priya', text: 'Anything I should know before I touch the client thread?', reply: 'Read the account note first. Fast replies look great right up until you solve the wrong problem.', minutes: 2 },
+  'priya-case': { who: 'priya', text: 'What context actually matters for your NARC review?', reply: 'That most of the message volume is work. The count is real. “Inefficient” is the part NARC made up.', minutes: 2 },
+  'marcus-project': { who: 'marcus', text: 'What can we actually cut from the project?', reply: 'Polish before handoff context. A clean dashboard can hide a very broken tomorrow.', minutes: 2 },
+  'marcus-raccoon': { who: 'marcus', text: 'I need the raccoon story.', reply: 'Route 14. 8:14. Raccoon boards bus. Bus stops. Transit feed confirms it. For once my ridiculous excuse has ground truth.', minutes: 2 },
+  'marcus-jiggler': { who: 'marcus', text: 'You ever use one of those mouse jigglers?', reply: 'Absolutely not. I do know a file that produces exactly the signal NARC wants without producing any work.', minutes: 2 },
+  'marcus-status': { who: 'marcus', text: 'Anything I should not cut from the project?', reply: 'The handoff context. If you only preserve what is easy to count, the next person inherits the missing parts.', minutes: 2 },
+  'marcus-case': { who: 'marcus', text: 'Where is that transit alert?', reply: 'Utilities. Route 14, 8:14. The difference between “late again” and “late because transit stopped” is one piece of evidence.', minutes: 2 },
+  'luis-smalltalk': { who: 'luis', text: 'Anything weird happening in Ops?', reply: 'NARC knows when I leave my keyboard. It does not know whether I am slacking, reading paper notes, or microwaving soup. Management seems less bothered by that distinction.', minutes: 2 },
+  'luis-survey': { who: 'luis', text: 'Are you answering that employee survey honestly?', reply: 'Trying to. But if people think “confidential” means “probably traceable,” the survey ends up measuring caution instead of sentiment.', minutes: 2 },
+  'luis-work': { who: 'luis', text: 'What are you actually doing during the quiet stretches?', reply: 'Returns, carrier notes, phone calls. Plenty of work. Very disappointing amount of mouse movement.', minutes: 2 },
+  'dana-narc': { who: 'dana', text: 'Do you actually trust NARC?', reply: 'I trust it to report signals it can observe. I trust it less every time someone treats the interpretation like the signal.', minutes: 2 },
+  'dana-priority': { who: 'dana', text: 'What should I protect if everything starts colliding?', reply: 'Client impact first. Then work that creates tomorrow problems if we skip it. A monitoring system should not become the work.', minutes: 2 },
+  'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: (s) => s.flags.marcusRaccoon ? 'No. Usually the raccoon is metaphorical. Today we have excellent ground truth.' : 'No. Usually the chaos is less coordinated, and the proxies are less entertaining.', minutes: 2 },
+  'dana-rework': { who: 'dana', text: 'A morning shortcut came back as a problem.', reply: 'Then fix the problem. We can talk afterward about why the shortcut scored better than the real work.', minutes: 2 },
 };
 
 export function chatOptions(s, who) {
@@ -756,6 +878,12 @@ export function chatOptions(s, who) {
     if (key === 'dana-rework') return s.tasks.rework.status === 'pending';
     if (key === 'marcus-raccoon') return !!s.flags.marcusRaccoon;
     if (key === 'marcus-jiggler') return s.narc.adaptation || !!s.flags.keepaliveAvailable;
+    if (key === 'luis-survey') return !!s.flags.surveyEmailAvailable;
+    if (key === 'priya-case') return s.requests.priyaCase.status !== 'pending';
+    if (key === 'marcus-case') return s.requests.marcusCase.status !== 'pending';
+    if (key === 'priya-status') return s.tasks.client.status === 'pending';
+    if (key === 'marcus-status') return s.tasks.project.status === 'pending';
+    if (key === 'dana-priority') return Object.values(s.tasks).filter((t) => t.status === 'pending').length >= 2;
     return true;
   }).map((key) => [key, CHAT_OPTIONS[key].text]);
 }

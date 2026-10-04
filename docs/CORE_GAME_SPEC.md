@@ -350,6 +350,44 @@ GoodThink's proposed fiction is a workplace-tech company dogfooding NARC interna
 
 The rename is not approved yet. Keep Meridian until Paige explicitly confirms it.
 
+## Dialogue and learning rules
+
+The game should teach AI/product ideas through situations, reactions, and consequences rather than vocabulary dumps.
+
+Useful concepts to make legible through play:
+- **proxy vs. goal** — measurable activity is not the same as work quality
+- **signal vs. inference** — an observation can be true while the conclusion is wrong
+- **missing context** — partial evidence can support multiple explanations
+- **Goodhart effects** — once people are rewarded for a metric, behavior shifts toward the metric
+- **distribution shift / adaptation** — a workaround can become common enough that the system changes how it interprets it
+- **anti-gaming arms races** — attempts to detect gaming create new workarounds and new detection rules
+- **human review / authority** — the same model output matters more when an institution treats it as authoritative
+- **feedback loops** — system judgments can change human behavior, which changes the future data the system sees
+- **confidence is not correctness** — NARC can sound certain while operating on incomplete evidence
+
+Dialogue should usually imply these ideas before naming them. A coworker should sound like a coworker noticing something weird, not like an AI textbook.
+
+Character voice:
+- **Dana:** concise, practical, managerial; cares about outcomes and context
+- **Priya:** quick, perceptive, slightly frazzled; notices how categories flatten messy work
+- **Marcus:** dry, self-aware, chaotic; jokes about evidence and gaming without losing the stakes
+- **Luis:** understated and deadpan; good at spotting when a technically correct metric tells the wrong story
+- **NARC:** formal, confident, literal, institutionally consequential; never winks at the player
+
+Prefer:
+- short workplace messages
+- concrete examples before abstract language
+- one idea per line
+- humor that comes from the situation
+- characters disagreeing with an interpretation, not explaining the designer's thesis
+
+Avoid:
+- thesis statements disguised as chat
+- everyone using the same analytical voice
+- defining AI terms in dialogue unless it would sound natural
+- over-polished jokes
+- making NARC obviously evil or incompetent
+
 ## Humor rules
 
 - corporate wording stays sincere
