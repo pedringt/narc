@@ -35,7 +35,7 @@ assert.match(app, /is typing/, 'message threads should show a typing indicator')
 assert.match(app, /scrollThreadToBottom/, 'sending or opening a conversation should keep the latest messages in view');
 assert.match(app, /pendingReplies/, 'chat replies should not appear immediately');
 assert.match(app, /Accept NARC's positive activity assessment/, 'Trusted Operator choice should explain that the assessment is positive');
-assert.match(app, /healthy adoption and strong engagement/, 'NARC should explain why accepting the assessment can improve standing');
+assert.match(app, /Meridian may give it more weight later through Trusted Operator status/, 'NARC should explain why accepting the assessment can improve standing');
 assert.match(app, /ui\.notifications\.some\(\(n\) => !n\.read\)/, 'quiet-time fast-forward should not cover unread activity');
 
 assert.match(app, /unreadMessages/, 'ambient coworker messages should contribute to the Messages badge');
