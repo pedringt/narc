@@ -106,6 +106,9 @@ export function newGame() {
       priyaDraft: { status: 'pending', at: 9 * 60 + 40 },
       luisCover: { status: 'pending', at: 13 * 60 + 50 },
       marcusCredit: { status: 'pending', at: 15 * 60 + 40 },
+      priyaRepair: { status: 'pending', at: 11 * 60 + 15 },
+      danaRepair: { status: 'pending', at: 15 * 60 + 30 },
+      luisReversal: { status: 'pending', at: 16 * 60 + 40 },
       danaMorning: { status: 'pending', at: 9 * 60 + 50 },
       marcusFavor: { status: 'pending', at: 10 * 60 + 25 },
       narcCheckpoint: { status: 'pending', at: 11 * 60 },
@@ -170,6 +173,23 @@ function markCoworkerReport(s) {
   }
 }
 
+function danaMissed(s) {
+  return !!s.flags.danaReliedOnNarc && !!(s.flags.vendorRisky || s.flags.clientUnresolved || s.flags.auditShortcut || s.tasks.audit.status === 'missed' || s.tasks.rework.status === 'missed');
+}
+
+// Inline, non-toast NARC feedback after a task: what it saw, what it inferred,
+// what changed, and what it cannot see. Kind 'inference' stays out of the toast
+// path on purpose so this reads as an explanation, not another notification.
+function inferenceNote(s, before, opt) {
+  const quiet = opt.visible === false;
+  const saw = quiet ? 'a long low-input stretch' : 'a fast, high-input burst';
+  const inferred = quiet ? 'possible disengagement' : 'focused, productive work';
+  const missing = quiet
+    ? (opt.actual > 0 ? 'that the quiet time was careful work' : 'what the quiet time was for')
+    : (opt.actual === 0 ? 'that the work was skimmed' : 'whether the work was any good');
+  note(s, `NARC saw ${saw} and inferred ${inferred}. Visible Activity ${before} → ${s.index}. It cannot see ${missing}.`, 'inference');
+}
+
 // What's next worth stopping for, given the current state -- so the player
 // can say "work until something needs attention" instead of clicking through
 // empty half-hours one at a time. Only clock thresholds that could actually
@@ -194,6 +214,9 @@ function nextEvent(s) {
   if (tasks.handoff.status === 'pending') candidates.push({ t: tasks.handoff.deadline, label: 'the client handoff deadline' });
   else if (tasks.handoff.status === 'hidden') candidates.push({ t: 14 * 60 + 10, label: 'the afternoon handoff request' });
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
+  if (requests.priyaRepair.status === 'pending' && flags.clientUnresolved) candidates.push({ t: requests.priyaRepair.at, label: 'Priya and the client reply' });
+  if (requests.danaRepair.status === 'pending' && danaMissed(s)) candidates.push({ t: requests.danaRepair.at, label: "Dana's question about the summary" });
+  if (requests.luisReversal.status === 'pending' && s.people.luis.status !== 'employed') candidates.push({ t: requests.luisReversal.at, label: "NARC's automatic decision on Luis" });
   if (requests.priyaDraft.status === 'pending') candidates.push({ t: requests.priyaDraft.at, label: "Priya's draft" });
   if (requests.luisCover.status === 'pending') candidates.push({ t: requests.luisCover.at, label: "Luis's favor" });
   if (requests.marcusCredit.status === 'pending') candidates.push({ t: requests.marcusCredit.at, label: "Marcus's credit question" });
@@ -298,6 +321,18 @@ function checkThresholds(s) {
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
     say(s, 'luis', "Small survival tip: if you’re doing quiet work, mark it Focus Time first. Same work, different label, much happier NARC.");
+  }
+  if (requests.priyaRepair.status === 'pending' && s.t >= requests.priyaRepair.at && s.flags.clientUnresolved) {
+    requests.priyaRepair.status = 'open';
+    say(s, 'priya', "The client already wrote back about the form reply. They noticed. I can send a correction, or we can find out what happens.");
+  }
+  if (requests.danaRepair.status === 'pending' && s.t >= requests.danaRepair.at && danaMissed(s)) {
+    requests.danaRepair.status = 'open';
+    say(s, 'dana', "The summary I forwarded off NARC's Trusted Operator read left something out, and now someone is asking me about it. What happened?");
+  }
+  if (requests.luisReversal.status === 'pending' && s.t >= requests.luisReversal.at && s.people.luis.status !== 'employed') {
+    requests.luisReversal.status = 'open';
+    say(s, 'dana', "NARC finalized its review of Luis automatically and it posts at 5:00. His call log just came in: he was on a live customer escalation during those low-input stretches. A reversal needs a person to sign off before then.");
   }
   if (requests.priyaDraft.status === 'pending' && s.t >= requests.priyaDraft.at) {
     requests.priyaDraft.status = 'open';
@@ -469,6 +504,7 @@ export function act(state, a) {
       task.approach = a.approach;
       task.status = 'done';
       s.actual += opt.actual;
+      const indexBefore = s.index;
       spend(s, opt.minutes, { visible: opt.visible, category: 'work' });
       if (!s.flags.firstNarcRead) {
         s.flags.firstNarcRead = true;
@@ -483,6 +519,7 @@ export function act(state, a) {
         );
       }
       note(s, typeof opt.result === 'function' ? opt.result(task) : opt.result, 'task');
+      inferenceNote(s, indexBefore, opt);
       if (opt.flag) s.flags[opt.flag] = true;
       if (a.id === 'rework') {
         // Resolving it clears the flag that caused it, so the ending reads
@@ -506,6 +543,12 @@ export function act(state, a) {
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
       if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
+      if (opt.actual) s.actual += opt.actual;
+      if (opt.clear) opt.clear.forEach((f) => { s.flags[f] = false; });
+      if (a.id === 'luisReversal') {
+        if (a.choice === 'reverse') s.people.luis.status = 'employed';
+        else if (a.choice === 'manual') s.people.luis.status = s.people.luis.status === 'fired' ? 'warning' : 'employed';
+      }
       if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
         note(s, 'NARC applies the team-wide pattern to you as well. You never used Focus Time, but the rule keys on the pattern, not the person.', 'narc');
       }
@@ -838,6 +881,23 @@ const REQUEST_OPTIONS = {
       result: 'You put only the real owner on it. Accurate, and Marcus notices which name is missing.',
     },
   },
+  priyaRepair: {
+    own: { minutes: 8, visible: true, actual: 1, trust: { priya: 1 }, clear: ['clientUnresolved'], flag: 'ownedClientMiss', result: 'You told Priya the reply was a skim and wrote the real answer with her. The client gets a correction instead of an escalation.' },
+    quiet: { minutes: 12, visible: false, actual: 1, clear: ['clientUnresolved'], flag: 'quietClientFix', result: 'You drafted a real answer and sent it under Priya\'s name without comment. The record still shows the canned reply came first.' },
+    blame: { minutes: 2, visible: true, trust: { priya: -1 }, flag: 'blamedNarcClient', result: 'You said the activity targets rewarded a fast reply. True, and also not the whole story. The client is still waiting.' },
+    ignore: { minutes: 0, visible: false, result: 'You leave it. The client reply stays unanswered.' },
+  },
+  danaRepair: {
+    own: { minutes: 6, visible: true, actual: 1, flag: 'danaOwned', result: 'You told Dana the summary was thin because you let NARC stand in for a status update. She corrects it upstairs.' },
+    quiet: { minutes: 10, visible: false, actual: 1, flag: 'danaQuietFix', result: 'You wrote the missing detail and sent it to Dana as an update without explaining the gap.' },
+    blame: { minutes: 2, visible: true, flag: 'blamedSummary', result: 'You pointed out the summary came from NARC. Dana notes that forwarding it was still your call.' },
+    ignore: { minutes: 0, visible: false, result: 'You leave the question unanswered. The summary stays as written.' },
+  },
+  luisReversal: {
+    reverse: { minutes: 4, visible: true, trust: { luis: 1 }, flag: 'reversedAuto', result: 'You signed off on the reversal with the call log attached. The automatic decision is undone before it posts.' },
+    manual: { minutes: 10, visible: false, trust: { luis: 1 }, flag: 'manualFixLuis', result: 'You walked Luis\'s manager through the call log by hand. It softens the outcome but does not undo what NARC already decided.' },
+    leave: { minutes: 0, visible: false, flag: 'leftAutoDecision', result: 'You let the automatic decision post as written.' },
+  },
   luisTip: {
     thank: { minutes: 3, visible: false, result: 'You thanked Luis for the tip. No cost, no upside yet.' },
     ignore: { minutes: 0, visible: false, result: "You didn't reply. Luis notices eventually." , trust: { luis: -1 } },
@@ -870,6 +930,10 @@ const REQUEST_OPTIONS = {
     apologize: {
       minutes: 15, visible: false, trust: { marcus: 3 },
       result: 'You walked him through it and owned the miss. He was annoyed, then fine.',
+    },
+    quiet: {
+      minutes: 10, visible: false, trust: { marcus: 1 }, actual: 1, flag: 'marcusQuietFix',
+      result: 'You rebuilt the broken handoff yourself and told him afterward. Fixed, but he finds out from the result, not from you.',
     },
     standby: {
       minutes: 2, visible: true, trust: { marcus: -1 },
@@ -1006,6 +1070,15 @@ export function ending(s) {
   if (s.flags.coveredForLuis) lines.push("You put a fake vendor meeting on Luis's calendar. NARC logged it as collaboration.");
   if (s.flags.sharedCredit) lines.push("You put Marcus's name on the scope call next to yours. NARC counts names, not who did the work.");
   if (s.flags.ownedCall) lines.push('You named the real owner of the scope call. NARC has no field for that, and Marcus noticed.');
+  if (s.flags.ownedClientMiss) lines.push('You owned the canned client reply and fixed it with Priya.');
+  if (s.flags.quietClientFix) lines.push('You quietly fixed the client reply. The record still shows the canned one first.');
+  if (s.flags.blamedNarcClient) lines.push('You pointed at the activity targets after the client reply failed. The reply stayed broken.');
+  if (s.flags.danaOwned) lines.push('You told Dana why the summary was thin.');
+  if (s.flags.danaQuietFix) lines.push('You patched the missing detail for Dana without saying why it was missing.');
+  if (s.flags.reversedAuto) lines.push("You reversed NARC's automatic decision on Luis before it posted.");
+  if (s.flags.manualFixLuis) lines.push("You argued Luis's case by hand. The automatic decision still partly stood.");
+  if (s.flags.leftAutoDecision) lines.push("NARC's automatic decision on Luis posted without a human checking it.");
+  if (s.flags.marcusQuietFix) lines.push('You fixed the downstream handoff quietly and told Marcus afterward.');
 
   // Structured payoff for the end screen (#106): the same underlying facts
   // as `lines` above, organized into the sections the dashboard actually
@@ -1025,9 +1098,36 @@ export function ending(s) {
     rushed === 0 && missed === 0 && s.index < 60 && 'You did the work carefully and missed nothing. NARC still isn’t impressed.',
   ].filter(Boolean);
 
+  const real = s.actual >= 5 ? 'solid' : s.actual >= 2 ? 'uneven' : 'thin';
+  const names = (ids) => ids.map((k) => PEOPLE[k].name).join(' and ');
+  const lostTrust = Object.entries(s.trust).filter(([, v]) => v < 0).map(([k]) => k);
+  const gainedTrust = Object.entries(s.trust).filter(([, v]) => v > 0).map(([k]) => k);
+  const firedIds = Object.entries(s.people).filter(([, p]) => p.status === 'fired').map(([k]) => k);
+  const warnedIds = Object.entries(s.people).filter(([, p]) => p.status === 'warning').map(([k]) => k);
+  const systems = [];
+  systems.push({ label: 'Measured vs real', text: `NARC rated the day ${s.index >= 75 ? 'highly' : s.index >= 50 ? 'as normal' : 'poorly'} (${s.index}/100). The real work was ${real}.` });
+  if (s.index >= 60 && lostTrust.length) systems.push({ label: 'What you protected', text: `You protected visible productivity at the cost of ${names(lostTrust)}'s trust.` });
+  else if (s.index < 60 && gainedTrust.length) systems.push({ label: 'What you protected', text: `You protected ${names(gainedTrust)}'s trust at the cost of your own Visible Activity.` });
+  if (s.time.narc + s.time.gamed > 0) systems.push({ label: 'Time on the system', text: `You spent ${s.time.narc + s.time.gamed} minutes managing the monitoring system.` });
+  const proxyFailure =
+    (rushed > 0 && s.index >= 70 && 'Rushed work scored highest. NARC measured the speed, not the care.') ||
+    (s.flags.coveredForLuis && 'A meeting that never happened counted as collaboration.') ||
+    (s.flags.informantNoted && 'Reporting coworkers counted as strong collaboration.') ||
+    (s.flags.keepaliveUsed && 'Synthetic input counted as real activity.') ||
+    (s.narc.adaptation && 'Focus Time worked until everyone used it. Then the workaround became the pattern.') ||
+    (firedIds.length && s.index >= 70 && 'A strong score and a lost job in the same day.') || null;
+  if (proxyFailure) systems.push({ label: 'Best proxy failure', text: proxyFailure });
+  const humanConsequence =
+    (firedIds.length && `${names(firedIds)} lost ${firedIds.length === 1 ? 'their' : 'their'} job.`) ||
+    (s.flags.reversedAuto && "An automatic decision about Luis was undone because a person checked it.") ||
+    (warnedIds.length && `${names(warnedIds)} ended the day under warning.`) ||
+    (lostTrust.length && `${names(lostTrust)} stopped trusting you.`) || 'Nobody lost their job today.';
+  systems.push({ label: 'Biggest human consequence', text: humanConsequence });
+
   return {
     index: s.index,
     actual: s.actual,
+    systems,
     lines,
     people: s.people,
     standing: s.standing,

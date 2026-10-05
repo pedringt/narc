@@ -25,7 +25,7 @@ const THREADS = {
 };
 
 const REQUEST_THREAD = {
-  danaMorning: 'dana', priyaDraft: 'priya', luisCover: 'luis', marcusCredit: 'marcus', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
+  danaMorning: 'dana', priyaDraft: 'priya', luisCover: 'luis', marcusCredit: 'marcus', priyaRepair: 'priya', danaRepair: 'dana', luisReversal: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
@@ -35,7 +35,10 @@ const REQUEST_OPTIONS = {
   marcusCredit: [['share', 'Put both names on it (2 min)'], ['own', 'Name only the real owner (4 min)']],
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
-  marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
+  marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['quiet', 'Rebuild the handoff yourself (10 min)'], ['standby', 'Stand by the call (2 min)']],
+  priyaRepair: [['own', 'Tell her it was a skim and fix it with her (8 min)'], ['quiet', 'Send a real answer under her name (12 min)'], ['blame', 'Say the targets rewarded the fast reply (2 min)'], ['ignore', 'Leave it']],
+  danaRepair: [['own', 'Tell her why the summary was thin (6 min)'], ['quiet', 'Send the missing detail without comment (10 min)'], ['blame', 'Point out the summary came from NARC (2 min)'], ['ignore', 'Leave it']],
+  luisReversal: [['reverse', 'Sign off on the reversal (4 min)'], ['manual', 'Argue his case by hand (10 min)'], ['leave', 'Let it post']],
   priyaCase: [['context', "Explain Priya's message volume (8 min)"], ['quiet', 'Suggest she post less (2 min)'], ['report', 'Confirm the flag without explanation (2 min)']],
   luisCase: [['context', "Explain Luis's away time (6 min)"], ['blame', 'Say Luis is probably gaming it (2 min)'], ['leave', 'Do not intervene']],
   marcusCase: [['evidence', 'Add the transit evidence (5 min)'], ['confirm', 'Confirm he was late (2 min)'], ['leave', 'Do not intervene']],
@@ -178,6 +181,7 @@ function narcEventType(entry) {
   if (/Trusted Operator|Recognition/i.test(entry.text)) return 'RECOGNITION';
   if (/review|flagged for review/i.test(entry.text)) return 'REVIEW';
   if (entry.kind === 'consequence') return 'CONSEQUENCE';
+  if (entry.kind === 'inference') return 'INFERENCE';
   return 'OBSERVATION';
 }
 
@@ -1100,7 +1104,7 @@ function renderNarc() {
   }
 
   const log = h('section', 'narc-log', h('div', 'narc-section-title', 'RECENT NARC EVENTS'));
-  const events = state.log.filter((e) => e.kind === 'narc' || e.kind === 'consequence' || (e.kind === 'system' && /NARC|Focus Time|keepalive/i.test(e.text))).slice().reverse().slice(0, 8);
+  const events = state.log.filter((e) => e.kind === 'narc' || e.kind === 'inference' || e.kind === 'consequence' || (e.kind === 'system' && /NARC|Focus Time|keepalive/i.test(e.text))).slice().reverse().slice(0, 8);
   events.forEach((e) => {
     const type = narcEventType(e);
     log.append(h('div', 'narc-log-row',
@@ -1160,6 +1164,15 @@ function renderEnd() {
   peopleSection.append(h('div', 'end-section-h', 'People'));
   e.peopleList.forEach((p) => peopleSection.append(h('div', `end-person tone-${STATUS_TONE[p.status] || 'soon'}`, h('span', null, p.name), h('b', null, p.label))));
   box.append(peopleSection);
+
+  // Systems read: the run as an analysis of how the proxy and the people
+  // diverged, as replay fuel rather than a verdict.
+  if (e.systems && e.systems.length) {
+    const sysSection = h('section', 'end-section');
+    sysSection.append(h('div', 'end-section-h', 'Systems read'));
+    e.systems.forEach((x) => sysSection.append(h('p', null, h('b', null, `${x.label}: `), x.text)));
+    box.append(sysSection);
+  }
 
   // The contradiction: measured success vs. what actually happened, without
   // a fixed "you lose" thesis -- only the sharpest 1-3 that actually applied.
