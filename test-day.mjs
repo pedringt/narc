@@ -250,7 +250,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
     rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
-    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
+    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share', priyaRepair: 'ignore', danaRepair: 'ignore', luisReversal: 'leave',
   };
   for (let hops = 0; hops < 60 && consulted.phase !== 'end'; hops += 1) {
     const openReq = Object.entries(consulted.requests).find(([, r]) => r.status === 'open');
@@ -310,7 +310,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
     rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
-    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
+    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share', priyaRepair: 'ignore', danaRepair: 'ignore', luisReversal: 'leave',
   };
   let hops = 0;
   while (s.phase !== 'end' && hops < 40) {
@@ -322,9 +322,10 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   }
   assert.equal(s.phase, 'end');
   // Bound raised from 10 -> 20 after later passes (#97-#101) added several
-  // more coworker/flavor beats between the original stops; still bounded,
+  // more coworker/flavor beats (and later, repair and reversal moments) between
+  // the original stops; still bounded,
   // just a bigger bound, not a regression back to click-to-burn-time.
-  assert.ok(hops <= 20, `expected a bounded number of contextual jumps, got ${hops}`);
+  assert.ok(hops <= 28, `expected a bounded number of contextual jumps, got ${hops}`);
 }
 
 // nextEvent must never point backwards or at the current instant.
@@ -666,3 +667,94 @@ console.log('coworker decision tests passed');
   assert.ok(e.contradictions.some((c) => /never happened/.test(c)), 'covering for Luis shows up as a contradiction');
 }
 console.log('softened Marcus and ending-line tests passed');
+
+// ------------------------------------------------ repair moments (#115)
+{
+  // Canned client reply -> Priya's repair chance -> clears the later rework.
+  let s = act(newGame(), { do: 'task', id: 'client', approach: 'canned' });
+  assert.equal(s.flags.clientUnresolved, true);
+  s = act(s, { do: 'idle', minutes: (11 * 60 + 15) - s.t });
+  assert.equal(s.requests.priyaRepair.status, 'open');
+  const owned = act(s, { do: 'respond', id: 'priyaRepair', choice: 'own' });
+  assert.equal(owned.flags.clientUnresolved, false, 'owning it clears the unresolved flag');
+  assert.ok(owned.trust.priya > s.trust.priya);
+  const blamed = act(s, { do: 'respond', id: 'priyaRepair', choice: 'blame' });
+  assert.equal(blamed.flags.clientUnresolved, true, 'blaming the targets does not fix the reply');
+  assert.ok(blamed.trust.priya < s.trust.priya);
+  const quiet = act(s, { do: 'respond', id: 'priyaRepair', choice: 'quiet' });
+  assert.equal(quiet.flags.clientUnresolved, false);
+  assert.equal(quiet.trust.priya, s.trust.priya, 'a quiet fix repairs the work without repairing the trust');
+  const later = act(owned, { do: 'idle', minutes: 3 * 60 });
+  assert.equal(later.tasks.rework.status, 'hidden', 'a repaired client reply never comes back as rework');
+
+  // No repair offer when nothing needs repair.
+  const clean = act(act(newGame(), { do: 'task', id: 'client', approach: 'investigate' }), { do: 'idle', minutes: 3 * 60 });
+  assert.equal(clean.requests.priyaRepair.status, 'pending');
+}
+
+// Dana relying on the Trusted Operator summary -> repair chance when something was missed.
+{
+  let s = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  s = act(s, { do: 'idle', minutes: (12 * 60 + 15) - s.t });
+  s = act(s, { do: 'respond', id: 'danaCheckin', choice: 'trustNarc' });
+  assert.equal(s.flags.danaReliedOnNarc, true);
+  s = act(s, { do: 'idle', minutes: (15 * 60 + 30) - s.t });
+  assert.equal(s.requests.danaRepair.status, 'open', 'relying on the summary while something was rushed earns a question');
+  const before = s.actual;
+  const fixed = act(s, { do: 'respond', id: 'danaRepair', choice: 'own' });
+  assert.ok(fixed.actual > before);
+  assert.ok(ending(fixed).lines.some((l) => /why the summary was thin/.test(l)));
+}
+
+// Marcus's fallout gains a quiet repair.
+{
+  let s = act(newGame(), { do: 'task', id: 'project', approach: 'cut' });
+  s = act(s, { do: 'idle', minutes: (14 * 60 + 30) - s.t });
+  assert.equal(s.requests.marcusFallout.status, 'open');
+  const q = act(s, { do: 'respond', id: 'marcusFallout', choice: 'quiet' });
+  assert.equal(q.flags.marcusQuietFix, true);
+  assert.ok(q.trust.marcus > s.trust.marcus);
+}
+
+// ------------------------- automatic decision with a human reversal (#115)
+{
+  let s = act(newGame(), { do: 'idle', minutes: (15 * 60 + 5) - newGame().t });
+  s = act(s, { do: 'respond', id: 'luisCase', choice: 'blame' });
+  assert.equal(s.people.luis.status, 'fired');
+  s = act(s, { do: 'idle', minutes: (16 * 60 + 40) - s.t });
+  assert.equal(s.requests.luisReversal.status, 'open', 'new context arrives after the automatic decision');
+  const rev = act(s, { do: 'respond', id: 'luisReversal', choice: 'reverse' });
+  assert.equal(rev.people.luis.status, 'employed', 'a human can reverse the automatic outcome');
+  assert.ok(ending(rev).lines.some((l) => /reversed NARC's automatic decision/.test(l)));
+  const man = act(s, { do: 'respond', id: 'luisReversal', choice: 'manual' });
+  assert.equal(man.people.luis.status, 'warning', 'doing it by hand only partly undoes it');
+  const left = act(s, { do: 'respond', id: 'luisReversal', choice: 'leave' });
+  assert.equal(left.people.luis.status, 'fired');
+
+  // Nothing to reverse if Luis was never harmed.
+  let ok = act(newGame(), { do: 'idle', minutes: (15 * 60 + 5) - newGame().t });
+  ok = act(ok, { do: 'respond', id: 'luisCase', choice: 'context' });
+  ok = act(ok, { do: 'idle', minutes: 3 * 60 });
+  assert.equal(ok.requests.luisReversal.status, 'pending');
+}
+
+// ------------------ inline NARC reaction (saw / inferred / changed) and debrief
+{
+  const quick = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  const note = quick.log.find((e) => e.kind === 'inference');
+  assert.ok(note, 'a task produces an inline inference note');
+  assert.match(note.text, /saw .* inferred .* Visible Activity \d+ → \d+\. It cannot see/);
+  assert.ok(!quick.log.some((e) => e.kind === 'narc' && /cannot see that the work was skimmed/.test(e.text)), 'it is not a toast-kind entry');
+
+  let s = act(newGame(), { do: 'task', id: 'vendor', approach: 'quick' });
+  s = act(s, { do: 'task', id: 'client', approach: 'canned' });
+  s = act(s, { do: 'task', id: 'project', approach: 'cut' });
+  s = act(s, { do: 'idle', minutes: 600 });
+  const e = ending(s);
+  const labels = e.systems.map((x) => x.label);
+  assert.ok(labels.includes('Measured vs real'));
+  assert.ok(labels.includes('Biggest human consequence'));
+  assert.match(e.systems.find((x) => x.label === 'Measured vs real').text, /real work was thin/);
+}
+console.log('repair, reversal and systems-read tests passed');
