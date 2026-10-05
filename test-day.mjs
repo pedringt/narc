@@ -250,7 +250,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
     rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
-    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank',
+    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
   };
   for (let hops = 0; hops < 60 && consulted.phase !== 'end'; hops += 1) {
     const openReq = Object.entries(consulted.requests).find(([, r]) => r.status === 'open');
@@ -286,19 +286,23 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   s = act(s, { do: 'task', id: 'client', approach: 'canned' });
   s = act(s, { do: 'task', id: 'project', approach: 'cut' });
   // The three tasks land exactly on 9:20, the same minute Luis's tip opens.
-  // The next stop is now Dana's first-hour check at 10:15, which prevents
+  // Priya's draft (9:40) and Dana's check (9:50) follow, which prevents
   // the old 10-ish-to-noon dead stretch.
   assert.equal(s.requests.luisTip.status, 'open');
-  assert.equal(nextEvent(s).t, 9 * 60 + 50);
+  assert.equal(nextEvent(s).t, 9 * 60 + 40);
   s = act(s, { do: 'respond', id: 'luisTip', choice: 'thank' });
 
   const before = { index: s.index, focusUses: s.narc.focusUses, actual: s.actual };
   s = act(s, { do: 'workUntil' });
-  assert.equal(s.t, 9 * 60 + 50, 'jumps exactly to the next meaningful beat, not a fixed step');
-  assert.equal(s.requests.danaMorning.status, 'open', 'Dana checks in before the long midmorning gap');
+  assert.equal(s.t, 9 * 60 + 40, 'jumps exactly to the next meaningful beat, not a fixed step');
+  assert.equal(s.requests.priyaDraft.status, 'open', "Priya's draft keeps the opening hour from stalling");
   assert.equal(s.index, before.index, 'the jump itself changes nothing');
   assert.equal(s.narc.focusUses, before.focusUses);
   assert.equal(s.actual, before.actual);
+  s = act(s, { do: 'respond', id: 'priyaDraft', choice: 'later' });
+  s = act(s, { do: 'workUntil' });
+  assert.equal(s.t, 9 * 60 + 50);
+  assert.equal(s.requests.danaMorning.status, 'open', 'Dana checks in before the long midmorning gap');
 
   // Chained the rest of the way -- resolving whatever opens with its
   // cheapest option -- it reaches end of day on a small, bounded number of
@@ -306,7 +310,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
     rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
-    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave',
+    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
   };
   let hops = 0;
   while (s.phase !== 'end' && hops < 40) {
@@ -623,3 +627,22 @@ console.log('day.js tests passed');
   assert.equal(opensAt('luisCase'), 'open');
 }
 console.log('NARC pacing tests passed');
+
+// ------------- new coworker decisions feed trust and the later cases (#112, #113)
+{
+  let s = act(newGame(), { do: 'idle', minutes: 40 }); // 9:40
+  assert.equal(s.requests.priyaDraft.status, 'open');
+  const helped = act(s, { do: 'respond', id: 'priyaDraft', choice: 'help' });
+  const skipped = act(s, { do: 'respond', id: 'priyaDraft', choice: 'later' });
+  assert.ok(helped.trust.priya > skipped.trust.priya, 'reading her draft earns trust that skipping does not');
+
+  let l = act(newGame(), { do: 'idle', minutes: (13 * 60 + 50) - newGame().t });
+  assert.equal(l.requests.luisCover.status, 'open');
+  const covered = act(l, { do: 'respond', id: 'luisCover', choice: 'cover' });
+  assert.equal(covered.flags.coveredForLuis, true);
+  assert.ok(covered.trust.luis >= 2, "covering for Luis is the trust that later backs him up when you stay out of his case");
+
+  let m = act(newGame(), { do: 'idle', minutes: (15 * 60 + 40) - newGame().t });
+  assert.equal(m.requests.marcusCredit.status, 'open', 'the afternoon has a decision after the 3:30 project deadline');
+}
+console.log('coworker decision tests passed');

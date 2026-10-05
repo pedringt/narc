@@ -103,6 +103,9 @@ export function newGame() {
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
+      priyaDraft: { status: 'pending', at: 9 * 60 + 40 },
+      luisCover: { status: 'pending', at: 13 * 60 + 50 },
+      marcusCredit: { status: 'pending', at: 15 * 60 + 40 },
       danaMorning: { status: 'pending', at: 9 * 60 + 50 },
       marcusFavor: { status: 'pending', at: 10 * 60 + 25 },
       narcCheckpoint: { status: 'pending', at: 11 * 60 },
@@ -191,6 +194,9 @@ function nextEvent(s) {
   if (tasks.handoff.status === 'pending') candidates.push({ t: tasks.handoff.deadline, label: 'the client handoff deadline' });
   else if (tasks.handoff.status === 'hidden') candidates.push({ t: 14 * 60 + 10, label: 'the afternoon handoff request' });
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
+  if (requests.priyaDraft.status === 'pending') candidates.push({ t: requests.priyaDraft.at, label: "Priya's draft" });
+  if (requests.luisCover.status === 'pending') candidates.push({ t: requests.luisCover.at, label: "Luis's favor" });
+  if (requests.marcusCredit.status === 'pending') candidates.push({ t: requests.marcusCredit.at, label: "Marcus's credit question" });
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
   if (requests.narcCheckpoint.status === 'pending') candidates.push({ t: requests.narcCheckpoint.at, label: "NARC's midmorning check" });
@@ -292,6 +298,18 @@ function checkThresholds(s) {
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
     say(s, 'luis', "Small survival tip: if you’re doing quiet work, mark it Focus Time first. Same work, different label, much happier NARC.");
+  }
+  if (requests.priyaDraft.status === 'pending' && s.t >= requests.priyaDraft.at) {
+    requests.priyaDraft.status = 'open';
+    say(s, 'priya', "The client reply is drafted. Can you read it before I send? Five minutes. Or I send it and we find out together.");
+  }
+  if (requests.luisCover.status === 'pending' && s.t >= requests.luisCover.at) {
+    requests.luisCover.status = 'open';
+    say(s, 'luis', "I have a dentist appointment until 3. If NARC asks, I'm in a vendor meeting. Can you put one on the calendar for me? It's not even a lie, it's a different kind of meeting.");
+  }
+  if (requests.marcusCredit.status === 'pending' && s.t >= requests.marcusCredit.at) {
+    requests.marcusCredit.status = 'open';
+    say(s, 'marcus', "Dana's end-of-day note asks who made the scope call on my project. Put both our names on it? NARC counts names, and I'm already short on them.");
   }
   if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
     requests.danaMorning.status = 'open';
@@ -788,6 +806,36 @@ const REQUEST_OPTIONS = {
     skip: {
       minutes: 0,
       result: "You leave NARC's first-hour read as-is.",
+    },
+  },
+  priyaDraft: {
+    help: {
+      minutes: 5, visible: true, trust: { priya: 1 }, flag: 'readPriyaDraft',
+      result: 'You read Priya\'s draft and caught a missing detail. Five minutes you were not planning to spend, and one more message in her thread.',
+    },
+    later: {
+      minutes: 0, visible: false, trust: { priya: -1 },
+      result: 'You told her you would catch up later. She sent it as written.',
+    },
+  },
+  luisCover: {
+    cover: {
+      minutes: 3, visible: true, trust: { luis: 2 }, flag: 'coveredForLuis',
+      result: 'You put a fake vendor meeting on his calendar. NARC logs it as collaboration; Luis owes you one.',
+    },
+    decline: {
+      minutes: 0, visible: false, trust: { luis: -1 },
+      result: 'You told him you would not put a meeting on the calendar. His away time stays what it is.',
+    },
+  },
+  marcusCredit: {
+    share: {
+      minutes: 2, visible: true, trust: { marcus: 1 }, flag: 'sharedCredit',
+      result: 'You put both names on the scope call. Marcus relaxes. NARC counts two contributors and does not ask who did the work.',
+    },
+    own: {
+      minutes: 4, visible: true, trust: { marcus: -1 }, flag: 'ownedCall',
+      result: 'You put only the real owner on it. Accurate, and Marcus notices which name is missing.',
     },
   },
   luisTip: {
