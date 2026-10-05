@@ -103,9 +103,9 @@ export function newGame() {
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
-      danaMorning: { status: 'pending', at: 10 * 60 + 15 },
-      marcusFavor: { status: 'pending', at: 10 * 60 + 45 },
-      narcCheckpoint: { status: 'pending', at: 11 * 60 + 20 },
+      danaMorning: { status: 'pending', at: 9 * 60 + 50 },
+      marcusFavor: { status: 'pending', at: 10 * 60 + 25 },
+      narcCheckpoint: { status: 'pending', at: 11 * 60 },
       danaCheckin: { status: 'pending', at: 12 * 60 + 15 },
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
@@ -115,9 +115,9 @@ export function newGame() {
       // line of text the player just reads.
       narcFirstReview: { status: 'pending', at: null },
       narcResponse: { status: 'pending', at: null },
-      priyaCase: { status: 'pending', at: 12 * 60 + 40 },
-      luisCase: { status: 'pending', at: 14 * 60 + 5 },
-      marcusCase: { status: 'pending', at: 15 * 60 + 20 },
+      priyaCase: { status: 'pending', at: 11 * 60 + 40 },
+      luisCase: { status: 'pending', at: 15 * 60 + 5 },
+      marcusCase: { status: 'pending', at: 16 * 60 + 20 },
     },
     calendar: [],
     narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
@@ -424,7 +424,7 @@ function checkThresholds(s) {
     note(s, 'Focus Time usage has spread across the team. The workaround is becoming normal behavior.', 'system');
   }
 
-  if (!s.narc.adaptationAnnounced && s.narc.focusUses >= 3) {
+  if (!s.narc.adaptationAnnounced && (s.narc.focusUses >= 3 || s.flags.spreadHappened)) {
     s.narc.adaptationAnnounced = true;
     s.narc.adaptation = true;
     requests.narcResponse.status = 'open';
@@ -487,6 +487,10 @@ export function act(state, a) {
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
+      if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
+      if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
+        note(s, 'NARC applies the team-wide pattern to you as well. You never used Focus Time, but the rule keys on the pattern, not the person.', 'narc');
+      }
 
       if (a.id === 'priyaCase') {
         if (a.choice === 'context') {
@@ -612,6 +616,7 @@ export function act(state, a) {
       // to notice that on their own the way they noticed it worked.
       s.calendar.push({ id: `c${s.calendar.length + 1}`, at: s.t, label: a.label || 'Focus time' });
       s.narc.focusUses += 1;
+      s.flags.playerFocusUses = (s.flags.playerFocusUses || 0) + 1;
       spend(s, 5, { category: 'gamed' });
       if (s.narc.adaptation) {
         s.index = Math.max(0, s.index - 1);
@@ -844,8 +849,8 @@ const REQUEST_OPTIONS = {
       result: "You explain why Focus Time spread. NARC records the context, but its anti-gaming rule still changes the score.",
     },
     ignore: {
-      minutes: 0, visible: false,
-      result: 'You let the flag stand without a response.',
+      minutes: 0, visible: false, index: -6,
+      result: 'You let the flag stand without a response. The anti-gaming rule discounts your Visible Activity along with everyone else\'s.',
     },
   },
 };

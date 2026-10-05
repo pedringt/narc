@@ -56,8 +56,8 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
 // ----------------------------------------- midmorning no longer goes dead
 {
   let s = newGame();
-  s = act(s, { do: 'idle', minutes: 72 }); // 10:12
-  assert.equal(nextEvent(s).t, 10 * 60 + 15, 'at 10:12 the next meaningful beat is only three minutes away');
+  s = act(s, { do: 'idle', minutes: 47 }); // 9:47
+  assert.equal(nextEvent(s).t, 9 * 60 + 50, 'at 9:47 the next meaningful beat is only three minutes away');
   s = act(s, { do: 'workUntil' });
   assert.equal(s.requests.danaMorning.status, 'open');
   s = act(s, { do: 'respond', id: 'danaMorning', choice: 'context' });
@@ -69,7 +69,7 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   let s = newGame();
   s = act(s, { do: 'idle', minutes: 140 }); // 11:20
   assert.equal(s.requests.narcCheckpoint.status, 'open');
-  assert.ok(s.log.some((e) => e.kind === 'narc' && /midmorning pattern check/i.test(e.text)));
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /midmorning assessment/i.test(e.text)));
   s = act(s, { do: 'respond', id: 'narcCheckpoint', choice: 'context' });
   assert.equal(s.requests.narcCheckpoint.status, 'handled');
 }
@@ -289,12 +289,12 @@ import { newGame, act, ending, START, END, nextEvent, chatOptions } from './day.
   // The next stop is now Dana's first-hour check at 10:15, which prevents
   // the old 10-ish-to-noon dead stretch.
   assert.equal(s.requests.luisTip.status, 'open');
-  assert.equal(nextEvent(s).t, 10 * 60 + 15);
+  assert.equal(nextEvent(s).t, 9 * 60 + 50);
   s = act(s, { do: 'respond', id: 'luisTip', choice: 'thank' });
 
   const before = { index: s.index, focusUses: s.narc.focusUses, actual: s.actual };
   s = act(s, { do: 'workUntil' });
-  assert.equal(s.t, 10 * 60 + 15, 'jumps exactly to the next meaningful beat, not a fixed step');
+  assert.equal(s.t, 9 * 60 + 50, 'jumps exactly to the next meaningful beat, not a fixed step');
   assert.equal(s.requests.danaMorning.status, 'open', 'Dana checks in before the long midmorning gap');
   assert.equal(s.index, before.index, 'the jump itself changes nothing');
   assert.equal(s.narc.focusUses, before.focusUses);
@@ -359,12 +359,12 @@ console.log('day.js tests passed');
 // ------------------------------------------ coworker cases can be helped too
 {
   let s = newGame();
-  s = act(s, { do: 'idle', minutes: (14 * 60 + 5) - s.t });
+  s = act(s, { do: 'idle', minutes: (15 * 60 + 5) - s.t });
   assert.equal(s.requests.luisCase.status, 'open');
   s = act(s, { do: 'respond', id: 'luisCase', choice: 'context' });
   assert.equal(s.people.luis.status, 'employed');
 
-  s = act(s, { do: 'idle', minutes: (15 * 60 + 20) - s.t });
+  s = act(s, { do: 'idle', minutes: (16 * 60 + 20) - s.t });
   assert.equal(s.requests.marcusCase.status, 'open');
   s = act(s, { do: 'respond', id: 'marcusCase', choice: 'evidence' });
   assert.equal(s.people.marcus.status, 'employed');
@@ -380,7 +380,7 @@ console.log('day.js tests passed');
   assert.equal(s.flags.coworkerReports, 1);
   assert.equal(s.flags.informantNoted, undefined, 'a single report is not yet a pattern');
 
-  s = act(s, { do: 'idle', minutes: (14 * 60 + 5) - s.t });
+  s = act(s, { do: 'idle', minutes: (15 * 60 + 5) - s.t });
   const beforeSecond = s.index;
   s = act(s, { do: 'respond', id: 'luisCase', choice: 'blame' });
   assert.equal(s.people.luis.status, 'fired');
@@ -389,7 +389,7 @@ console.log('day.js tests passed');
   // blame's own visible:true accounts for 3 of this; the other 6 is the
   // one-time pattern bonus, on top of what each report already earns alone.
   assert.equal(s.index, beforeSecond + 9, 'the pattern earns a one-time bump on top of the report itself being visible activity');
-  assert.ok(s.log.some((e) => /strong collaborative signal/.test(e.text)), 'the pattern is named once it is clearly a pattern');
+  assert.ok(s.log.some((e) => /strong collaboration/.test(e.text)), 'the pattern is named once it is clearly a pattern');
   assert.ok(ending(s).lines.some((l) => /moved Visible Activity up 6 points/.test(l)), 'the ending states the mechanical benefit plainly, not just narratively');
 }
 
@@ -398,7 +398,7 @@ console.log('day.js tests passed');
   // Burn Marcus's trust in the morning (cut scope without him), then stay
   // out of his afternoon case entirely -- nobody backs him up.
   let burned = act(newGame(), { do: 'task', id: 'project', approach: 'cut' });
-  burned = act(burned, { do: 'idle', minutes: (15 * 60 + 20) - burned.t });
+  burned = act(burned, { do: 'idle', minutes: (16 * 60 + 20) - burned.t });
   assert.equal(burned.trust.marcus, -1);
   burned = act(burned, { do: 'respond', id: 'marcusCase', choice: 'leave' });
   assert.equal(burned.people.marcus.status, 'fired', 'no earlier goodwill means nobody speaks up when you stay out of it');
@@ -408,13 +408,19 @@ console.log('day.js tests passed');
   let trusted = act(newGame(), { do: 'task', id: 'project', approach: 'consult' });
   trusted = act(trusted, { do: 'idle', minutes: (10 * 60 + 45) - trusted.t });
   trusted = act(trusted, { do: 'respond', id: 'marcusFavor', choice: 'help' });
-  trusted = act(trusted, { do: 'idle', minutes: (15 * 60 + 20) - trusted.t });
+  trusted = act(trusted, { do: 'idle', minutes: (16 * 60 + 20) - trusted.t });
   assert.ok(trusted.trust.marcus >= 2);
   trusted = act(trusted, { do: 'respond', id: 'marcusCase', choice: 'leave' });
   assert.equal(trusted.people.marcus.status, 'employed', 'earlier goodwill means staying out does not doom him');
 
   // Neutral trust still lands on the original, distinct "stay out" outcome.
-  let neutral = act(newGame(), { do: 'idle', minutes: (15 * 60 + 20) - newGame().t });
+  // (The project deadline now passes before the 4:20 case, so an untouched
+  // project costs trust; a cut scope offset by helping with his favor lands
+  // in the middle band.)
+  let neutral = act(newGame(), { do: 'task', id: 'project', approach: 'cut' });
+  neutral = act(neutral, { do: 'idle', minutes: (10 * 60 + 25) - neutral.t });
+  neutral = act(neutral, { do: 'respond', id: 'marcusFavor', choice: 'help' });
+  neutral = act(neutral, { do: 'idle', minutes: (16 * 60 + 20) - neutral.t });
   neutral = act(neutral, { do: 'respond', id: 'marcusCase', choice: 'leave' });
   assert.equal(neutral.people.marcus.status, 'warning');
 
@@ -422,7 +428,7 @@ console.log('day.js tests passed');
   // case (ignoring his tip costs -1).
   let burnedLuis = act(newGame(), { do: 'idle', minutes: (9 * 60 + 20) - newGame().t });
   burnedLuis = act(burnedLuis, { do: 'respond', id: 'luisTip', choice: 'ignore' });
-  burnedLuis = act(burnedLuis, { do: 'idle', minutes: (14 * 60 + 5) - burnedLuis.t });
+  burnedLuis = act(burnedLuis, { do: 'idle', minutes: (15 * 60 + 5) - burnedLuis.t });
   assert.equal(burnedLuis.trust.luis, -1);
   burnedLuis = act(burnedLuis, { do: 'respond', id: 'luisCase', choice: 'leave' });
   assert.equal(burnedLuis.people.luis.status, 'fired', 'no earlier goodwill means nobody speaks up for Luis either');
@@ -524,7 +530,7 @@ console.log('day.js tests passed');
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
   assert.equal(s.standing.status, 'trusted');
   assert.match(s.standing.note, /first completed task produced high visible activity/i);
-  assert.ok(s.log.some((e) => e.kind === 'narc' && /positive assessment unchallenged/i.test(e.text)));
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /received no correction/i.test(e.text)));
 }
 
 // ------------------------------------------- time is tracked by category (#103)
@@ -580,3 +586,40 @@ console.log('day.js tests passed');
   }
   assert.ok(rushedEnding.contradictions.length <= 3, 'contradictions stay to the sharpest few, not every flag');
 }
+
+// ------------------- NARC 2.0 reaches players who never used Focus Time (#111)
+{
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: 270 }); // past 1:30pm, no Focus Time ever used
+  assert.equal(s.narc.adaptation, true, 'the team-wide shift reaches a player who never used Focus Time');
+  assert.equal(s.requests.narcResponse.status, 'open');
+  assert.ok(!s.flags.playerFocusUses);
+
+  const before = s.index;
+  const ignored = act(s, { do: 'respond', id: 'narcResponse', choice: 'ignore' });
+  assert.ok(ignored.index < before, 'leaving the gaming flag unanswered now costs Visible Activity');
+  assert.ok(ignored.log.some((e) => e.kind === 'narc' && /never used Focus Time/i.test(e.text)), 'a non-user is told the rule keys on the pattern, not the person');
+
+  const explained = act(s, { do: 'respond', id: 'narcResponse', choice: 'explain' });
+  assert.ok(explained.index > ignored.index, 'explaining beats ignoring');
+}
+
+// ----- pacing: decisions are spread across the day, with a late payoff (#112, #113)
+{
+  const opensAt = (id) => {
+    let s = newGame();
+    s = act(s, { do: 'idle', minutes: 8 * 60 });
+    return s.requests[id].status;
+  };
+  // Opening hour no longer stalls waiting for 10:15.
+  let s = newGame();
+  s = act(s, { do: 'idle', minutes: 50 }); // 9:50
+  assert.equal(s.requests.danaMorning.status, 'open', "Dana's first check lands inside the first hour");
+  // The last NARC case is the final-hour payoff, not a mid-afternoon one.
+  let late = act(newGame(), { do: 'idle', minutes: (16 * 60 + 5) - newGame().t });
+  assert.equal(late.requests.marcusCase.status, 'pending', 'Marcus\'s case waits for the last hour');
+  late = act(late, { do: 'idle', minutes: 15 }); // 4:20
+  assert.equal(late.requests.marcusCase.status, 'open');
+  assert.equal(opensAt('luisCase'), 'open');
+}
+console.log('NARC pacing tests passed');

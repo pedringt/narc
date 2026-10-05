@@ -11,7 +11,7 @@ assert.match(app, /const ids = \['vendor', 'client', 'project'\]/, 'Marcus proje
 assert.match(app, /Visible Activity Index is not a direct measure of work quality\./, 'NARC should explain the Visible Activity Index');
 assert.match(app, /Explain the quiet work NARC missed/, 'midmorning checkpoint should describe the concrete player action');
 assert.match(app, /state\.flags\.loggedOffEarly/, 'end screen should distinguish early logoff');
-assert.match(app, /The Loop is our employee home base/, 'Dana should explain what The Loop is during onboarding');
+assert.match(app, /The Loop is your home base/, 'Dana should explain what The Loop is during onboarding');
 assert.doesNotMatch(app, /completeTutorialTarget[\s\S]*?ui\.tutorialUnread = false;[\s\S]*?if \(step\.final\)/, 'advancing tutorial targets must not mark Dana read');
 assert.match(app, /loop-task-actions/, 'The Loop should offer more than a single file action');
 assert.match(app, /selectedArticle/, 'Browser should track an opened article');
