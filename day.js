@@ -255,8 +255,8 @@ function checkThresholds(s) {
   }
   if (tasks.project.status === 'pending' && s.t >= tasks.project.deadline) {
     tasks.project.status = 'missed';
-    s.trust.marcus -= 1;
-    note(s, 'Marcus made the cut himself, guessing at what you would have picked.', 'consequence');
+    s.index = Math.max(0, s.index - 3);
+    note(s, 'Marcus made the cut himself, guessing at what you would have picked. NARC logged the missed deadline.', 'consequence');
   }
 
   // A rushed morning call comes back due, early afternoon -- the specific
@@ -1002,6 +1002,10 @@ export function ending(s) {
     lines.push(`You supplied adverse context about coworkers ${s.flags.coworkerReports} time${s.flags.coworkerReports === 1 ? '' : 's'}.${bonus}`);
   }
   if (s.culture.nominated) lines.push(`You nominated ${PEOPLE[s.culture.nominated].name} as Culture Champion.`);
+  if (s.flags.readPriyaDraft) lines.push("You read Priya's draft before she sent it. NARC saw one more message in her thread, not the mistake you caught.");
+  if (s.flags.coveredForLuis) lines.push("You put a fake vendor meeting on Luis's calendar. NARC logged it as collaboration.");
+  if (s.flags.sharedCredit) lines.push("You put Marcus's name on the scope call next to yours. NARC counts names, not who did the work.");
+  if (s.flags.ownedCall) lines.push('You named the real owner of the scope call. NARC has no field for that, and Marcus noticed.');
 
   // Structured payoff for the end screen (#106): the same underlying facts
   // as `lines` above, organized into the sections the dashboard actually
@@ -1016,6 +1020,8 @@ export function ending(s) {
     fired >= 1 && s.index >= 70 && 'NARC calls this a strong day. A coworker lost their job during it.',
     s.flags.informantNoted && 'Reporting on two coworkers raised your Visible Activity by 6 points. It also cost their trust.',
     s.actual === 0 && s.index >= 70 && `Visible Activity ended at ${s.index}/100. Real contribution credit for the day: 0 -- NARC doesn't track that number at all.`,
+    s.flags.coveredForLuis && 'A meeting that never happened raised your collaboration signal while Luis was at the dentist.',
+    s.flags.sharedCredit && s.tasks.project.approach === 'cut' && 'You made the scope call alone and shared the credit. NARC recorded two contributors.',
     rushed === 0 && missed === 0 && s.index < 60 && 'You did the work carefully and missed nothing. NARC still isn’t impressed.',
   ].filter(Boolean);
 

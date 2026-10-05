@@ -646,3 +646,23 @@ console.log('NARC pacing tests passed');
   assert.equal(m.requests.marcusCredit.status, 'open', 'the afternoon has a decision after the 3:30 project deadline');
 }
 console.log('coworker decision tests passed');
+
+// ----------------------------- ignoring Marcus's project is not an automatic firing
+{
+  let s = act(newGame(), { do: 'idle', minutes: (16 * 60 + 20) - newGame().t });
+  assert.equal(s.tasks.project.status, 'missed');
+  assert.equal(s.trust.marcus, 0, 'a missed project costs NARC standing, not Marcus\'s trust');
+  s = act(s, { do: 'respond', id: 'marcusCase', choice: 'leave' });
+  assert.equal(s.people.marcus.status, 'warning', 'staying out of his case after an ignored project is a warning, not a firing');
+}
+
+// ------------------------------ the ending names the new coworker choices
+{
+  let s = act(newGame(), { do: 'idle', minutes: (13 * 60 + 50) - newGame().t });
+  s = act(s, { do: 'respond', id: 'luisCover', choice: 'cover' });
+  s = act(s, { do: 'idle', minutes: 600 });
+  const e = ending(s);
+  assert.ok(e.lines.some((l) => /fake vendor meeting/.test(l)), 'the ending names covering for Luis');
+  assert.ok(e.contradictions.some((c) => /never happened/.test(c)), 'covering for Luis shows up as a contradiction');
+}
+console.log('softened Marcus and ending-line tests passed');
