@@ -103,9 +103,12 @@ export function newGame() {
     },
     requests: {
       luisTip: { status: 'pending', at: 9 * 60 + 20 },
-      danaMorning: { status: 'pending', at: 10 * 60 + 15 },
-      marcusFavor: { status: 'pending', at: 10 * 60 + 45 },
-      narcCheckpoint: { status: 'pending', at: 11 * 60 + 20 },
+      priyaDraft: { status: 'pending', at: 9 * 60 + 40 },
+      luisCover: { status: 'pending', at: 13 * 60 + 50 },
+      marcusCredit: { status: 'pending', at: 15 * 60 + 40 },
+      danaMorning: { status: 'pending', at: 9 * 60 + 50 },
+      marcusFavor: { status: 'pending', at: 10 * 60 + 25 },
+      narcCheckpoint: { status: 'pending', at: 11 * 60 },
       danaCheckin: { status: 'pending', at: 12 * 60 + 15 },
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
@@ -115,9 +118,9 @@ export function newGame() {
       // line of text the player just reads.
       narcFirstReview: { status: 'pending', at: null },
       narcResponse: { status: 'pending', at: null },
-      priyaCase: { status: 'pending', at: 12 * 60 + 40 },
-      luisCase: { status: 'pending', at: 14 * 60 + 5 },
-      marcusCase: { status: 'pending', at: 15 * 60 + 20 },
+      priyaCase: { status: 'pending', at: 11 * 60 + 40 },
+      luisCase: { status: 'pending', at: 15 * 60 + 5 },
+      marcusCase: { status: 'pending', at: 16 * 60 + 20 },
     },
     calendar: [],
     narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
@@ -191,6 +194,9 @@ function nextEvent(s) {
   if (tasks.handoff.status === 'pending') candidates.push({ t: tasks.handoff.deadline, label: 'the client handoff deadline' });
   else if (tasks.handoff.status === 'hidden') candidates.push({ t: 14 * 60 + 10, label: 'the afternoon handoff request' });
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
+  if (requests.priyaDraft.status === 'pending') candidates.push({ t: requests.priyaDraft.at, label: "Priya's draft" });
+  if (requests.luisCover.status === 'pending') candidates.push({ t: requests.luisCover.at, label: "Luis's favor" });
+  if (requests.marcusCredit.status === 'pending') candidates.push({ t: requests.marcusCredit.at, label: "Marcus's credit question" });
   if (requests.danaMorning.status === 'pending') candidates.push({ t: requests.danaMorning.at, label: "Dana's first-hour check" });
   if (requests.marcusFavor.status === 'pending') candidates.push({ t: requests.marcusFavor.at, label: "Marcus's favor" });
   if (requests.narcCheckpoint.status === 'pending') candidates.push({ t: requests.narcCheckpoint.at, label: "NARC's midmorning check" });
@@ -249,8 +255,8 @@ function checkThresholds(s) {
   }
   if (tasks.project.status === 'pending' && s.t >= tasks.project.deadline) {
     tasks.project.status = 'missed';
-    s.trust.marcus -= 1;
-    note(s, 'Marcus made the cut himself, guessing at what you would have picked.', 'consequence');
+    s.index = Math.max(0, s.index - 3);
+    note(s, 'Marcus made the cut himself, guessing at what you would have picked. NARC logged the missed deadline.', 'consequence');
   }
 
   // A rushed morning call comes back due, early afternoon -- the specific
@@ -292,6 +298,18 @@ function checkThresholds(s) {
   if (requests.luisTip.status === 'pending' && s.t >= requests.luisTip.at) {
     requests.luisTip.status = 'open';
     say(s, 'luis', "Small survival tip: if you’re doing quiet work, mark it Focus Time first. Same work, different label, much happier NARC.");
+  }
+  if (requests.priyaDraft.status === 'pending' && s.t >= requests.priyaDraft.at) {
+    requests.priyaDraft.status = 'open';
+    say(s, 'priya', "The client reply is drafted. Can you read it before I send? Five minutes. Or I send it and we find out together.");
+  }
+  if (requests.luisCover.status === 'pending' && s.t >= requests.luisCover.at) {
+    requests.luisCover.status = 'open';
+    say(s, 'luis', "I have a dentist appointment until 3. If NARC asks, I'm in a vendor meeting. Can you put one on the calendar for me? It's not even a lie, it's a different kind of meeting.");
+  }
+  if (requests.marcusCredit.status === 'pending' && s.t >= requests.marcusCredit.at) {
+    requests.marcusCredit.status = 'open';
+    say(s, 'marcus', "Dana's end-of-day note asks who made the scope call on my project. Put both our names on it? NARC counts names, and I'm already short on them.");
   }
   if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
     requests.danaMorning.status = 'open';
@@ -424,7 +442,7 @@ function checkThresholds(s) {
     note(s, 'Focus Time usage has spread across the team. The workaround is becoming normal behavior.', 'system');
   }
 
-  if (!s.narc.adaptationAnnounced && s.narc.focusUses >= 3) {
+  if (!s.narc.adaptationAnnounced && (s.narc.focusUses >= 3 || s.flags.spreadHappened)) {
     s.narc.adaptationAnnounced = true;
     s.narc.adaptation = true;
     requests.narcResponse.status = 'open';
@@ -487,6 +505,10 @@ export function act(state, a) {
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
+      if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
+      if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
+        note(s, 'NARC applies the team-wide pattern to you as well. You never used Focus Time, but the rule keys on the pattern, not the person.', 'narc');
+      }
 
       if (a.id === 'priyaCase') {
         if (a.choice === 'context') {
@@ -612,6 +634,7 @@ export function act(state, a) {
       // to notice that on their own the way they noticed it worked.
       s.calendar.push({ id: `c${s.calendar.length + 1}`, at: s.t, label: a.label || 'Focus time' });
       s.narc.focusUses += 1;
+      s.flags.playerFocusUses = (s.flags.playerFocusUses || 0) + 1;
       spend(s, 5, { category: 'gamed' });
       if (s.narc.adaptation) {
         s.index = Math.max(0, s.index - 1);
@@ -785,6 +808,36 @@ const REQUEST_OPTIONS = {
       result: "You leave NARC's first-hour read as-is.",
     },
   },
+  priyaDraft: {
+    help: {
+      minutes: 5, visible: true, trust: { priya: 1 }, flag: 'readPriyaDraft',
+      result: 'You read Priya\'s draft and caught a missing detail. Five minutes you were not planning to spend, and one more message in her thread.',
+    },
+    later: {
+      minutes: 0, visible: false, trust: { priya: -1 },
+      result: 'You told her you would catch up later. She sent it as written.',
+    },
+  },
+  luisCover: {
+    cover: {
+      minutes: 3, visible: true, trust: { luis: 2 }, flag: 'coveredForLuis',
+      result: 'You put a fake vendor meeting on his calendar. NARC logs it as collaboration; Luis owes you one.',
+    },
+    decline: {
+      minutes: 0, visible: false, trust: { luis: -1 },
+      result: 'You told him you would not put a meeting on the calendar. His away time stays what it is.',
+    },
+  },
+  marcusCredit: {
+    share: {
+      minutes: 2, visible: true, trust: { marcus: 1 }, flag: 'sharedCredit',
+      result: 'You put both names on the scope call. Marcus relaxes. NARC counts two contributors and does not ask who did the work.',
+    },
+    own: {
+      minutes: 4, visible: true, trust: { marcus: -1 }, flag: 'ownedCall',
+      result: 'You put only the real owner on it. Accurate, and Marcus notices which name is missing.',
+    },
+  },
   luisTip: {
     thank: { minutes: 3, visible: false, result: 'You thanked Luis for the tip. No cost, no upside yet.' },
     ignore: { minutes: 0, visible: false, result: "You didn't reply. Luis notices eventually." , trust: { luis: -1 } },
@@ -844,8 +897,8 @@ const REQUEST_OPTIONS = {
       result: "You explain why Focus Time spread. NARC records the context, but its anti-gaming rule still changes the score.",
     },
     ignore: {
-      minutes: 0, visible: false,
-      result: 'You let the flag stand without a response.',
+      minutes: 0, visible: false, index: -6,
+      result: 'You let the flag stand without a response. The anti-gaming rule discounts your Visible Activity along with everyone else\'s.',
     },
   },
 };
@@ -949,6 +1002,10 @@ export function ending(s) {
     lines.push(`You supplied adverse context about coworkers ${s.flags.coworkerReports} time${s.flags.coworkerReports === 1 ? '' : 's'}.${bonus}`);
   }
   if (s.culture.nominated) lines.push(`You nominated ${PEOPLE[s.culture.nominated].name} as Culture Champion.`);
+  if (s.flags.readPriyaDraft) lines.push("You read Priya's draft before she sent it. NARC saw one more message in her thread, not the mistake you caught.");
+  if (s.flags.coveredForLuis) lines.push("You put a fake vendor meeting on Luis's calendar. NARC logged it as collaboration.");
+  if (s.flags.sharedCredit) lines.push("You put Marcus's name on the scope call next to yours. NARC counts names, not who did the work.");
+  if (s.flags.ownedCall) lines.push('You named the real owner of the scope call. NARC has no field for that, and Marcus noticed.');
 
   // Structured payoff for the end screen (#106): the same underlying facts
   // as `lines` above, organized into the sections the dashboard actually
@@ -963,6 +1020,8 @@ export function ending(s) {
     fired >= 1 && s.index >= 70 && 'NARC calls this a strong day. A coworker lost their job during it.',
     s.flags.informantNoted && 'Reporting on two coworkers raised your Visible Activity by 6 points. It also cost their trust.',
     s.actual === 0 && s.index >= 70 && `Visible Activity ended at ${s.index}/100. Real contribution credit for the day: 0 -- NARC doesn't track that number at all.`,
+    s.flags.coveredForLuis && 'A meeting that never happened raised your collaboration signal while Luis was at the dentist.',
+    s.flags.sharedCredit && s.tasks.project.approach === 'cut' && 'You made the scope call alone and shared the credit. NARC recorded two contributors.',
     rushed === 0 && missed === 0 && s.index < 60 && 'You did the work carefully and missed nothing. NARC still isn’t impressed.',
   ].filter(Boolean);
 

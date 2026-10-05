@@ -25,11 +25,14 @@ const THREADS = {
 };
 
 const REQUEST_THREAD = {
-  danaMorning: 'dana', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
+  danaMorning: 'dana', priyaDraft: 'priya', luisCover: 'luis', marcusCredit: 'marcus', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
 };
 
 const REQUEST_OPTIONS = {
   luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']],
+  priyaDraft: [['help', 'Read her draft (5 min)'], ['later', 'Say you will catch up later']],
+  luisCover: [['cover', 'Put a meeting on his calendar (3 min)'], ['decline', 'Say you will not']],
+  marcusCredit: [['share', 'Put both names on it (2 min)'], ['own', 'Name only the real owner (4 min)']],
   marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
   danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
   marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
