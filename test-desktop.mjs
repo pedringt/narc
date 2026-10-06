@@ -69,3 +69,10 @@ assert.match(app, /Compose work email/, 'Email should expose player-initiated ou
 assert.match(app, /Review supporting details \(3 min\)/, 'work files should require an evidence-review step before the final task choice');
 assert.match(app, /notification-source/, 'notifications should render an explicit unread indicator');
 assert.match(app, /primary-decision/, 'consequential NARC choices should have a stronger visual hierarchy');
+
+assert.match(app, /finalDelivered/, 'the final tutorial message should be delivered as a toast like every earlier step');
+assert.match(app, /toastQueue/, 'toasts should queue instead of replacing each other');
+assert.match(app, /TOAST_QUEUE_MAX/, 'the toast backlog should be bounded');
+assert.match(app, /silent: tutorialActive/, 'chatter toasts should be held during the tutorial');
+assert.doesNotMatch(app, /els\.toasts\.replaceChildren\(toast\);\s*toastTimer = setTimeout\(\(\) => els\.toasts\.replaceChildren\(\), 6000\)/, 'the single-slot 6s toast replacement should be gone');
+console.log('toast queue checks passed');

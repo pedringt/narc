@@ -374,23 +374,35 @@ els.notificationsBtn.addEventListener('click', () => {
 });
 els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }); render(); });
 
-function restart() { state = newGame(); ui = freshUi(); render(); }
+function restart() { clearTimeout(toastTimer); toastQueue = []; toastShowing = false; clearTimeout(tutorialTimer); state = newGame(); ui = freshUi(); els.toasts.replaceChildren(); render(); }
 
 function completeTutorialTarget(id) {
   if (ui.tutorialStep < 0 || ui.tutorialDone) return;
   ui.tutorialVisited[id] = true;
 
   let advanced = false;
+  let finalDelivered = null;
   while (!ui.tutorialDone) {
     const step = TUTORIAL_STEPS[ui.tutorialStep];
     if (!step || !ui.tutorialVisited[step.target]) break;
     if (step.final) {
       ui.tutorialDone = true;
-      ui.tutorialUnread = false;
+      // Reaching the last step by advancing in this same call means the player
+      // has not seen its message yet; deliver it like every earlier step.
+      ui.tutorialUnread = advanced;
+      if (advanced) finalDelivered = step;
       break;
     }
     ui.tutorialStep += 1;
     advanced = true;
+  }
+
+  if (finalDelivered) {
+    clearTimeout(tutorialTimer);
+    tutorialTimer = setTimeout(() => {
+      render();
+      showToast('Dana Whitfield', finalDelivered.text, 'messages', { thread: 'dana', tutorial: true });
+    }, 250);
   }
 
   if (!ui.tutorialDone && advanced) {
@@ -556,8 +568,9 @@ function announceChanges(before, after) {
       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc');
     }
   }
+  const tutorialActive = ui.tutorialStep >= 0 && !ui.tutorialDone;
   newEntries.filter((e) => e.kind === 'message' && e.from !== 'me').forEach((e) => {
-    showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who });
+    showToast(THREADS[e.who]?.name || 'Messages', e.text, 'messages', { thread: e.who, silent: tutorialActive });
   });
 }
 
@@ -597,8 +610,30 @@ function renderNotificationCenter() {
   els.notificationCenter.replaceChildren(header, list);
 }
 
-function showToast(source, text, app = null, meta = {}) {
+const TOAST_MS = 5000;
+const TOAST_QUEUE_MAX = 3;
+let toastQueue = [];
+let toastShowing = false;
+
+function nextToast() {
   clearTimeout(toastTimer);
+  const next = toastQueue.shift();
+  if (!next) { toastShowing = false; els.toasts.replaceChildren(); return; }
+  toastShowing = true;
+  const toast = h('button', 'toast', h('span', 'app', next.item.source), h('span', 'text', next.item.text));
+  toast.type = 'button';
+  toast.addEventListener('click', () => {
+    openNotification(next.item);
+    nextToast();
+  });
+  els.toasts.replaceChildren(toast);
+  toastTimer = setTimeout(nextToast, TOAST_MS);
+}
+
+// One toast at a time, each shown for its full duration. Every notification
+// is still recorded in the notification center; a backlog drops the oldest
+// non-priority toasts rather than flashing past them.
+function showToast(source, text, app = null, meta = {}) {
   const item = {
     id: ui.nextNotificationId++,
     source,
@@ -611,15 +646,17 @@ function showToast(source, text, app = null, meta = {}) {
   };
   ui.notifications.push(item);
   renderNotificationCenter();
+  if (meta.silent) return;
 
-  const toast = h('button', 'toast', h('span', 'app', source), h('span', 'text', text));
-  toast.type = 'button';
-  toast.addEventListener('click', () => {
-    els.toasts.replaceChildren();
-    openNotification(item);
-  });
-  els.toasts.replaceChildren(toast);
-  toastTimer = setTimeout(() => els.toasts.replaceChildren(), 6000);
+  const entry = { item, priority: !!meta.tutorial };
+  if (entry.priority) toastQueue.unshift(entry);
+  else toastQueue.push(entry);
+  while (toastQueue.length > TOAST_QUEUE_MAX) {
+    const drop = toastQueue.findIndex((q) => !q.priority);
+    if (drop < 0) break;
+    toastQueue.splice(drop, 1);
+  }
+  if (!toastShowing) nextToast();
 }
 
 function windowShell(id, title, ...body) {
