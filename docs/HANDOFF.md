@@ -8,6 +8,8 @@ Short version of the diagnosis (full numbers in the spec): a bot that picks ever
 
 Build order is four phases. **Phases 1 and 2 are built together, then Paige playtests.** Do not start Phase 3 until she has. Run the bot suite described in the spec between phases. All six open design questions were settled on 2026-10-21 and are recorded in the spec's Decisions table; do not re-open them.
 
+**Phases 1 and 2 are built on branch `redesign-phase-1-2` (2026-10-21, not merged, not pushed).** All engine, desktop and archived-week tests pass. The bot suite at the end of `test-day.mjs` runs and reports, and it fails three of its six conditions with the spec's numbers as written: the always-careful run ends at VA 74 with no review, no miss and nobody fired (still the dominant strategy), and no run reaches 440 minutes by choice. Tuning levers were measured but not applied; that choice is Paige's. Copy changes from this branch are logged at the end of `docs/GAME_COPY_EDITABLE.md`.
+
 Everything below this line describes the build as it stood before the redesign. It's still accurate about what the code does today, and the authority/release rules at the bottom still apply.
 
 ---

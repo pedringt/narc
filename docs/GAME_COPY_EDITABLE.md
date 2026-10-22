@@ -504,6 +504,242 @@ Source: `day-desktop-app.js`
 | 285 | `day-desktop-app.js:1035` | Play again |  |
 | 286 | `day-desktop-app.js:1043` | .window.app-messages .thread .scroll |  |
 
+## Redesign Phases 1–2 (branch `redesign-phase-1-2`)
+
+Everything below changed on the `redesign-phase-1-2` branch while building Phases 1 and 2 of `docs/REDESIGN_SPEC.md`. The Change 7 thesis-line cuts are Phase 4 and have **not** been made; those lines are still in the game.
+
+### Removed with a mechanic the spec removes, or replaced by spec copy
+
+These are gone from the code on this branch because the thing they described no longer exists (the skip button, the 3-minute "supporting details" step, labeled task buttons). **DELETE** is pre-filled; replace it with text if you want a line back somewhere.
+
+| # | Source | Removed text | Edited text |
+| ---: | --- | --- | --- |
+| R1 | `day.js` workUntil | You keep working. Nothing NARC or anyone else singles out. | DELETE |
+| R2 | `day-desktop-app.js` quiet card | Current work is caught up | DELETE |
+| R3 | `day-desktop-app.js` quiet card | Advance to ${clock(next.t)} / Finish the workday | DELETE |
+| R4 | `day-desktop-app.js` Files | Review supporting details (3 min) | DELETE |
+| R5 | `day.js` inspect | You reviewed the supporting details for ${task.label}. | DELETE |
+| R6 | `day-desktop-app.js` TASK_OPTIONS | Skim it, approve it (5 min) / Actually read it (25 min) | DELETE |
+| R7 | `day-desktop-app.js` TASK_OPTIONS | Send a quick apology (5 min) / Dig into what happened (25 min) | DELETE |
+| R8 | `day-desktop-app.js` TASK_OPTIONS | Cut scope yourself (10 min) / Loop in Marcus first (20 min) | DELETE |
+| R9 | `day-desktop-app.js` TASK_OPTIONS | Clear the obvious exception (8 min) / Trace the recurring cause (18 min) | DELETE |
+| R10 | `day-desktop-app.js` TASK_OPTIONS | Send the activity summary (5 min) / Build a usable handoff (15 min) | DELETE |
+| R11 | `day-desktop-app.js` FILES (all six old bodies) | Old three-line file summaries, e.g. "The rate table contains a 30% increase buried in the updated commercial terms." | DELETE |
+| R12 | `day-desktop-app.js` narcFirstReview | Explain the quiet file review (5 min) / Leave the negative assessment standing / Explain that the fast work was rushed (5 min) / Accept NARC's positive activity assessment | DELETE |
+| R13 | `day-desktop-app.js` danaCheckin | Use NARC's Trusted Operator summary (2 min) / Give Dana the real picture (15 min) / Give her the short version (5 min) | DELETE |
+
+### Dialogue cut — needs your OK
+
+Under Change 1 every open review turns Dana's check-in into the review meeting, so her old "review is open" line can no longer fire. It is removed in code on this branch; write anything other than DELETE to bring it back.
+
+| # | Source | Removed text | Edited text |
+| ---: | --- | --- | --- |
+| R14 | `day.js` danaCheckin | Quick check-in. NARC still has a review open. Give me the real picture if the record is missing something; otherwise keep it short. | DELETE |
+
+### Changed text
+
+| # | Source | Was | Now | Edited text |
+| ---: | --- | --- | --- | --- |
+| R15 | `day.js` client task detail | A rushed reply keeps the peace short-term; the file in Files explains what actually went wrong. | The thread and the account history are in Files. |  |
+| R16 | `day.js` project task detail | You can decide yourself, or pull Marcus in first. | The new timeline and Marcus's notes are in Files. |  |
+| R17 | `day.js` audit task detail | Three shipments are stuck. You can clear the obvious exception quickly or trace why the queue keeps recurring. | Three shipments are stuck on routing exceptions. The queue export is in Files. |  |
+| R18 | `day.js` handoff task detail | Dana needs a usable handoff, not just an activity summary. The source notes are in Files. | Tomorrow’s team picks up from whatever you send. The notes are in Files. |  |
+| R19 | `day.js` vendor quick result | You approved the Halcyon renewal after a skim. Looked decisive. | You approved the Halcyon renewal. |  |
+| R20 | `day.js` vendor thorough result | You read the actual terms. Halcyon quietly raised their rate 30% -- you flagged it and got it fixed before signing. | You sent the Halcyon renewal back with the page 4 rate flagged. Halcyon reissued it at $14.00 before signing. |  |
+| R21 | `day.js` client canned result | You sent a canned apology. It bought time; it didn't fix anything. | You replied to the client, apologized for the trouble and promised a follow-up. |  |
+| R22 | `day.js` client investigate result | You read the actual complaint in Files, found the real issue, and fixed it. Priya noticed. | You told the client the order went out in cartons against their own pallet instruction, and set up a re-ship on pallets. Priya noticed. |  |
+| R23 | `day.js` project cut result | You cut scope yourself to hit the new deadline. Fast. Marcus finds out later. | You submitted the cut list for Marcus's project. |  |
+| R24 | `day.js` project consult result | You looped Marcus in before cutting anything. Slower, but he backs the call. | You cut the dashboard polish and kept the handoff context. Marcus backs the call. |  |
+| R25 | `day.js` audit clear result | You cleared the obvious carrier exception. The queue looks better; the recurring cause is still there. | You cleared the three carrier exceptions. |  |
+| R26 | `day.js` audit trace result | You traced the repeat failures to a stale routing rule and fixed the cause instead of just clearing the queue. | You traced all three exceptions to a routing rule from fourteen months ago and retired it. |  |
+| R27 | `day.js` handoff summary result | You sent a clean activity summary. It is fast, readable, and missing the decisions the next person actually needs. | You sent Dana the activity summary. |  |
+| R28 | `day.js` handoff reconcile result | You reconciled the source notes and wrote a handoff someone else can actually pick up tomorrow. | You sent the handoff with the open risks written in. |  |
+| R29 | `day-desktop-app.js` priyaDraft | Read her draft (5 min) / Say you will catch up later | Send it over. / Can’t right now, send it as is. / Send it. I’ll read it after. |  |
+| R30 | `day-desktop-app.js` luisCover | Put a meeting on his calendar (3 min) / Say you will not | Done. / I’m not putting a fake meeting on the calendar. / Just mark it Focus Time yourself. |  |
+| R31 | `day-desktop-app.js` marcusFavor | Give him 15 minutes / Say you don't have time | Pull it up. / Not today. / Send me the doc, I’ll look when I can. |  |
+| R32 | `day-desktop-app.js` danaCheckin | Give her the full picture (15 min) / Give her the short version (5 min) | Here’s where everything actually is. / Mostly on track. / NARC’s summary is accurate. |  |
+| R33 | `day-desktop-app.js` narcFirstReview | (see removed rows) | Attach as context / Acknowledge |  |
+| R34 | `day-desktop-app.js` other request labels | Every "(N min)" suffix | Same labels without the minutes |  |
+| R35 | `day-desktop-app.js` rework | Deal with it yourself (20 min) / Tell Dana now (8 min) | Fix it yourself / Tell Dana |  |
+
+### New copy
+
+| # | Source | Current text | Edited text |
+| ---: | --- | --- | --- |
+| R36 | `day.js` review opens (NARC) | Formal review opened: Visible Activity has been under 50 for 30 minutes. NARC requests are now mandatory, and your next check-in with Dana is a review meeting. |  |
+| R37 | `day.js` review standing note | Review open: Visible Activity stayed under 50 for 30 minutes. Every NARC request now needs a response. |  |
+| R38 | `day.js` Dana, review meeting | NARC opened a formal review on you, so this check-in is a review meeting now. Fifteen minutes. Bring the real picture. |  |
+| R39 | `day.js` Dana, review opens mid-check-in | Scratch that. NARC just opened a formal review on you, so this is a review meeting now. Fifteen minutes. |  |
+| R40 | `day.js` review meeting result | You sat through the review meeting. Dana walked through the activity record line by line and wrote down what it was missing. |  |
+| R41 | `day-desktop-app.js` review meeting reply | Okay. Let’s go through it. |  |
+| R42 | `day.js` Synthetic flag (NARC) | NARC 2.0 Synthetic Activity flag: your Visible Activity is higher than your completed work explains. Possible metric manipulation is now on your record. |  |
+| R43 | `day.js` Synthetic standing note | Synthetic Activity flag: Visible Activity ran higher than the work NARC can see would explain. |  |
+| R44 | `day-desktop-app.js` standing label | Synthetic activity flag |  |
+| R45 | `day-desktop-app.js` meter | Review / Synthetic (tick labels) |  |
+| R46 | `day-desktop-app.js` meter countdown | Review opens in ${left} min unless activity recovers. |  |
+| R47 | `day.js` Priya, second draft (after reading) | Round two. They answered the version you fixed, so here’s the follow-up. Same deal: read it before I send? |  |
+| R48 | `day.js` Priya, second draft (after deflecting) | You said you’d read the first one after. They already answered it, so here’s round two. Read this one before I send? |  |
+| R49 | `day-desktop-app.js` second-draft replies | Send it over. / Send it, it’s fine. |  |
+| R50 | `day.js` second draft read | You read the second draft too. Ten more minutes on a thread you thought was finished. |  |
+| R51 | `day.js` second draft skipped | You let the second draft go out unread. |  |
+| R52 | `day.js` Priya nudge (10:40) | Random question: did you get to the rate table on Halcyon? Procurement has been weird about their renewals all year. |  |
+| R53 | `day.js` Marcus, client call (2:40) | You helped with the draft, so I added you to the 2:40 with the client. They’re asking about the part you looked at. Ten minutes. Joining? |  |
+| R54 | `day-desktop-app.js` client call replies | Joining now. / Can’t, I’m buried. You’ve got this. |  |
+| R55 | `day.js` joined call | You joined the client call Marcus looped you into. Ten minutes, mostly listening, one useful answer. |  |
+| R56 | `day.js` skipped call | You told Marcus you couldn’t join. He took the call alone, after you’d already said you would help. |  |
+| R57 | `day.js` Marcus deflect | Sent. It’s in your Files. Two pages, I promise. |  |
+| R58 | `day.js` Marcus deflect result | You asked Marcus to send the doc over. It’s in Files whenever you get to it. |  |
+| R59 | `day.js` you, after reading Marcus’s doc | Read it. Notes are in the margins. The pricing slide contradicts page one. |  |
+| R60 | `day.js` Marcus, after your notes | That’s exactly the thing I was worried about. Thank you. |  |
+| R61 | `day.js` Priya deflect result | You told Priya to send it and you’d read it after. She sent it. |  |
+| R62 | `day.js` Luis deflect result | You told Luis to mark it Focus Time himself. He did. One more Focus Time block on the team calendar. |  |
+| R63 | `day.js` NARC calendar scan (3:10) | NARC calendar scan: “Vendor meeting” (Luis Perez, 1:50–3:00) has no invite, no attendees and no notes. You created the entry. Explanation requested. |  |
+| R64 | `day-desktop-app.js` calendar scan replies | Explain the meeting / Let the entry stand |  |
+| R65 | `day.js` explained meeting | You told NARC the vendor meeting was a placeholder for Luis’s dentist appointment. Accurate, and now it’s on his record instead of yours. |  |
+| R66 | `day.js` meeting stands | You let the vendor meeting stand. NARC logged a meeting with no invite, no attendees and no notes against your account. |  |
+| R67 | `day-desktop-app.js` calendar scan assessment | Calendar integrity check · “Vendor meeting” for Luis Perez, 1:50–3:00. No invite, no attendees, no notes. Created from your account. · NARC treats an unattended meeting created by a coworker as possible presence padding. · NARC sees the calendar entry and who made it, not why it exists. · An unexplained entry stays on your record as unverified activity. |  |
+| R68 | `day-desktop-app.js` Calendar | Vendor meeting · Luis Perez / No location · created by you |  |
+| R69 | `day.js` handoff risks | Halcyon renewal: unit rate goes from $14.00 to $18.20 / Brightline account: pallets requested, cartons shipped / Marcus's project: what was cut, and what tomorrow depends on / Carrier exceptions: one stale routing rule behind all three |  |
+| R70 | `day-desktop-app.js` handoff page 2 | No open risks recorded. / Add from today: / Nothing from today to add yet. |  |
+| R71 | `day-desktop-app.js` handoff page 1 | Generated ${clock} from workstation activity · Employee 4417 / Completed / Deadline passed / Open / Messages sent / Files opened / Visible Activity |  |
+| R72 | `day-desktop-app.js` rework, vendor | From: Procurement / The Halcyon renewal you approved this morning bills storage at $18.20 a pallet position, up from $14.00. The cover letter said nothing changed. Please explain how this was approved and what you want to do about it before the 3:00 PM finance review. |  |
+| R73 | `day-desktop-app.js` rework, client | From: Priya Shah / Brightline wrote back to the reply we sent this morning. Rosa says the second truck was turned away too, and she’s asking for a call with someone who can tell her what actually went wrong. I can’t cover this one again. |  |
+| R74 | `day-desktop-app.js` decision buttons | Approve / Reply / Submit / Send |  |
+| R75 | `day-desktop-app.js` pager | ‹ Previous / Next page › / Page ${page} of ${total} |  |
+
+### The task documents (new, `FILES` in `day-desktop-app.js`)
+
+Where the problem is buried: Halcyon page 4 (rate) with the page 1 tell ("no changes to commercial terms"); Brightline page 3 (Sep 18 note) against page 2 (cartons); Harbor Point page 3 (dependency map) against page 2's draft cut list; carrier queue page 3 (rule RR-0457) matching the ZIPs on pages 1 and 2.
+
+| # | Source | Current text | Edited text |
+| ---: | --- | --- | --- |
+| R76 | `Halcyon_Vendor_Renewal.pdf` p1 | **Cover letter** |  |
+| R77 | `Halcyon_Vendor_Renewal.pdf` p1 | Halcyon Freight Services · 1180 Commerce Way, Suite 400 · Sparks, NV |  |
+| R78 | `Halcyon_Vendor_Renewal.pdf` p1 | To: Procurement, Meridian Supply Co. |  |
+| R79 | `Halcyon_Vendor_Renewal.pdf` p1 | Re: Renewal of Master Services Agreement MSA-2291 |  |
+| R80 | `Halcyon_Vendor_Renewal.pdf` p1 | Thank you for another year of partnership. Your account team has enjoyed supporting Meridian’s growth across the Western region, and we are pleased to enclose the renewal of your Master Services Agreement for the coming term. |  |
+| R81 | `Halcyon_Vendor_Renewal.pdf` p1 | This renewal carries forward your current service levels and contacts with no changes to commercial terms. Sections 2 through 4 restate the agreement in our updated template for your records. |  |
+| R82 | `Halcyon_Vendor_Renewal.pdf` p1 | Please return the signed signature page by 11:30 AM today. Agreements not returned by the renewal deadline continue automatically on the terms enclosed. |  |
+| R83 | `Halcyon_Vendor_Renewal.pdf` p1 | Warm regards, / Janelle Ruiz, Senior Account Manager |  |
+| R84 | `Halcyon_Vendor_Renewal.pdf` p2 | **Section 2 · Service summary** |  |
+| R85 | `Halcyon_Vendor_Renewal.pdf` p2 | Facilities: Sparks DC (primary), Stockton overflow |  |
+| R86 | `Halcyon_Vendor_Renewal.pdf` p2 | Services: Pallet storage, pick and pack, LTL consolidation, cross-dock |  |
+| R87 | `Halcyon_Vendor_Renewal.pdf` p2 | Inbound receiving: Mon–Sat, 6:00 AM–4:00 PM |  |
+| R88 | `Halcyon_Vendor_Renewal.pdf` p2 | Outbound cutoff: 2:00 PM local for same-day LTL tender |  |
+| R89 | `Halcyon_Vendor_Renewal.pdf` p2 | Inventory reporting: Daily snapshot by 7:00 AM via client portal |  |
+| R90 | `Halcyon_Vendor_Renewal.pdf` p2 | Primary contact: Janelle Ruiz · escalations to Regional Ops Director |  |
+| R91 | `Halcyon_Vendor_Renewal.pdf` p2 | Volumes assume an average of 1,850 pallet positions per week with seasonal peaks of up to 2,400 between October and December. Peak capacity is reserved on a first-committed basis. |  |
+| R92 | `Halcyon_Vendor_Renewal.pdf` p3 | **Section 3 · Service levels** |  |
+| R93 | `Halcyon_Vendor_Renewal.pdf` p3 | On-time pickup: 97.0% of scheduled tenders |  |
+| R94 | `Halcyon_Vendor_Renewal.pdf` p3 | Order accuracy: 99.5% of lines shipped |  |
+| R95 | `Halcyon_Vendor_Renewal.pdf` p3 | Inventory accuracy: 99.0% at quarterly cycle count |  |
+| R96 | `Halcyon_Vendor_Renewal.pdf` p3 | Damage claims: Acknowledged in 2 business days, resolved in 10 |  |
+| R97 | `Halcyon_Vendor_Renewal.pdf` p3 | Service credit: 2% of monthly storage fees per missed metric, capped at 8% |  |
+| R98 | `Halcyon_Vendor_Renewal.pdf` p3 | Service levels are measured monthly and reported in the client portal. Credits are applied to the following month’s invoice and are the client’s sole remedy for a missed metric. |  |
+| R99 | `Halcyon_Vendor_Renewal.pdf` p4 | **Section 4 · Commercial terms** |  |
+| R100 | `Halcyon_Vendor_Renewal.pdf` p4 | Unit rate (per pallet position, weekly): $18.20 (prior: $14.00) |  |
+| R101 | `Halcyon_Vendor_Renewal.pdf` p4 | Handling, in and out (per pallet): $6.75 (prior: $6.75) |  |
+| R102 | `Halcyon_Vendor_Renewal.pdf` p4 | Pick and pack (per order line): $0.42 (prior: $0.42) |  |
+| R103 | `Halcyon_Vendor_Renewal.pdf` p4 | Fuel surcharge: DOE diesel index, adjusted weekly (unchanged) |  |
+| R104 | `Halcyon_Vendor_Renewal.pdf` p4 | Minimum monthly billing: $24,000 (prior: $24,000) |  |
+| R105 | `Halcyon_Vendor_Renewal.pdf` p4 | Payment terms: Net 30 (unchanged) |  |
+| R106 | `Halcyon_Vendor_Renewal.pdf` p4 | Term: 12 months from signature; renews annually unless either party gives 60 days’ notice |  |
+| R107 | `Halcyon_Vendor_Renewal.pdf` p4 | Rates are fixed for the term except the fuel surcharge. Accessorial charges not listed are billed at Halcyon’s published tariff. |  |
+| R108 | `Halcyon_Vendor_Renewal.pdf` p5 | **Section 5 · Signature page** |  |
+| R109 | `Halcyon_Vendor_Renewal.pdf` p5 | By signing below, Customer accepts the services, service levels and commercial terms set out in Sections 2 through 4, which supersede any prior schedule. |  |
+| R110 | `Halcyon_Vendor_Renewal.pdf` p5 | For Halcyon Freight Services: Janelle Ruiz, Senior Account Manager |  |
+| R111 | `Halcyon_Vendor_Renewal.pdf` p5 | For Meridian Supply Co.: _________________________ (Procurement approver) |  |
+| R112 | `Halcyon_Vendor_Renewal.pdf` p5 | Date: _________________________ |  |
+| R113 | `Priya_Client_Escalation.txt` p1 | **Thread · PO 44817 delivery refused** |  |
+| R114 | `Priya_Client_Escalation.txt` p1 | Export: Priya Shah · 52 threads this week · 31 tagged client: |  |
+| R115 | `Priya_Client_Escalation.txt` p1 | From: Rosa Delgado, Receiving Manager, Brightline Home Goods / To: Priya Shah / Subject: RE: RE: PO 44817 delivery refused at dock |  |
+| R116 | `Priya_Client_Escalation.txt` p1 | Priya, this is the second load this month our team has had to turn away. The truck arrived at 7:40 with the whole order floor-loaded in loose cartons. We can’t receive that. The driver waited an hour and left. |  |
+| R117 | `Priya_Client_Escalation.txt` p1 | We are now out of stock on two of the SKUs on that PO at three stores. I need to know what happened and what you are going to do differently, not another apology. I have to explain this to our VP of Supply Chain by end of day. |  |
+| R118 | `Priya_Client_Escalation.txt` p1 | Rosa |  |
+| R119 | `Priya_Client_Escalation.txt` p1 | > On Tuesday, Priya Shah wrote: / > Hi Rosa, so sorry about the delay. Looking into it now and will update you shortly. |  |
+| R120 | `Priya_Client_Escalation.txt` p2 | **Shipment record · PO 44817** |  |
+| R121 | `Priya_Client_Escalation.txt` p2 | Ship to: Brightline Home Goods DC, 4400 Mill Rd, Reno NV |  |
+| R122 | `Priya_Client_Escalation.txt` p2 | Ship date: Monday, 3:15 PM |  |
+| R123 | `Priya_Client_Escalation.txt` p2 | Carrier: Desert Line LTL · PRO 7731940 |  |
+| R124 | `Priya_Client_Escalation.txt` p2 | Contents: 412 cartons, 6 SKUs |  |
+| R125 | `Priya_Client_Escalation.txt` p2 | Packaging: Cartons, floor-loaded |  |
+| R126 | `Priya_Client_Escalation.txt` p2 | Special instructions: None on ship profile |  |
+| R127 | `Priya_Client_Escalation.txt` p2 | Delivery attempt: Wednesday 7:40 AM · refused by consignee |  |
+| R128 | `Priya_Client_Escalation.txt` p2 | Status: Returned to origin · re-delivery not scheduled |  |
+| R129 | `Priya_Client_Escalation.txt` p3 | **Account notes · Brightline Home Goods** |  |
+| R130 | `Priya_Client_Escalation.txt` p3 | Oct 2: Quarterly review with R. Delgado. Happy with fill rate. Wants earlier ASN emails. (P. Shah) |  |
+| R131 | `Priya_Client_Escalation.txt` p3 | Sep 18: Brightline moves receiving to the new Reno DC from Oct 1. New dock takes palletized freight only, no floor-loaded cartons. Asked us to update their ship profile before the first October order. (K. Moore) |  |
+| R132 | `Priya_Client_Escalation.txt` p3 | Sep 18: Ship profile change ticket #8812 opened, assigned to Fulfillment Ops queue. (K. Moore) |  |
+| R133 | `Priya_Client_Escalation.txt` p3 | Aug 30: Invoice dispute on July freight resolved, credit memo issued. (P. Shah) |  |
+| R134 | `Priya_Client_Escalation.txt` p3 | Aug 4: Contact change: Rosa Delgado replaces T. Hall as receiving lead. (P. Shah) |  |
+| R135 | `Priya_Client_Escalation.txt` p4 | **Draft reply · Priya Shah** |  |
+| R136 | `Priya_Client_Escalation.txt` p4 | Hi Rosa, |  |
+| R137 | `Priya_Client_Escalation.txt` p4 | Thank you for your patience, and I’m very sorry for the trouble with PO 44817. It looks like the carrier ran into delays on this lane, and we know how disruptive that is for your stores. |  |
+| R138 | `Priya_Client_Escalation.txt` p4 | As a gesture of goodwill we’d like to offer a 10% credit on this shipment, and we’ll keep a close eye on Desert Line’s performance going forward. |  |
+| R139 | `Priya_Client_Escalation.txt` p4 | Please let me know if there is anything else I can do. |  |
+| R140 | `Priya_Client_Escalation.txt` p4 | Best, / Priya |  |
+| R141 | `Marcus_Project_Scope.doc` p1 | **Harbor Point portal rollout · revised timeline** |  |
+| R142 | `Marcus_Project_Scope.doc` p1 | Harbor Point Distributors has moved go-live from November 14 to November 4 so the portal is live before their holiday freeze. |  |
+| R143 | `Marcus_Project_Scope.doc` p1 | At current velocity that leaves about 30% of remaining scope unbuilt. Something comes out of this release; it can go into the December patch. |  |
+| R144 | `Marcus_Project_Scope.doc` p1 | Today 3:30 PM: Cut list due to engineering |  |
+| R145 | `Marcus_Project_Scope.doc` p1 | Oct 28: Code freeze |  |
+| R146 | `Marcus_Project_Scope.doc` p1 | Oct 31: Client acceptance testing |  |
+| R147 | `Marcus_Project_Scope.doc` p1 | Nov 4: Go-live |  |
+| R148 | `Marcus_Project_Scope.doc` p2 | **Remaining features** |  |
+| R149 | `Marcus_Project_Scope.doc` p2 | Dashboard polish: Branded theme, chart animations, export to PDF · 6 days |  |
+| R150 | `Marcus_Project_Scope.doc` p2 | Account handoff export: Account history and open issues, sent to Client Success · 5 days |  |
+| R151 | `Marcus_Project_Scope.doc` p2 | Bulk shipment upload: CSV import for more than 50 orders · 4 days |  |
+| R152 | `Marcus_Project_Scope.doc` p2 | Delivery notifications: Email and SMS on status change · 3 days |  |
+| R153 | `Marcus_Project_Scope.doc` p2 | Draft cut list (auto-generated by effort): Account handoff export, Delivery notifications. Saves 8 days. |  |
+| R154 | `Marcus_Project_Scope.doc` p3 | **Dependency map** |  |
+| R155 | `Marcus_Project_Scope.doc` p3 | Dashboard polish: No downstream dependents |  |
+| R156 | `Marcus_Project_Scope.doc` p3 | Account handoff export: Client Success onboarding call (Nov 5), Support macro set, Q1 renewal forecast |  |
+| R157 | `Marcus_Project_Scope.doc` p3 | Bulk shipment upload: Harbor Point peak-week ordering (they place ~300 orders on Nov 10) |  |
+| R158 | `Marcus_Project_Scope.doc` p3 | Delivery notifications: None in this release |  |
+| R159 | `Marcus_Project_Scope.doc` p3 | Items with downstream dependents should not be cut without a replacement plan from the owning team. |  |
+| R160 | `Marcus_Project_Scope.doc` p4 | **Marcus’s notes** |  |
+| R161 | `Marcus_Project_Scope.doc` p4 | Harbor Point’s ops lead cares about two things: getting peak orders in without retyping them, and not being asked the same questions twice by a new team. |  |
+| R162 | `Marcus_Project_Scope.doc` p4 | Their CFO saw the polished dashboard mockups in the pitch. Nobody on their ops side has mentioned them since. |  |
+| R163 | `Marcus_Project_Scope.doc` p4 | I can cover the gap on notifications with a daily email from my side for a month if needed. — M. |  |
+| R164 | `FOLLOW_UP_REQUIRED.txt` p1 | **Follow-up** |  |
+| R165 | `Carrier_Exception_Queue.csv` p1 | **Exception 1 of 3** |  |
+| R166 | `Carrier_Exception_Queue.csv` p1 | shipment_id: SHP-220914 |  |
+| R167 | `Carrier_Exception_Queue.csv` p1 | dest_zip: 97301 |  |
+| R168 | `Carrier_Exception_Queue.csv` p1 | service: LTL |  |
+| R169 | `Carrier_Exception_Queue.csv` p1 | status: HOLD_MANUAL_REVIEW |  |
+| R170 | `Carrier_Exception_Queue.csv` p1 | held_since: Today 6:02 AM |  |
+| R171 | `Carrier_Exception_Queue.csv` p1 | notes: Address validated. Carrier available. No reason code on hold. Release manually. |  |
+| R172 | `Carrier_Exception_Queue.csv` p2 | **Exception 2 of 3** |  |
+| R173 | `Carrier_Exception_Queue.csv` p2 | shipment_id: SHP-220951 |  |
+| R174 | `Carrier_Exception_Queue.csv` p2 | dest_zip: 97305 |  |
+| R175 | `Carrier_Exception_Queue.csv` p2 | service: LTL |  |
+| R176 | `Carrier_Exception_Queue.csv` p2 | status: HOLD_MANUAL_REVIEW |  |
+| R177 | `Carrier_Exception_Queue.csv` p2 | held_since: Today 6:02 AM |  |
+| R178 | `Carrier_Exception_Queue.csv` p2 | notes: Same as last week’s Salem holds. Released manually Thu and Fri. Customer asking why Salem is always late. |  |
+| R179 | `Carrier_Exception_Queue.csv` p3 | **Exception 3 of 3** |  |
+| R180 | `Carrier_Exception_Queue.csv` p3 | shipment_id: SHP-221006 |  |
+| R181 | `Carrier_Exception_Queue.csv` p3 | dest_zip: 97317 |  |
+| R182 | `Carrier_Exception_Queue.csv` p3 | service: LTL |  |
+| R183 | `Carrier_Exception_Queue.csv` p3 | status: HOLD_MANUAL_REVIEW |  |
+| R184 | `Carrier_Exception_Queue.csv` p3 | held_since: Today 6:02 AM |  |
+| R185 | `Carrier_Exception_Queue.csv` p3 | notes: Hold source: routing rule RR-0457, created 2025-08-19 by j.tan. Condition: dest_zip 973* AND service = LTL → hold for manual review. Comment on rule: “temporary, Salem terminal closed for remodel.” |  |
+| R186 | `Client_Handoff_Notes.doc` p1 | **Today’s activity log** |  |
+| R187 | `Client_Handoff_Notes.doc` p2 | **Open risks** |  |
+| R188 | `Client_Handoff_Notes.doc` p3 | **Client context** |  |
+| R189 | `Client_Handoff_Notes.doc` p3 | Brightline Home Goods is our largest home-goods account in the region and moved receiving to a new Reno DC this month. Rosa Delgado is the day-to-day contact; she prefers phone for anything urgent. |  |
+| R190 | `Client_Handoff_Notes.doc` p3 | Halcyon Freight Services runs our Sparks storage and LTL consolidation. Procurement owns the contract; Ops owns the relationship. |  |
+| R191 | `Client_Handoff_Notes.doc` p3 | Harbor Point Distributors goes live on the new carrier portal on November 4. Marcus Reed is account lead. |  |
+| R192 | `Client_Handoff_Notes.doc` p3 | Tomorrow’s team starts at 8:00 AM and will read this before the 8:30 stand-up. |  |
+| R193 | `Marcus_Client_Deck_Notes.doc` p1 | **Talking points · Harbor Point check-in** |  |
+| R194 | `Marcus_Client_Deck_Notes.doc` p1 | Open with the timeline: we hit November 4, and here is exactly what’s in the release. |  |
+| R195 | `Marcus_Client_Deck_Notes.doc` p1 | Pricing stays where we quoted it in September: flat per-seat, no implementation fee, first 60 days of support included. |  |
+| R196 | `Marcus_Client_Deck_Notes.doc` p1 | Ask about their peak week ordering and who on their side owns the bulk upload. |  |
+| R197 | `Marcus_Client_Deck_Notes.doc` p2 | **Slides 6–9** |  |
+| R198 | `Marcus_Client_Deck_Notes.doc` p2 | Slide 6: Release scope and what moves to December |  |
+| R199 | `Marcus_Client_Deck_Notes.doc` p2 | Slide 7: Pricing: per-seat plus a one-time $4,500 implementation fee |  |
+| R200 | `Marcus_Client_Deck_Notes.doc` p2 | Slide 8: Support model and escalation path |  |
+| R201 | `Marcus_Client_Deck_Notes.doc` p2 | Slide 9: Next steps and owners |  |
+
 ## Editing notes
 
 - You can replace only the text you want changed and leave the rest of the **Edited text** column blank.
