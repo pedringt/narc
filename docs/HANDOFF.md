@@ -1,6 +1,18 @@
 # NARC Handoff
 
-## Current status (2026-09-27)
+## Current status (2026-10-21)
+
+**Paige played the #70 build and reported back: it's at a good base level but "not that fun and doesn't feel like a game."** That feedback was turned into a research pass and an approved redesign. **The active plan is `docs/REDESIGN_SPEC.md`.** Read it before anything else in this file.
+
+Short version of the diagnosis (full numbers in the spec): a bot that picks every careful, kind option misses nothing, ends at 80/100 Visible Activity, and skips 285 of 480 minutes. There's a dominant strategy, the choices are labeled with their answers, time never runs out, and the score never threatens the player.
+
+Build order is four phases. **Phases 1 and 2 are built together, then Paige playtests.** Do not start Phase 3 until she has. Run the bot suite described in the spec between phases. All six open design questions were settled on 2026-10-21 and are recorded in the spec's Decisions table; do not re-open them.
+
+Everything below this line describes the build as it stood before the redesign. It's still accurate about what the code does today, and the authority/release rules at the bottom still apply.
+
+---
+
+## Previous status (2026-09-27)
 
 **The full #102–#106 expansion is merged to `main` (commit `1caa754`) and Paige is playing it now.** There is nothing left to implement until she reports back from that playtest (#70) — do not start new feature work speculatively.
 
