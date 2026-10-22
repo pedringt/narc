@@ -265,10 +265,12 @@ function hasPending(s) {
 }
 
 // Idle time no longer exists as a choice: if nothing is waiting, the next
-// scheduled beat lands on the player's next action, whatever it is.
+// scheduled beat lands on the player's next action, whatever it is. NARC
+// sees the skipped stretch as quiet time, so it drifts like quiet work
+// (tuning lever A, chosen by Paige 2026-10-21).
 function jumpIfIdle(s) {
   if (s.phase === 'end' || hasPending(s)) return;
-  spend(s, Math.max(0, nextEvent(s).t - s.t));
+  spend(s, Math.max(0, nextEvent(s).t - s.t), { visible: false });
 }
 
 // Visible Activity's two failure boundaries (REDESIGN_SPEC Change 1). Low:
@@ -891,6 +893,9 @@ export function handoffRisks(s) {
   return risks;
 }
 
+// Careful minutes are 1.5x the REDESIGN_SPEC Change 2 table (tuning chosen
+// by Paige 2026-10-21 after the bot suite showed the table left ~110 min of
+// slack). The handoff's careful cost comes from its checklist instead.
 const TASK_OPTIONS = {
   vendor: {
     quick: {
@@ -898,7 +903,7 @@ const TASK_OPTIONS = {
       result: 'You approved the Halcyon renewal.',
     },
     thorough: {
-      minutes: 45, visible: false, actual: 2,
+      minutes: 68, visible: false, actual: 2,
       result: 'You sent the Halcyon renewal back with the page 4 rate flagged. Halcyon reissued it at $14.00 before signing.',
     },
   },
@@ -908,7 +913,7 @@ const TASK_OPTIONS = {
       result: 'You replied to the client, apologized for the trouble and promised a follow-up.',
     },
     investigate: {
-      minutes: 45, visible: false, actual: 2, trust: { priya: 2 },
+      minutes: 68, visible: false, actual: 2, trust: { priya: 2 },
       result: 'You told the client the order went out in cartons against their own pallet instruction, and set up a re-ship on pallets. Priya noticed.',
     },
   },
@@ -918,13 +923,13 @@ const TASK_OPTIONS = {
       result: "You submitted the cut list for Marcus's project.",
     },
     consult: {
-      minutes: 35, visible: false, actual: 1, trust: { marcus: 2 },
+      minutes: 52, visible: false, actual: 1, trust: { marcus: 2 },
       result: 'You cut the dashboard polish and kept the handoff context. Marcus backs the call.',
     },
   },
   rework: {
     quiet: {
-      minutes: 30, visible: false, actual: 2,
+      minutes: 45, visible: false, actual: 2,
       result: (t) => (t.kind === 'vendor'
         ? 'You renegotiated the Halcyon rate yourself before it reached anyone else. Handled, quietly, on your own time.'
         : "You called the client directly and actually fixed it this time. Priya didn't have to know."),
@@ -942,7 +947,7 @@ const TASK_OPTIONS = {
       result: 'You cleared the three carrier exceptions.',
     },
     trace: {
-      minutes: 30, visible: false, actual: 1,
+      minutes: 45, visible: false, actual: 1,
       result: 'You traced all three exceptions to a routing rule from fourteen months ago and retired it.',
     },
   },
@@ -952,7 +957,7 @@ const TASK_OPTIONS = {
       result: 'You sent Dana the activity summary.',
     },
     reconcile: {
-      minutes: 30, visible: false, actual: 1,
+      minutes: 45, visible: false, actual: 1,
       result: 'You sent the handoff with the open risks written in.',
     },
   },
@@ -1104,17 +1109,17 @@ const REQUEST_OPTIONS = {
     },
   },
   priyaCase: {
-    context: { minutes: 8, visible: true, result: 'You add the client escalation and onboarding workload. The message count does not change; the meaning attached to it does.' },
+    context: { minutes: 8, visible: false, result: 'You add the client escalation and onboarding workload. The message count does not change; the meaning attached to it does.' },
     quiet: { minutes: 2, visible: true, result: 'You advise Priya to reduce message volume. The work stays similar, but the measured behavior changes.' },
     report: { minutes: 2, visible: true, result: 'You confirm the Communication Load flag without adding context. NARC’s narrow signal is treated as sufficient evidence.' },
   },
   luisCase: {
-    context: { minutes: 6, visible: true, result: 'You add work context for Luis’s low-input stretches. The inactivity signal was real; the disengagement inference was not necessarily.' },
+    context: { minutes: 6, visible: false, result: 'You add work context for Luis’s low-input stretches. The inactivity signal was real; the disengagement inference was not necessarily.' },
     blame: { minutes: 2, visible: true, result: 'You frame Luis’s low-input pattern as likely gaming. NARC receives a human endorsement of its own suspicion.' },
     leave: { minutes: 0, visible: false, result: 'You leave Luis to answer the flag himself.' },
   },
   marcusCase: {
-    evidence: { minutes: 5, visible: true, result: 'You add the transit alert. The attendance pattern remains, but today’s cause now has independent evidence.' },
+    evidence: { minutes: 5, visible: false, result: 'You add the transit alert. The attendance pattern remains, but today’s cause now has independent evidence.' },
     confirm: { minutes: 2, visible: true, result: 'You confirm the late arrival without the transit evidence. A true observation is allowed to support a broader conclusion.' },
     leave: { minutes: 0, visible: false, result: 'You stay out of Marcus\'s attendance case.' },
   },

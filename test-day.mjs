@@ -536,7 +536,7 @@ console.log('day.js tests passed');
   assert.deepEqual(s.time, { work: 0, narc: 0, social: 0, gamed: 0 });
 
   s = work(s, 'vendor', 'thorough');
-  assert.equal(s.time.work, 15 + 45, 'page turns and the task itself count as work time');
+  assert.equal(s.time.work, 15 + 68, 'page turns and the task itself count as work time');
 
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
   assert.equal(s.time.narc, 5, 'answering a NARC assessment counts as NARC overhead, not work');
@@ -663,8 +663,8 @@ console.log('softened Marcus and ending-line tests passed');
 // =========================================== REDESIGN_SPEC Phases 1 and 2
 // ------------------------------------------- quiet work drifts 1 per 10 min
 {
-  const careful = work(newGame(), 'vendor', 'thorough'); // 3 page turns + 45 quiet minutes
-  assert.equal(careful.index, 61 - 6, '60 quiet minutes cost 6 points, not a flat 2');
+  const careful = work(newGame(), 'vendor', 'thorough'); // 3 page turns + 68 quiet minutes
+  assert.equal(careful.index, 61 - 8, '83 quiet minutes cost 8 points, not a flat 2');
   let pages = newGame();
   pages = act(pages, { do: 'page', id: 'vendor' });
   assert.equal(pages.index, 61, 'a single 5-minute page turn is under the drift step');
@@ -774,7 +774,7 @@ console.log('softened Marcus and ending-line tests passed');
   s = act(s, { do: 'page', id: 'vendor' });
   const caught = act(s, { do: 'task', id: 'vendor' });
   assert.equal(caught.tasks.vendor.approach, 'thorough');
-  assert.equal(caught.t, START + 15 + 45);
+  assert.equal(caught.t, START + 15 + 68);
 
   let full = newGame();
   for (let i = 0; i < 9; i += 1) full = act(full, { do: 'page', id: 'vendor' });
