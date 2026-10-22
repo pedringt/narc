@@ -1031,7 +1031,12 @@ console.log('redesign phase 1-2 tests passed');
     `review ${randomRuns.filter((r) => r.reviewEver).length}/${SEEDS}, synthetic ${randomRuns.filter((r) => r.flagged).length}/${SEEDS}`);
 
   const dominant = results.filter((r) => r.index >= 60 && r.index <= 75 && !r.flagged && !r.reviewEver && r.fired === 0);
-  const best = all.reduce((a, b) => (b.index > a.index ? b : a));
+  // Best-scoring = the highest-VA clean run: no review, no flag, nobody
+  // fired (Paige, 2026-10-21). Raw highest VA is always a fast run that
+  // spends little time, which made the budget check meaningless.
+  const clean = all.filter((r) => !r.reviewEver && !r.flagged && r.fired === 0);
+  const best = clean.length ? clean.reduce((a, b) => (b.index > a.index ? b : a)) : null;
+  if (process.env.BOT_DEBUG) clean.forEach((r) => console.log(`clean: ${r.key} VA ${r.index} by-choice ${r.byChoice} missed ${r.missed}`));
   const reachable = new Set();
   all.forEach((r) => Object.values(r.outcomes).forEach((o) => reachable.add(o)));
   const bonusNames = Object.keys(results[0].bonuses);
@@ -1041,7 +1046,8 @@ console.log('redesign phase 1-2 tests passed');
 
   const checks = [
     ['No constant policy ends VA 60–75, no flag, nobody fired', dominant.length === 0, dominant.map((r) => r.key).join(', ') || 'none'],
-    ['Best-scoring run spends ≥440 of 480 minutes by choice', best.byChoice >= 440, `best is ${best.key} at VA ${best.index}, ${best.byChoice} min by choice`],
+    ['Best clean run spends ≥440 of 480 minutes by choice', Boolean(best) && best.byChoice >= 440,
+      best ? `best clean run is ${best.key} at VA ${best.index}, ${best.byChoice} min by choice; ${clean.length} clean of ${all.length}` : `no clean run among ${all.length}`],
     ['Always-careful opens a review', results.find((r) => r.key === 'careful').reviewEver, ''],
     ['Always-fast gets the Synthetic flag', results.find((r) => r.key === 'fast').flagged, ''],
     ['Every coworker outcome is reachable', ['employed', 'warning', 'fired', 'protected'].every((o) => reachable.has(o)), [...reachable].join(', ')],
