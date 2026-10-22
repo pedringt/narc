@@ -147,6 +147,11 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
   assert.equal(visible.standing.status, 'trusted');
   assert.equal(visible.flags.trustedOperator, true, 'accepting a flattering visible-activity read earns a system reward');
 
+  // Idle time drifts VA like quiet work and the clock now ticks through it,
+  // so three idle hours from a low start would open a review before Dana's
+  // check-in and turn it into a review meeting. Start high so the standing,
+  // not the review, is what this test exercises.
+  visible = { ...visible, index: 95 };
   visible = act(visible, { do: 'idle', minutes: (12 * 60 + 15) - visible.t });
   assert.equal(visible.requests.danaCheckin.status, 'open');
   const before = visible.t;
@@ -157,6 +162,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
   let careful = work(newGame(), 'vendor', 'thorough');
   careful = act(careful, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
   assert.equal(careful.standing.status, 'review', 'leaving a low-activity read standing opens a review');
+  careful = { ...careful, index: 95 }; // so the idle stretch doesn't drift VA under 50 and reopen it
   careful = act(careful, { do: 'idle', minutes: (11 * 60 + 20) - careful.t });
   careful = act(careful, { do: 'respond', id: 'narcCheckpoint', choice: 'context' });
   assert.equal(careful.standing.status, 'standard', 'adding later context can close the review');
@@ -243,7 +249,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
 
 // --------------------------------------------- Dana's check-in competes too
 {
-  let s = newGame();
+  let s = { ...newGame(), index: 95 }; // high enough that five idle hours don't open a review first
   s = act(s, { do: 'idle', minutes: 5 * 60 }); // past 1:30pm
   assert.equal(s.requests.danaCheckin.status, 'open');
   const before = s.t;
@@ -386,7 +392,7 @@ console.log('day.js tests passed');
   // blame's own visible:true accounts for 3 of this; the other 6 is the
   // one-time pattern bonus, on top of what each report already earns alone.
   assert.equal(s.index, beforeSecond + 9, 'the pattern earns a one-time bump on top of the report itself being visible activity');
-  assert.ok(s.log.some((e) => /strong collaboration/.test(e.text)), 'the pattern is named once it is clearly a pattern');
+  assert.ok(s.log.some((e) => /collaboration pattern/i.test(e.text)), 'the pattern is named once it is clearly a pattern');
   assert.ok(ending(s).lines.some((l) => /moved Visible Activity up 6 points/.test(l)), 'the ending states the mechanical benefit plainly, not just narratively');
 }
 
@@ -485,7 +491,7 @@ console.log('day.js tests passed');
   assert.equal(topic, 'dana-meridian');
   s = act(s, { do: 'chat', who: 'dana', topic });
   s = act(s, { do: 'deliverChat', topic });
-  assert.ok(s.threads.dana.some((m) => /chaos is less coordinated/i.test(m.text)), 'Dana should not reference the raccoon before Marcus tells that story');
+  assert.ok(s.threads.dana.some((m) => /chaos is less organized/i.test(m.text)), 'Dana should not reference the raccoon before Marcus tells that story');
 
   let later = newGame();
   later = act(later, { do: 'idle', minutes: (10 * 60 + 55) - later.t });
@@ -527,7 +533,7 @@ console.log('day.js tests passed');
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
   assert.equal(s.standing.status, 'trusted');
   assert.match(s.standing.note, /first completed task produced high visible activity/i);
-  assert.ok(s.log.some((e) => e.kind === 'narc' && /received no correction/i.test(e.text)));
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /no correction received/i.test(e.text)));
 }
 
 // ------------------------------------------- time is tracked by category (#103)
@@ -536,7 +542,7 @@ console.log('day.js tests passed');
   assert.deepEqual(s.time, { work: 0, narc: 0, social: 0, gamed: 0 });
 
   s = work(s, 'vendor', 'thorough');
-  assert.equal(s.time.work, 15 + 68, 'page turns and the task itself count as work time');
+  assert.equal(s.time.work, 15 + 40, 'page turns and the commit itself count as work time');
 
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
   assert.equal(s.time.narc, 5, 'answering a NARC assessment counts as NARC overhead, not work');
@@ -586,7 +592,7 @@ console.log('day.js tests passed');
 
 // ------------------- NARC 2.0 reaches players who never used Focus Time (#111)
 {
-  let s = newGame();
+  let s = { ...newGame(), index: 95 }; // high enough that the idle stretch doesn't open a review first
   s = act(s, { do: 'idle', minutes: 270 }); // past 1:30pm, no Focus Time ever used
   assert.equal(s.narc.adaptation, true, 'the team-wide shift reaches a player who never used Focus Time');
   assert.equal(s.requests.narcResponse.status, 'open');
@@ -595,7 +601,7 @@ console.log('day.js tests passed');
   const before = s.index;
   const ignored = act(s, { do: 'respond', id: 'narcResponse', choice: 'ignore' });
   assert.ok(ignored.index < before, 'leaving the gaming flag unanswered now costs Visible Activity');
-  assert.ok(ignored.log.some((e) => e.kind === 'narc' && /never used Focus Time/i.test(e.text)), 'a non-user is told the rule keys on the pattern, not the person');
+  assert.ok(ignored.log.some((e) => e.kind === 'narc' && /no individual Focus Time/i.test(e.text)), 'a non-user is told the pattern was applied to their account');
 
   const explained = act(s, { do: 'respond', id: 'narcResponse', choice: 'explain' });
   assert.ok(explained.index > ignored.index, 'explaining beats ignoring');
@@ -655,21 +661,23 @@ console.log('coworker decision tests passed');
   s = act(s, { do: 'respond', id: 'luisCover', choice: 'cover' });
   s = act(s, { do: 'idle', minutes: 600 });
   const e = ending(s);
-  assert.ok(e.lines.some((l) => /fake vendor meeting/.test(l)), 'the ending names covering for Luis');
+  assert.ok(e.lines.some((l) => /vendor meeting/i.test(l)), 'the ending names covering for Luis');
   assert.ok(e.contradictions.some((c) => /never happened/.test(c)), 'covering for Luis shows up as a contradiction');
 }
 console.log('softened Marcus and ending-line tests passed');
 
 // =========================================== REDESIGN_SPEC Phases 1 and 2
-// ------------------------------------------- quiet work drifts 1 per 10 min
+// ------------------------------------------- quiet work drifts 1 per 5 min
 {
-  const careful = work(newGame(), 'vendor', 'thorough'); // 3 page turns + 68 quiet minutes
-  assert.equal(careful.index, 61 - 8, '83 quiet minutes cost 8 points, not a flat 2');
+  const careful = work(newGame(), 'vendor', 'thorough'); // 3 page turns + 40 quiet minutes
+  assert.equal(careful.index, 61 - 11, '55 quiet minutes cost 11 points, not a flat 2');
   let pages = newGame();
   pages = act(pages, { do: 'page', id: 'vendor' });
-  assert.equal(pages.index, 61, 'a single 5-minute page turn is under the drift step');
+  assert.equal(pages.index, 60, 'a single 5-minute page turn is one point');
   pages = act(pages, { do: 'page', id: 'vendor' });
-  assert.equal(pages.index, 60, 'two page turns are ten quiet minutes, one point');
+  assert.equal(pages.index, 59, 'two page turns are ten quiet minutes, two points');
+  const idle = act(newGame(), { do: 'idle', minutes: 20 });
+  assert.equal(idle.index, 59, 'skipped time drifts at half the rate of a read');
 }
 
 // --------------------------------- low boundary: 30 minutes under 50 opens a review
@@ -698,7 +706,7 @@ console.log('softened Marcus and ending-line tests passed');
   assert.equal(s.standing.status, 'review', 'context does not close a review the activity line opened');
   s = act(s, { do: 'idle', minutes: (12 * 60 + 15) - s.t });
   assert.deepEqual(requestChoices(s, 'danaCheckin'), ['review']);
-  assert.ok(s.threads.dana.some((m) => /review meeting/.test(m.text)));
+  assert.ok(s.threads.dana.some((m) => /that meeting|review meeting/.test(m.text)));
   const before = s.t;
   s = act(s, { do: 'respond', id: 'danaCheckin', choice: 'review' });
   assert.equal(s.t, before + 15, 'the review meeting costs 15 minutes');
@@ -774,7 +782,7 @@ console.log('softened Marcus and ending-line tests passed');
   s = act(s, { do: 'page', id: 'vendor' });
   const caught = act(s, { do: 'task', id: 'vendor' });
   assert.equal(caught.tasks.vendor.approach, 'thorough');
-  assert.equal(caught.t, START + 15 + 68);
+  assert.equal(caught.t, START + 15 + 40);
 
   let full = newGame();
   for (let i = 0; i < 9; i += 1) full = act(full, { do: 'page', id: 'vendor' });
@@ -829,10 +837,10 @@ console.log('softened Marcus and ending-line tests passed');
 // ------------------------- a coworker nudge stays in the fiction and conditional
 {
   let s = act(newGame(), { do: 'open', id: 'vendor' });
-  s = act(s, { do: 'idle', minutes: (10 * 60 + 40) - START });
+  s = act(s, { do: 'idle', minutes: (10 * 60 + 5) - START });
   assert.ok(s.threads.priya.some((m) => /rate table/.test(m.text)), 'Priya asks about the rate table if the file is open and unread');
   assert.ok(!s.threads.priya.some((m) => /page 4/.test(m.text)), 'nobody says which page');
-  let closed = act(newGame(), { do: 'idle', minutes: (10 * 60 + 40) - START });
+  let closed = act(newGame(), { do: 'idle', minutes: (10 * 60 + 5) - START });
   assert.ok(!closed.threads.priya.some((m) => /rate table/.test(m.text)), 'no nudge about a file never opened');
 }
 // -------- Dana's 9:50 check knows NARC's read even when the first task spans it
@@ -843,14 +851,15 @@ console.log('softened Marcus and ending-line tests passed');
 }
 // --------- a review that opens while Dana's check-in is waiting changes it
 {
-  let s = act(newGame(), { do: 'idle', minutes: (12 * 60 + 15) - START });
+  let s = act({ ...newGame(), index: 95 }, { do: 'idle', minutes: (12 * 60 + 15) - START });
   assert.equal(s.requests.danaCheckin.status, 'open');
+  assert.equal(s.standing.status, 'standard', 'no review yet');
   s.index = 40;
   s = act(s, { do: 'idle', minutes: 1 });
   s = act(s, { do: 'idle', minutes: 30 });
   assert.equal(s.standing.status, 'review');
   assert.deepEqual(requestChoices(s, 'danaCheckin'), ['review']);
-  assert.ok(s.threads.dana.at(-1).text.startsWith('Scratch that.'), 'Dana says the check-in is now the review meeting');
+  assert.ok(s.threads.dana.at(-1).text.startsWith('Hold on.'), 'Dana says the check-in is now the review meeting');
 }
 console.log('redesign phase 1-2 tests passed');
 
@@ -1010,7 +1019,7 @@ console.log('redesign phase 1-2 tests passed');
       'Raccoon Witness': run.choices.marcusCase === 'evidence',
     };
     return {
-      s, index: s.index, missed, fired, flagged, reviewEver: run.reviewEver, byChoice, skips: run.skips,
+      s, index: s.index, missed, fired, flagged, reviewEver: run.reviewEver, byChoice, skips: run.skips, fullReading,
       skippedMinutes: DAY_MINUTES - byChoice, outcomes: Object.fromEntries(Object.entries(people).map(([k, p]) => [k, p.status])), bonuses,
     };
   }
@@ -1031,12 +1040,15 @@ console.log('redesign phase 1-2 tests passed');
     `review ${randomRuns.filter((r) => r.reviewEver).length}/${SEEDS}, synthetic ${randomRuns.filter((r) => r.flagged).length}/${SEEDS}`);
 
   const dominant = results.filter((r) => r.index >= 60 && r.index <= 75 && !r.flagged && !r.reviewEver && r.fired === 0);
-  // Best-scoring = the highest-VA clean run: no review, no flag, nobody
-  // fired (Paige, 2026-10-21). Raw highest VA is always a fast run that
-  // spends little time, which made the budget check meaningless.
+  // "Budget binds" (REDESIGN_SPEC Build order) used to be checked as "the
+  // best clean run spends >= 440 of 480 minutes by choice". That target was
+  // unreachable by construction: the day only holds ~380 choosable minutes
+  // even for the all-careful bot, and the intended mixed day is fast on
+  // some things by design. What the spec meant is the sentence below: you
+  // cannot read every document fully, help everyone, and stay clean.
   const clean = all.filter((r) => !r.reviewEver && !r.flagged && r.fired === 0);
-  const best = clean.length ? clean.reduce((a, b) => (b.index > a.index ? b : a)) : null;
-  if (process.env.BOT_DEBUG) clean.forEach((r) => console.log(`clean: ${r.key} VA ${r.index} by-choice ${r.byChoice} missed ${r.missed}`));
+  const cleanAndThorough = clean.filter((r) => r.fullReading && r.missed === 0);
+  if (process.env.BOT_DEBUG) clean.forEach((r) => console.log(`clean: ${r.key} VA ${r.index} by-choice ${r.byChoice} missed ${r.missed} fullReading ${r.fullReading}`));
   const reachable = new Set();
   all.forEach((r) => Object.values(r.outcomes).forEach((o) => reachable.add(o)));
   const bonusNames = Object.keys(results[0].bonuses);
@@ -1046,8 +1058,8 @@ console.log('redesign phase 1-2 tests passed');
 
   const checks = [
     ['No constant policy ends VA 60–75, no flag, nobody fired', dominant.length === 0, dominant.map((r) => r.key).join(', ') || 'none'],
-    ['Best clean run spends ≥440 of 480 minutes by choice', Boolean(best) && best.byChoice >= 440,
-      best ? `best clean run is ${best.key} at VA ${best.index}, ${best.byChoice} min by choice; ${clean.length} clean of ${all.length}` : `no clean run among ${all.length}`],
+    ['Budget binds: no run reads every document fully, misses nothing, and stays clean', cleanAndThorough.length === 0 && clean.length > 0,
+      cleanAndThorough.length ? cleanAndThorough.map((r) => r.key).join(', ') : `${clean.length} clean of ${all.length}, none of them fully read`],
     ['Always-careful opens a review', results.find((r) => r.key === 'careful').reviewEver, ''],
     ['Always-fast gets the Synthetic flag', results.find((r) => r.key === 'fast').flagged, ''],
     ['Every coworker outcome is reachable', ['employed', 'warning', 'fired', 'protected'].every((o) => reachable.has(o)), [...reachable].join(', ')],
