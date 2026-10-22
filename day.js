@@ -67,14 +67,14 @@ export function newGame() {
       },
       client: {
         label: "Priya's client is escalating — needs a response",
-        detail: 'A rushed reply keeps the peace short-term; the file in Files explains what actually went wrong.',
+        detail: 'The thread and the account history are in Files.',
         deadline: 13 * 60,
         status: 'pending',
         approach: null,
       },
       project: {
         label: "Marcus's project: the deadline moved up. Something has to be cut.",
-        detail: 'You can decide yourself, or pull Marcus in first.',
+        detail: "The new timeline and Marcus's notes are in Files.",
         deadline: 15 * 60 + 30,
         status: 'pending',
         approach: null,
@@ -88,14 +88,14 @@ export function newGame() {
       },
       audit: {
         label: 'Clear the carrier exception queue before the afternoon cutoff',
-        detail: 'Three shipments are stuck. You can clear the obvious exception quickly or trace why the queue keeps recurring.',
+        detail: 'Three shipments are stuck on routing exceptions. The queue export is in Files.',
         deadline: 14 * 60 + 15,
         status: 'hidden',
         approach: null,
       },
       handoff: {
         label: 'Prepare the end-of-day client handoff',
-        detail: 'Dana needs a usable handoff, not just an activity summary. The source notes are in Files.',
+        detail: 'Tomorrow’s team picks up from whatever you send. The notes are in Files.',
         deadline: 16 * 60 + 15,
         status: 'hidden',
         approach: null,
@@ -113,6 +113,11 @@ export function newGame() {
       // Gated on a flag, not just a clock threshold: only fires if the
       // morning's project decision earns it (see checkThresholds).
       marcusFallout: { status: 'pending', at: 14 * 60 + 30 },
+      // Delayed costs of kind choices (REDESIGN_SPEC Change 2): each only
+      // opens if the morning choice that earns it was made.
+      priyaDraft2: { status: 'pending', at: 12 * 60 + 20 },
+      marcusLoop: { status: 'pending', at: 14 * 60 + 40 },
+      luisCalendar: { status: 'pending', at: 15 * 60 + 10 },
       // Opened programmatically the moment NARC adapts, not on a timer --
       // this is what makes the adaptation an actual decision rather than a
       // line of text the player just reads.
@@ -123,7 +128,10 @@ export function newGame() {
       marcusCase: { status: 'pending', at: 16 * 60 + 20 },
     },
     calendar: [],
-    narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false },
+    // lowSince: when Visible Activity last dropped under the review line (null
+    // while it's above). quietCarry: quiet minutes not yet turned into drift.
+    // lastTaskAt: the synthetic-activity check asks how long since real output.
+    narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false, lowSince: null, quietCarry: 0, lastTaskAt: START },
     trust: { luis: 0, marcus: 0, priya: 0 },
     standing: { status: 'standard', note: 'No active recognition or review.' },
     people: {
@@ -133,7 +141,11 @@ export function newGame() {
     },
     culture: { nominated: null },
     outbound: { statusDana: false, procurementExtension: false, clientForward: false },
-    inspected: {},
+    // Furthest page read in each document (REDESIGN_SPEC Change 3). Page 1
+    // is free; every new page after it costs time. opened: files the player
+    // has looked at, so a coworker can only nudge about a file that's open.
+    pages: {},
+    opened: {},
     chats: {},
     pendingReplies: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
@@ -170,9 +182,10 @@ function markCoworkerReport(s) {
   }
 }
 
-// What's next worth stopping for, given the current state -- so the player
-// can say "work until something needs attention" instead of clicking through
-// empty half-hours one at a time. Only clock thresholds that could actually
+// What's next worth stopping for, given the current state. There is no
+// "work until" button any more (REDESIGN_SPEC Change 2): when nothing is
+// pending, the player's next action, whatever it is, first moves the clock
+// here (see jumpIfIdle). Only clock thresholds that could actually
 // change something are candidates: a still-pending deadline, a request that
 // hasn't opened yet (skipping ones gated on a flag that was never earned,
 // since they will never fire), the rework task's own appearance, and the
@@ -215,6 +228,9 @@ function nextEvent(s) {
   if (requests.marcusFallout.status === 'pending' && flags.cutWithoutMarcus) {
     candidates.push({ t: requests.marcusFallout.at, label: 'Marcus finding out' });
   }
+  if (requests.priyaDraft2.status === 'pending' && (flags.readPriyaDraft || flags.priyaDeflected)) candidates.push({ t: requests.priyaDraft2.at, label: "Priya's second draft" });
+  if (requests.marcusLoop.status === 'pending' && flags.helpedMarcus) candidates.push({ t: requests.marcusLoop.at, label: "Marcus's client call" });
+  if (requests.luisCalendar.status === 'pending' && flags.coveredForLuis) candidates.push({ t: requests.luisCalendar.at, label: "NARC's calendar scan" });
   if (!flags.spreadHappened) candidates.push({ t: 13 * 60 + 30, label: 'how Focus Time reads changing' });
   candidates.push({ t: END, label: 'the end of the day' });
   return candidates.filter((c) => c.t > s.t).sort((a, b) => a.t - b.t)[0];
@@ -227,12 +243,68 @@ function spend(s, minutes, { visible = null, category = null } = {}) {
   // Visibility changes only make sense when time actually passes. A zero-minute
   // "leave/ignore" choice should not manufacture activity or inactivity.
   if (minutes > 0 && visible === true) s.index = Math.min(100, s.index + 3);
-  if (minutes > 0 && visible === false) s.index = Math.max(0, s.index - 2);
-  // category is omitted for workUntil/idle: that's background time passing,
-  // not a choice about what to spend it on, so it stays out of the #103
-  // breakdown rather than diluting it.
+  // Quiet work drifts the index down 1 point per 10 minutes (REDESIGN_SPEC
+  // Change 1), so a long careful read hurts more than a glance. The carry
+  // keeps the rate honest across many short actions such as page turns.
+  if (minutes > 0 && visible === false) {
+    s.narc.quietCarry += minutes;
+    s.index = Math.max(0, s.index - Math.floor(s.narc.quietCarry / 10));
+    s.narc.quietCarry %= 10;
+  }
+  // category is omitted for idle and the jump to the next beat: that's
+  // background time passing, not a choice about what to spend it on, so it
+  // stays out of the #103 breakdown rather than diluting it.
   if (category && minutes > 0) s.time[category] += minutes;
   checkThresholds(s);
+  checkBoundaries(s);
+}
+
+function hasPending(s) {
+  return Object.values(s.tasks).some((t) => t.status === 'pending')
+    || Object.values(s.requests).some((r) => r.status === 'open');
+}
+
+// Idle time no longer exists as a choice: if nothing is waiting, the next
+// scheduled beat lands on the player's next action, whatever it is. NARC
+// sees the skipped stretch as quiet time, so it drifts like quiet work
+// (tuning lever A, chosen by Paige 2026-10-21).
+function jumpIfIdle(s) {
+  if (s.phase === 'end' || hasPending(s)) return;
+  spend(s, Math.max(0, nextEvent(s).t - s.t), { visible: false });
+}
+
+// Visible Activity's two failure boundaries (REDESIGN_SPEC Change 1). Low:
+// under 50 for 30 straight in-game minutes opens a review on the player.
+// High: once NARC 2.0 is live, above 90 -- or above 80 with no task finished
+// in 90 minutes -- flags the player for synthetic activity.
+function checkBoundaries(s) {
+  if (s.index < 50) {
+    if (s.narc.lowSince === null) s.narc.lowSince = s.t;
+    else if (s.t - s.narc.lowSince >= 30 && !s.flags.formalReview) {
+      s.flags.formalReview = true;
+      s.flags.reviewSource = 'activity';
+      s.flags.trustedOperator = false;
+      s.flags.reviewsOpened = (s.flags.reviewsOpened || 0) + 1;
+      s.standing.status = 'review';
+      s.standing.note = 'Review open: Visible Activity stayed under 50 for 30 minutes. Every NARC request now needs a response.';
+      note(s, 'Formal review opened: Visible Activity has been under 50 for 30 minutes. NARC requests are now mandatory, and your next check-in with Dana is a review meeting.', 'narc');
+      if (s.requests.danaCheckin.status === 'open') {
+        say(s, 'dana', 'Scratch that. NARC just opened a formal review on you, so this is a review meeting now. Fifteen minutes.');
+      }
+    }
+  } else {
+    s.narc.lowSince = null;
+  }
+  if (s.narc.adaptation && !s.flags.syntheticFlag
+    && (s.index > 90 || (s.index > 80 && s.t - s.narc.lastTaskAt >= 90))) {
+    s.flags.syntheticFlag = true;
+    s.flags.trustedOperator = false;
+    if (s.standing.status !== 'review') {
+      s.standing.status = 'flagged';
+      s.standing.note = 'Synthetic Activity flag: Visible Activity ran higher than the work NARC can see would explain.';
+    }
+    note(s, 'NARC 2.0 Synthetic Activity flag: your Visible Activity is higher than your completed work explains. Possible metric manipulation is now on your record.', 'narc');
+  }
 }
 
 // Deadlines, coworker-request expiry, the Focus Time arms race, and NARC's
@@ -374,12 +446,24 @@ function checkThresholds(s) {
     note(s, 'Coworker review opened: Priya Shah · Communication Load. Context can be submitted in NARC.', 'narc');
     say(s, 'priya', 'NARC opened a Communication Load review. It counted the messages correctly. It just flattened all the reasons into one thing. If you have context, NARC is where it goes.');
   }
+  if (requests.priyaDraft2.status === 'pending' && s.t >= requests.priyaDraft2.at && (s.flags.readPriyaDraft || s.flags.priyaDeflected)) {
+    requests.priyaDraft2.status = 'open';
+    say(s, 'priya', s.flags.readPriyaDraft
+      ? 'Round two. They answered the version you fixed, so here’s the follow-up. Same deal: read it before I send?'
+      : 'You said you’d read the first one after. They already answered it, so here’s round two. Read this one before I send?');
+  }
+  if (!s.flags.priyaRateNudge && s.t >= 10 * 60 + 40) {
+    s.flags.priyaRateNudge = true;
+    if (s.tasks.vendor.status === 'pending' && s.opened.vendor && pageOf(s, 'vendor') <= 2) {
+      say(s, 'priya', 'Random question: did you get to the rate table on Halcyon? Procurement has been weird about their renewals all year.');
+    }
+  }
   if (requests.danaCheckin.status === 'pending' && s.t >= requests.danaCheckin.at) {
     requests.danaCheckin.status = 'open';
-    if (s.flags.trustedOperator) {
+    if (s.flags.formalReview) {
+      say(s, 'dana', 'NARC opened a formal review on you, so this check-in is a review meeting now. Fifteen minutes. Bring the real picture.');
+    } else if (s.flags.trustedOperator) {
       say(s, 'dana', "Quick check-in. NARC has you marked Trusted Operator, so I can take its summary and move on. Or you can give me the version it can’t see.");
-    } else if (s.flags.formalReview) {
-      say(s, 'dana', "Quick check-in. NARC still has a review open. Give me the real picture if the record is missing something; otherwise keep it short.");
     } else {
       say(s, 'dana', 'Quick check-in. What’s actually done, what’s blocked, and what needs attention?');
     }
@@ -387,6 +471,14 @@ function checkThresholds(s) {
   if (requests.marcusFallout.status === 'pending' && s.t >= requests.marcusFallout.at && s.flags.cutWithoutMarcus) {
     requests.marcusFallout.status = 'open';
     say(s, 'marcus', "That scope cut broke the handoff downstream. Next time, pull me in before the fast answer becomes somebody else’s cleanup.");
+  }
+  if (requests.marcusLoop.status === 'pending' && s.t >= requests.marcusLoop.at && s.flags.helpedMarcus) {
+    requests.marcusLoop.status = 'open';
+    say(s, 'marcus', 'You helped with the draft, so I added you to the 2:40 with the client. They’re asking about the part you looked at. Ten minutes. Joining?');
+  }
+  if (requests.luisCalendar.status === 'pending' && s.t >= requests.luisCalendar.at && s.flags.coveredForLuis) {
+    requests.luisCalendar.status = 'open';
+    note(s, 'NARC calendar scan: “Vendor meeting” (Luis Perez, 1:50–3:00) has no invite, no attendees and no notes. You created the entry. Explanation requested.', 'narc');
   }
   if (requests.luisCase.status === 'pending' && s.t >= requests.luisCase.at) {
     requests.luisCase.status = 'open';
@@ -458,21 +550,51 @@ function checkThresholds(s) {
   if (s.t >= END && s.phase !== 'end') s.phase = 'end';
 }
 
+// Every player action except logging off. idle is the engine-only "just
+// wait" kept for tests, and deliverChat is the UI's typing-delay timer.
+const JUMP_ON = new Set(['task', 'respond', 'page', 'emailAction', 'focus', 'nominate', 'chat', 'keepalive']);
+
 export function act(state, a) {
   const s = structuredClone(state);
+  if (JUMP_ON.has(a.do)) jumpIfIdle(s);
+  if (s.phase === 'end' && a.do !== 'deliverChat') return s;
   switch (a.do) {
     case 'task': {
       const task = s.tasks[a.id];
       if (!task || task.status !== 'pending') break;
-      const opt = TASK_OPTIONS[a.id][a.approach];
+      // The outcome follows from how far the player read, not from a labeled
+      // button (REDESIGN_SPEC Change 3). Only the rework follow-up, which has
+      // no document, still takes an approach.
+      let approach = a.approach;
+      let minutes = null;
+      if (KEY_PAGE[a.id]) {
+        approach = pageOf(s, a.id) >= KEY_PAGE[a.id] ? CAREFUL[a.id] : FAST[a.id];
+      } else if (a.id === 'handoff') {
+        const known = handoffRisks(s).map((r) => r.id);
+        const include = pageOf(s, 'handoff') >= 2 ? [...new Set(a.include || [])].filter((r) => known.includes(r)) : [];
+        approach = include.length ? 'reconcile' : 'summary';
+        minutes = 5 + 5 * include.length;
+        s.flags.handoffRisks = include;
+      }
+      const opt = TASK_OPTIONS[a.id][approach];
       if (!opt) break;
-      task.approach = a.approach;
+      if (minutes === null) minutes = opt.minutes;
+      task.approach = approach;
       task.status = 'done';
       s.actual += opt.actual;
-      spend(s, opt.minutes, { visible: opt.visible, category: 'work' });
-      if (!s.flags.firstNarcRead) {
+      s.narc.lastTaskAt = s.t + minutes;
+      // NARC's first read is recorded before the clock moves, so a beat that
+      // lands inside a long first task (Dana's 9:50 check) already knows it.
+      const firstRead = !s.flags.firstNarcRead;
+      if (firstRead) {
         s.flags.firstNarcRead = true;
+        // Until Phase 3's evidence pairs exist, the careful first task is the
+        // evidence: the player was reading the document NARC saw as idle.
+        s.flags.firstTaskCareful = opt.visible === false;
         s.flags.firstNarcReadType = opt.visible === false ? 'low' : 'visible';
+      }
+      spend(s, minutes, { visible: opt.visible, category: 'work' });
+      if (firstRead) {
         s.requests.narcFirstReview.status = 'open';
         note(
           s,
@@ -496,16 +618,17 @@ export function act(state, a) {
     case 'respond': {
       const req = s.requests[a.id];
       if (!req || req.status !== 'open') break;
+      if (!requestChoices(s, a.id).includes(a.choice)) break;
       const opt = REQUEST_OPTIONS[a.id][a.choice];
-      if (!opt) break;
       req.status = 'handled';
-      const narcRequestIds = ['narcFirstReview', 'narcCheckpoint', 'narcResponse'];
-      spend(s, opt.minutes, { visible: opt.visible, category: narcRequestIds.includes(a.id) ? 'narc' : 'social' });
+      const narcOverhead = NARC_SELF_REQUESTS.includes(a.id) || (a.id === 'danaCheckin' && a.choice === 'review');
+      spend(s, opt.minutes, { visible: opt.visible, category: narcOverhead ? 'narc' : 'social' });
       note(s, opt.result, 'social');
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
       if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
+      if (a.id === 'marcusFavor' && a.choice === 'deflect') say(s, 'marcus', 'Sent. It’s in your Files. Two pages, I promise.');
       if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
         note(s, 'NARC applies the team-wide pattern to you as well. You never used Focus Time, but the rule keys on the pattern, not the person.', 'narc');
       }
@@ -582,6 +705,8 @@ export function act(state, a) {
           note(s, 'Trusted Operator issued. NARC observed high visible activity, inferred healthy work behavior, and received no correction. That interpretation is now carrying institutional weight.', 'narc');
         } else {
           s.flags.formalReview = true;
+          s.flags.reviewSource = 'firstRead';
+          s.flags.reviewsOpened = (s.flags.reviewsOpened || 0) + 1;
           s.flags.trustedOperator = false;
           s.standing.status = 'review';
           s.standing.note = 'Review open: NARC retained the low-activity interpretation without added context.';
@@ -593,7 +718,9 @@ export function act(state, a) {
         s.standing.status = 'standard';
         s.standing.note = 'Context added. No active review.';
       }
-      if (a.id === 'narcCheckpoint' && a.choice === 'context' && s.flags.formalReview) {
+      // Context can close the review a single unexplained first read opened;
+      // a review the activity line opened stays on the record for the day.
+      if (a.id === 'narcCheckpoint' && a.choice === 'context' && s.flags.formalReview && s.flags.reviewSource === 'firstRead') {
         s.flags.formalReview = false;
         s.standing.status = 'standard';
         s.standing.note = 'Midmorning context accepted. Review closed.';
@@ -601,12 +728,25 @@ export function act(state, a) {
       }
       break;
     }
-    case 'inspect': {
-      const task = s.tasks[a.id];
-      if (!task || task.status !== 'pending' || s.inspected[a.id]) break;
-      s.inspected[a.id] = true;
-      spend(s, 3, { visible: false, category: 'work' });
-      note(s, `You reviewed the supporting details for ${task.label}.`, 'task');
+    case 'open': {
+      // Opening a file is free and moves no clock; it only lets the world
+      // know the file is on screen.
+      if (fileVisible(s, a.id)) s.opened[a.id] = true;
+      break;
+    }
+    case 'page': {
+      // Turning to a page not yet read costs 5 quiet minutes. Paging back
+      // is free and isn't an action at all.
+      if (!fileVisible(s, a.id) || pageOf(s, a.id) >= PAGE_COUNTS[a.id]) break;
+      s.opened[a.id] = true;
+      s.pages[a.id] = pageOf(s, a.id) + 1;
+      spend(s, 5, { visible: false, category: 'work' });
+      if (a.id === 'marcusDoc' && s.pages.marcusDoc === PAGE_COUNTS.marcusDoc && !s.flags.helpedMarcus) {
+        s.flags.helpedMarcus = true;
+        s.trust.marcus += 2;
+        sayMe(s, 'marcus', 'Read it. Notes are in the margins. The pricing slide contradicts page one.');
+        say(s, 'marcus', 'That’s exactly the thing I was worried about. Thank you.');
+      }
       break;
     }
     case 'emailAction': {
@@ -619,7 +759,7 @@ export function act(state, a) {
         s.tasks.vendor.deadline += 20;
         spend(s, 4, { visible: true, category: 'social' });
         note(s, 'Procurement granted a 20-minute extension on the Halcyon decision after your email.', 'system');
-      } else if (a.id === 'clientForward' && !s.outbound.clientForward && s.tasks.client.status === 'pending') {
+      } else if (a.id === 'clientForward' && !s.outbound.clientForward && s.tasks.client.status === 'pending' && pageOf(s, 'client') >= KEY_PAGE.client) {
         s.outbound.clientForward = true;
         s.trust.priya += 1;
         spend(s, 4, { visible: true, category: 'social' });
@@ -688,18 +828,6 @@ export function act(state, a) {
       note(s, 'You let time pass without doing anything NARC or anyone else can see.', 'system');
       break;
     }
-    case 'workUntil': {
-      s.flags.workUntilUses = (s.flags.workUntilUses || 0) + 1;
-      // A single contextual action, not a repeated filler click: jump
-      // straight to whatever is next worth stopping for. It represents
-      // ordinary background work, so -- deliberately -- it does not touch
-      // the index, trust, or any flag; it only spends the time. Replaces the
-      // "click Keep working a dozen times" pattern found in playtesting.
-      const target = nextEvent(s).t;
-      spend(s, Math.max(0, target - s.t));
-      note(s, 'You keep working. Nothing NARC or anyone else singles out.', 'system');
-      break;
-    }
     case 'logoff':
       s.flags.loggedOffEarly = s.t < END;
       s.phase = 'end';
@@ -707,43 +835,101 @@ export function act(state, a) {
     default:
       break;
   }
+  // Some actions move the index after spend() has run (Focus Time,
+  // keepalive, an unanswered flag), so the boundaries get a final look.
+  checkBoundaries(s);
   return s;
 }
 
+// The choices the engine accepts for an open request right now. While a
+// review is open, NARC's requests about the player lose their leave-it
+// options and Dana's check-in becomes the review meeting.
+const NARC_SELF_REQUESTS = ['narcFirstReview', 'narcCheckpoint', 'narcResponse', 'luisCalendar'];
+const LEAVE_IT = ['accept', 'ignore', 'stand'];
+
+export function requestChoices(s, id) {
+  const all = Object.keys(REQUEST_OPTIONS[id] || {});
+  if (id === 'narcFirstReview' && !s.flags.firstTaskCareful) {
+    // Attach-as-context needs something to attach (REDESIGN_SPEC Change 5).
+    return ['accept'];
+  }
+  if (id === 'danaCheckin') {
+    if (s.flags.formalReview) return ['review'];
+    return all.filter((c) => c !== 'review' && (c !== 'trustNarc' || s.flags.trustedOperator));
+  }
+  if (s.flags.formalReview && NARC_SELF_REQUESTS.includes(id)) {
+    const forced = all.filter((c) => !LEAVE_IT.includes(c));
+    if (forced.length) return forced;
+  }
+  return all;
+}
+
+// Documents (REDESIGN_SPEC Change 3). The page text lives with the desktop
+// UI's FILES; the engine only needs how long each one is and which page the
+// problem is on. Reaching the key page before submitting is what makes the
+// outcome the careful one.
+export const PAGE_COUNTS = { vendor: 5, client: 4, project: 4, audit: 3, handoff: 3, marcusDoc: 2 };
+export const KEY_PAGE = { vendor: 4, client: 3, project: 3, audit: 3 };
+const CAREFUL = { vendor: 'thorough', client: 'investigate', project: 'consult', audit: 'trace' };
+const FAST = { vendor: 'quick', client: 'canned', project: 'cut', audit: 'clear' };
+
+function pageOf(s, id) {
+  return s.pages[id] || 1;
+}
+
+export function fileVisible(s, id) {
+  if (id === 'marcusDoc') return Boolean(s.flags.marcusDocSent);
+  return Boolean(s.tasks[id]) && s.tasks[id].status !== 'hidden';
+}
+
+// The open risks the player can write into the handoff: only the ones they
+// actually know about, so the checklist never tells them what they missed.
+export function handoffRisks(s) {
+  const risks = [];
+  if (pageOf(s, 'vendor') >= KEY_PAGE.vendor || s.tasks.rework.kind === 'vendor') risks.push({ id: 'halcyon', label: 'Halcyon renewal: unit rate goes from $14.00 to $18.20' });
+  if (pageOf(s, 'client') >= KEY_PAGE.client || s.tasks.rework.kind === 'client') risks.push({ id: 'packaging', label: 'Brightline account: pallets requested, cartons shipped' });
+  if (s.tasks.project.status === 'done') risks.push({ id: 'scope', label: "Marcus's project: what was cut, and what tomorrow depends on" });
+  if (pageOf(s, 'audit') >= KEY_PAGE.audit) risks.push({ id: 'routing', label: 'Carrier exceptions: one stale routing rule behind all three' });
+  return risks;
+}
+
+// Careful minutes are 1.5x the REDESIGN_SPEC Change 2 table (tuning chosen
+// by Paige 2026-10-21 after the bot suite showed the table left ~110 min of
+// slack). The handoff's careful cost comes from its checklist instead.
 const TASK_OPTIONS = {
   vendor: {
     quick: {
       minutes: 5, visible: true, actual: 0, flag: 'vendorRisky',
-      result: 'You approved the Halcyon renewal after a skim. Looked decisive.',
+      result: 'You approved the Halcyon renewal.',
     },
     thorough: {
-      minutes: 25, visible: false, actual: 2,
-      result: 'You read the actual terms. Halcyon quietly raised their rate 30% -- you flagged it and got it fixed before signing.',
+      minutes: 68, visible: false, actual: 2,
+      result: 'You sent the Halcyon renewal back with the page 4 rate flagged. Halcyon reissued it at $14.00 before signing.',
     },
   },
   client: {
     canned: {
       minutes: 5, visible: true, actual: 0, trust: { priya: -1 }, flag: 'clientUnresolved',
-      result: "You sent a canned apology. It bought time; it didn't fix anything.",
+      result: 'You replied to the client, apologized for the trouble and promised a follow-up.',
     },
     investigate: {
-      minutes: 25, visible: false, actual: 2, trust: { priya: 2 },
-      result: 'You read the actual complaint in Files, found the real issue, and fixed it. Priya noticed.',
+      minutes: 68, visible: false, actual: 2, trust: { priya: 2 },
+      result: 'You told the client the order went out in cartons against their own pallet instruction, and set up a re-ship on pallets. Priya noticed.',
     },
   },
   project: {
     cut: {
       minutes: 10, visible: true, actual: 0, trust: { marcus: -1 }, flag: 'cutWithoutMarcus',
-      result: 'You cut scope yourself to hit the new deadline. Fast. Marcus finds out later.',
+      result: "You submitted the cut list for Marcus's project.",
     },
     consult: {
-      minutes: 20, visible: false, actual: 1, trust: { marcus: 2 },
-      result: 'You looped Marcus in before cutting anything. Slower, but he backs the call.',
+      minutes: 52, visible: false, actual: 1, trust: { marcus: 2 },
+      result: 'You cut the dashboard polish and kept the handoff context. Marcus backs the call.',
     },
   },
   rework: {
     quiet: {
-      minutes: 20, visible: false, actual: 2,
+      minutes: 45, visible: false, actual: 2,
       result: (t) => (t.kind === 'vendor'
         ? 'You renegotiated the Halcyon rate yourself before it reached anyone else. Handled, quietly, on your own time.'
         : "You called the client directly and actually fixed it this time. Priya didn't have to know."),
@@ -758,21 +944,21 @@ const TASK_OPTIONS = {
   audit: {
     clear: {
       minutes: 8, visible: true, actual: 0, flag: 'auditShortcut',
-      result: 'You cleared the obvious carrier exception. The queue looks better; the recurring cause is still there.',
+      result: 'You cleared the three carrier exceptions.',
     },
     trace: {
-      minutes: 18, visible: false, actual: 1,
-      result: 'You traced the repeat failures to a stale routing rule and fixed the cause instead of just clearing the queue.',
+      minutes: 45, visible: false, actual: 1,
+      result: 'You traced all three exceptions to a routing rule from fourteen months ago and retired it.',
     },
   },
   handoff: {
     summary: {
       minutes: 5, visible: true, actual: 0, flag: 'handoffThin',
-      result: 'You sent a clean activity summary. It is fast, readable, and missing the decisions the next person actually needs.',
+      result: 'You sent Dana the activity summary.',
     },
     reconcile: {
-      minutes: 15, visible: false, actual: 1,
-      result: 'You reconciled the source notes and wrote a handoff someone else can actually pick up tomorrow.',
+      minutes: 45, visible: false, actual: 1,
+      result: 'You sent the handoff with the open risks written in.',
     },
   },
 };
@@ -817,6 +1003,10 @@ const REQUEST_OPTIONS = {
       minutes: 0, visible: false, trust: { priya: -1 },
       result: 'You told her you would catch up later. She sent it as written.',
     },
+    deflect: {
+      minutes: 1, visible: true, flag: 'priyaDeflected',
+      result: 'You told Priya to send it and you’d read it after. She sent it.',
+    },
   },
   luisCover: {
     cover: {
@@ -826,6 +1016,10 @@ const REQUEST_OPTIONS = {
     decline: {
       minutes: 0, visible: false, trust: { luis: -1 },
       result: 'You told him you would not put a meeting on the calendar. His away time stays what it is.',
+    },
+    deflect: {
+      minutes: 1, visible: true, focusUse: true, flag: 'luisSelfFocus',
+      result: 'You told Luis to mark it Focus Time himself. He did. One more Focus Time block on the team calendar.',
     },
   },
   marcusCredit: {
@@ -844,12 +1038,16 @@ const REQUEST_OPTIONS = {
   },
   marcusFavor: {
     help: {
-      minutes: 15, visible: false, trust: { marcus: 2 },
+      minutes: 15, visible: false, trust: { marcus: 2 }, flag: 'helpedMarcus',
       result: 'You gave Marcus a real second opinion. It cost you fifteen minutes you needed elsewhere.',
     },
     decline: {
       minutes: 1, visible: false, trust: { marcus: -1 },
       result: "You told Marcus you didn't have time. True, but he remembers it.",
+    },
+    deflect: {
+      minutes: 1, visible: true, flag: 'marcusDocSent',
+      result: 'You asked Marcus to send the doc over. It’s in Files whenever you get to it.',
     },
   },
   danaCheckin: {
@@ -865,6 +1063,40 @@ const REQUEST_OPTIONS = {
       minutes: 2, visible: true, flag: 'danaReliedOnNarc',
       result: "You let NARC’s Trusted Operator summary stand in for a real status update. The organization now acts on the summary without re-checking the underlying work.",
     },
+    review: {
+      minutes: 15, flag: 'reviewMeeting',
+      result: 'You sat through the review meeting. Dana walked through the activity record line by line and wrote down what it was missing.',
+    },
+  },
+  priyaDraft2: {
+    read: {
+      minutes: 10, visible: false, trust: { priya: 1 },
+      result: 'You read the second draft too. Ten more minutes on a thread you thought was finished.',
+    },
+    skip: {
+      minutes: 0, trust: { priya: -1 },
+      result: 'You let the second draft go out unread.',
+    },
+  },
+  marcusLoop: {
+    join: {
+      minutes: 10, visible: false, trust: { marcus: 1 },
+      result: 'You joined the client call Marcus looped you into. Ten minutes, mostly listening, one useful answer.',
+    },
+    skip: {
+      minutes: 1, trust: { marcus: -2 },
+      result: 'You told Marcus you couldn’t join. He took the call alone, after you’d already said you would help.',
+    },
+  },
+  luisCalendar: {
+    explain: {
+      minutes: 5, visible: true, trust: { luis: -1 }, flag: 'explainedLuisMeeting',
+      result: 'You told NARC the vendor meeting was a placeholder for Luis’s dentist appointment. Accurate, and now it’s on his record instead of yours.',
+    },
+    stand: {
+      minutes: 0, index: -4, flag: 'luisMeetingStood',
+      result: 'You let the vendor meeting stand. NARC logged a meeting with no invite, no attendees and no notes against your account.',
+    },
   },
   marcusFallout: {
     apologize: {
@@ -877,17 +1109,17 @@ const REQUEST_OPTIONS = {
     },
   },
   priyaCase: {
-    context: { minutes: 8, visible: true, result: 'You add the client escalation and onboarding workload. The message count does not change; the meaning attached to it does.' },
+    context: { minutes: 8, visible: false, result: 'You add the client escalation and onboarding workload. The message count does not change; the meaning attached to it does.' },
     quiet: { minutes: 2, visible: true, result: 'You advise Priya to reduce message volume. The work stays similar, but the measured behavior changes.' },
     report: { minutes: 2, visible: true, result: 'You confirm the Communication Load flag without adding context. NARC’s narrow signal is treated as sufficient evidence.' },
   },
   luisCase: {
-    context: { minutes: 6, visible: true, result: 'You add work context for Luis’s low-input stretches. The inactivity signal was real; the disengagement inference was not necessarily.' },
+    context: { minutes: 6, visible: false, result: 'You add work context for Luis’s low-input stretches. The inactivity signal was real; the disengagement inference was not necessarily.' },
     blame: { minutes: 2, visible: true, result: 'You frame Luis’s low-input pattern as likely gaming. NARC receives a human endorsement of its own suspicion.' },
     leave: { minutes: 0, visible: false, result: 'You leave Luis to answer the flag himself.' },
   },
   marcusCase: {
-    evidence: { minutes: 5, visible: true, result: 'You add the transit alert. The attendance pattern remains, but today’s cause now has independent evidence.' },
+    evidence: { minutes: 5, visible: false, result: 'You add the transit alert. The attendance pattern remains, but today’s cause now has independent evidence.' },
     confirm: { minutes: 2, visible: true, result: 'You confirm the late arrival without the transit evidence. A true observation is allowed to support a broader conclusion.' },
     leave: { minutes: 0, visible: false, result: 'You stay out of Marcus\'s attendance case.' },
   },

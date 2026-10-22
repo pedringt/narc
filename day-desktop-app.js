@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, nextEvent, chatOptions, START } from './day.js';
+import { newGame, act, ending, clock, chatOptions, requestChoices, handoffRisks, fileVisible, PAGE_COUNTS, KEY_PAGE, START } from './day.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -26,46 +26,51 @@ const THREADS = {
 
 const REQUEST_THREAD = {
   danaMorning: 'dana', priyaDraft: 'priya', luisCover: 'luis', marcusCredit: 'marcus', luisTip: 'luis', marcusFavor: 'marcus', danaCheckin: 'dana', marcusFallout: 'marcus',
+  priyaDraft2: 'priya', marcusLoop: 'marcus',
 };
 
+// NARC's own requests, answered in the NARC app rather than in Messages.
+const NARC_REQUESTS = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse', 'luisCalendar'];
+
+// Request choices are the employee's own lines, with no minute costs: the
+// clock and the meter say what something cost (REDESIGN_SPEC Change 5).
+// The engine decides which of these are available right now.
 const REQUEST_OPTIONS = {
   luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']],
-  priyaDraft: [['help', 'Read her draft (5 min)'], ['later', 'Say you will catch up later']],
-  luisCover: [['cover', 'Put a meeting on his calendar (3 min)'], ['decline', 'Say you will not']],
-  marcusCredit: [['share', 'Put both names on it (2 min)'], ['own', 'Name only the real owner (4 min)']],
-  marcusFavor: [['help', 'Give him 15 minutes'], ['decline', "Say you don't have time"]],
-  danaCheckin: [['update', 'Give her the full picture (15 min)'], ['brief', 'Give her the short version (5 min)']],
-  marcusFallout: [['apologize', 'Walk him through it (15 min)'], ['standby', 'Stand by the call (2 min)']],
-  priyaCase: [['context', "Explain Priya's message volume (8 min)"], ['quiet', 'Suggest she post less (2 min)'], ['report', 'Confirm the flag without explanation (2 min)']],
-  luisCase: [['context', "Explain Luis's away time (6 min)"], ['blame', 'Say Luis is probably gaming it (2 min)'], ['leave', 'Do not intervene']],
-  marcusCase: [['evidence', 'Add the transit evidence (5 min)'], ['confirm', 'Confirm he was late (2 min)'], ['leave', 'Do not intervene']],
-  narcResponse: [['explain', 'Explain why Focus Time spread (10 min)'], ['ignore', 'Leave the gaming flag unanswered']],
+  priyaDraft: [['help', 'Send it over.'], ['later', 'Can’t right now, send it as is.'], ['deflect', 'Send it. I’ll read it after.']],
+  priyaDraft2: [['read', 'Send it over.'], ['skip', 'Send it, it’s fine.']],
+  luisCover: [['cover', 'Done.'], ['decline', 'I’m not putting a fake meeting on the calendar.'], ['deflect', 'Just mark it Focus Time yourself.']],
+  marcusCredit: [['share', 'Put both names on it'], ['own', 'Name only the real owner']],
+  marcusFavor: [['help', 'Pull it up.'], ['decline', 'Not today.'], ['deflect', 'Send me the doc, I’ll look when I can.']],
+  marcusLoop: [['join', 'Joining now.'], ['skip', 'Can’t, I’m buried. You’ve got this.']],
+  danaCheckin: [['update', 'Here’s where everything actually is.'], ['brief', 'Mostly on track.'], ['trustNarc', 'NARC’s summary is accurate.'], ['review', 'Okay. Let’s go through it.']],
+  marcusFallout: [['apologize', 'Walk him through it'], ['standby', 'Stand by the call']],
+  priyaCase: [['context', "Explain Priya's message volume"], ['quiet', 'Suggest she post less'], ['report', 'Confirm the flag without explanation']],
+  luisCase: [['context', "Explain Luis's away time"], ['blame', 'Say Luis is probably gaming it'], ['leave', 'Do not intervene']],
+  marcusCase: [['evidence', 'Add the transit evidence'], ['confirm', 'Confirm he was late'], ['leave', 'Do not intervene']],
+  narcResponse: [['explain', 'Explain why Focus Time spread'], ['ignore', 'Leave the gaming flag unanswered']],
+  narcFirstReview: [['context', 'Attach as context'], ['accept', 'Acknowledge']],
+  luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Let the entry stand']],
 };
 
 function requestOptions(id) {
+  let options = REQUEST_OPTIONS[id] || [];
   if (id === 'danaMorning') {
-    if (state.flags.firstNarcReadType === 'low') return [['context', 'Tell Dana I was carefully reviewing the file (5 min)'], ['skip', "Leave NARC's read as-is"]];
-    if (state.flags.firstNarcReadType === 'visible') return [['context', 'Tell Dana the fast result hid rushed work (5 min)'], ['skip', "Leave NARC's read as-is"]];
-    return [['context', 'Tell Dana what the score missed (5 min)'], ['skip', "Leave NARC's read as-is"]];
-  }
-  if (id === 'narcFirstReview') {
-    return state.flags.firstNarcReadType === 'low'
-      ? [['context', 'Explain the quiet file review (5 min)'], ['accept', 'Leave the negative assessment standing']]
-      : [['context', 'Explain that the fast work was rushed (5 min)'], ['accept', "Accept NARC's positive activity assessment"]];
+    if (state.flags.firstNarcReadType === 'low') options = [['context', 'Tell Dana I was carefully reviewing the file'], ['skip', "Leave NARC's read as-is"]];
+    else if (state.flags.firstNarcReadType === 'visible') options = [['context', 'Tell Dana the fast result hid rushed work'], ['skip', "Leave NARC's read as-is"]];
+    else options = [['context', 'Tell Dana what the score missed'], ['skip', "Leave NARC's read as-is"]];
   }
   if (id === 'narcCheckpoint') {
-    return state.flags.firstNarcReadType === 'low'
-      ? [['context', 'Explain the quiet work NARC missed (8 min)'], ['ignore', "Leave NARC's assessment unchanged"]]
-      : [['context', 'Explain what the activity score missed (8 min)'], ['ignore', "Leave NARC's assessment unchanged"]];
+    options = state.flags.firstNarcReadType === 'low'
+      ? [['context', 'Explain the quiet work NARC missed'], ['ignore', "Leave NARC's assessment unchanged"]]
+      : [['context', 'Explain what the activity score missed'], ['ignore', "Leave NARC's assessment unchanged"]];
   }
-  if (id === 'danaCheckin' && state.flags.trustedOperator) {
-    return [
-      ['trustNarc', "Use NARC's Trusted Operator summary (2 min)"],
-      ['update', 'Give Dana the real picture (15 min)'],
-      ['brief', 'Give her the short version (5 min)'],
-    ];
-  }
-  return REQUEST_OPTIONS[id] || [];
+  const allowed = requestChoices(state, id);
+  return options.filter(([choice]) => allowed.includes(choice));
+}
+
+function standingName(status, fallback) {
+  return { trusted: 'Trusted Operator', review: 'Review open', flagged: 'Synthetic activity flag' }[status] || fallback;
 }
 
 function activityBand(index = state.index) {
@@ -79,8 +84,9 @@ function narcRisk(s = state) {
   if (s.index < 50) value += 18;
   if (s.index < 40) value += 12;
   if (s.standing.status === 'review') value += 35;
+  if (s.standing.status === 'flagged') value += 30;
   if (s.standing.status === 'trusted') value -= 8;
-  const openNarc = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((id) => s.requests[id]?.status === 'open').length;
+  const openNarc = NARC_REQUESTS.filter((id) => s.requests[id]?.status === 'open').length;
   value += openNarc * 18;
   if (s.narc.adaptation) value += 8;
   value = Math.max(5, Math.min(95, value));
@@ -111,6 +117,16 @@ function narcAssessment(id) {
       missing: 'Careful reading and disengagement can produce the same low-input trace.',
       consequence: 'If the interpretation stands, Meridian may act on it as if the signal explained the work.',
       action: 'Add the missing work context, or leave the low-activity interpretation on record.',
+    };
+  }
+  if (id === 'luisCalendar') {
+    return {
+      title: 'Calendar integrity check',
+      signal: '“Vendor meeting” for Luis Perez, 1:50–3:00. No invite, no attendees, no notes. Created from your account.',
+      inference: 'NARC treats an unattended meeting created by a coworker as possible presence padding.',
+      missing: 'NARC sees the calendar entry and who made it, not why it exists.',
+      consequence: 'An unexplained entry stays on your record as unverified activity.',
+      action: 'Explain what the meeting was, or let the entry stand.',
     };
   }
   if (id === 'narcCheckpoint') {
@@ -173,47 +189,217 @@ function narcAssessment(id) {
   };
 }
 
+// The two lines Visible Activity can cross (REDESIGN_SPEC Change 1): a red
+// review line at 50, and once NARC 2.0 is live an amber synthetic-activity
+// line at 90.
+function activityMeter() {
+  const track = h('div', 'narc-va-track', h('span', 'narc-va-fill'));
+  track.querySelector('.narc-va-fill').style.width = `${state.index}%`;
+  const tick = (at, cls, label) => {
+    const t = h('span', `narc-va-tick ${cls}`, h('span', 'narc-va-tick-label', label));
+    t.style.left = `${at}%`;
+    return t;
+  };
+  track.append(tick(50, 'tick-review', 'Review'));
+  if (state.narc.adaptation) track.append(tick(90, 'tick-synthetic', 'Synthetic'));
+  return track;
+}
+
 function narcEventType(entry) {
   if (/NARC 2\.0|system update|Focus Time/i.test(entry.text)) return 'SYSTEM UPDATE';
+  if (/Synthetic Activity flag/i.test(entry.text)) return 'REVIEW';
   if (/Trusted Operator|Recognition/i.test(entry.text)) return 'RECOGNITION';
   if (/review|flagged for review/i.test(entry.text)) return 'REVIEW';
   if (entry.kind === 'consequence') return 'CONSEQUENCE';
   return 'OBSERVATION';
 }
 
-const TASK_OPTIONS = {
-  vendor: [['quick', 'Skim it, approve it (5 min)'], ['thorough', 'Actually read it (25 min)']],
-  client: [['canned', 'Send a quick apology (5 min)'], ['investigate', 'Dig into what happened (25 min)']],
-  project: [['cut', 'Cut scope yourself (10 min)'], ['consult', 'Loop in Marcus first (20 min)']],
-  rework: [['quiet', 'Deal with it yourself (20 min)'], ['escalate', 'Tell Dana now (8 min)']],
-  audit: [['clear', 'Clear the obvious exception (8 min)'], ['trace', 'Trace the recurring cause (18 min)']],
-  handoff: [['summary', 'Send the activity summary (5 min)'], ['reconcile', 'Build a usable handoff (15 min)']],
-};
+// The rework follow-up has no document to read, so it keeps two choices;
+// every other task is one unlabeled decision on the document itself.
+const REWORK_OPTIONS = [['quiet', 'Fix it yourself'], ['escalate', 'Tell Dana']];
 
+// Task documents (REDESIGN_SPEC Change 3). Each page is { title, lines },
+// where a line is a paragraph string or a [label, value] table row. The
+// problem in each one sits on a specific page, never page one, and nothing
+// on the page points at it. Page counts must match PAGE_COUNTS in day.js.
 const FILES = {
   vendor: {
-    name: 'Halcyon_Vendor_Renewal.pdf', meta: 'Procurement · renewal due 11:30 AM',
-    body: ['Halcyon is proposing a one-year renewal.', 'The rate table contains a 30% increase buried in the updated commercial terms.', 'You need to recommend whether Meridian should renew or push back before the auto-renewal window closes.'],
+    name: 'Halcyon_Vendor_Renewal.pdf', meta: 'Procurement · renewal due 11:30 AM', decision: 'Approve',
+    pages: [
+      { title: 'Cover letter', lines: [
+        'Halcyon Freight Services · 1180 Commerce Way, Suite 400 · Sparks, NV',
+        'To: Procurement, Meridian Supply Co.',
+        'Re: Renewal of Master Services Agreement MSA-2291',
+        'Thank you for another year of partnership. Your account team has enjoyed supporting Meridian’s growth across the Western region, and we are pleased to enclose the renewal of your Master Services Agreement for the coming term.',
+        'This renewal carries forward your current service levels and contacts with no changes to commercial terms. Sections 2 through 4 restate the agreement in our updated template for your records.',
+        'Please return the signed signature page by 11:30 AM today. Agreements not returned by the renewal deadline continue automatically on the terms enclosed.',
+        'Warm regards,\nJanelle Ruiz, Senior Account Manager',
+      ] },
+      { title: 'Section 2 · Service summary', lines: [
+        ['Facilities', 'Sparks DC (primary), Stockton overflow'],
+        ['Services', 'Pallet storage, pick and pack, LTL consolidation, cross-dock'],
+        ['Inbound receiving', 'Mon–Sat, 6:00 AM–4:00 PM'],
+        ['Outbound cutoff', '2:00 PM local for same-day LTL tender'],
+        ['Inventory reporting', 'Daily snapshot by 7:00 AM via client portal'],
+        ['Primary contact', 'Janelle Ruiz · escalations to Regional Ops Director'],
+        'Volumes assume an average of 1,850 pallet positions per week with seasonal peaks of up to 2,400 between October and December. Peak capacity is reserved on a first-committed basis.',
+      ] },
+      { title: 'Section 3 · Service levels', lines: [
+        ['On-time pickup', '97.0% of scheduled tenders'],
+        ['Order accuracy', '99.5% of lines shipped'],
+        ['Inventory accuracy', '99.0% at quarterly cycle count'],
+        ['Damage claims', 'Acknowledged in 2 business days, resolved in 10'],
+        ['Service credit', '2% of monthly storage fees per missed metric, capped at 8%'],
+        'Service levels are measured monthly and reported in the client portal. Credits are applied to the following month’s invoice and are the client’s sole remedy for a missed metric.',
+      ] },
+      { title: 'Section 4 · Commercial terms', lines: [
+        ['Unit rate (per pallet position, weekly)', '$18.20 (prior: $14.00)'],
+        ['Handling, in and out (per pallet)', '$6.75 (prior: $6.75)'],
+        ['Pick and pack (per order line)', '$0.42 (prior: $0.42)'],
+        ['Fuel surcharge', 'DOE diesel index, adjusted weekly (unchanged)'],
+        ['Minimum monthly billing', '$24,000 (prior: $24,000)'],
+        ['Payment terms', 'Net 30 (unchanged)'],
+        ['Term', '12 months from signature; renews annually unless either party gives 60 days’ notice'],
+        'Rates are fixed for the term except the fuel surcharge. Accessorial charges not listed are billed at Halcyon’s published tariff.',
+      ] },
+      { title: 'Section 5 · Signature page', lines: [
+        'By signing below, Customer accepts the services, service levels and commercial terms set out in Sections 2 through 4, which supersede any prior schedule.',
+        ['For Halcyon Freight Services', 'Janelle Ruiz, Senior Account Manager'],
+        ['For Meridian Supply Co.', '_________________________ (Procurement approver)'],
+        ['Date', '_________________________'],
+      ] },
+    ],
   },
   client: {
-    name: 'Priya_Client_Escalation.txt', meta: 'Client Operations · response due 1:00 PM',
-    body: ['The client says the last shipment missed a requirement that was visible in their account notes.', 'A quick apology may calm the thread, but the underlying problem is in the file history.', 'Priya needs an answer she can actually stand behind.'],
+    name: 'Priya_Client_Escalation.txt', meta: 'Client Operations · response due 1:00 PM', decision: 'Reply',
+    pages: [
+      { title: 'Thread · PO 44817 delivery refused', lines: [
+        'Export: Priya Shah · 52 threads this week · 31 tagged client:',
+        'From: Rosa Delgado, Receiving Manager, Brightline Home Goods\nTo: Priya Shah\nSubject: RE: RE: PO 44817 delivery refused at dock',
+        'Priya, this is the second load this month our team has had to turn away. The truck arrived at 7:40 with the whole order floor-loaded in loose cartons. We can’t receive that. The driver waited an hour and left.',
+        'We are now out of stock on two of the SKUs on that PO at three stores. I need to know what happened and what you are going to do differently, not another apology. I have to explain this to our VP of Supply Chain by end of day.',
+        'Rosa',
+        '> On Tuesday, Priya Shah wrote:\n> Hi Rosa, so sorry about the delay. Looking into it now and will update you shortly.',
+      ] },
+      { title: 'Shipment record · PO 44817', lines: [
+        ['Ship to', 'Brightline Home Goods DC, 4400 Mill Rd, Reno NV'],
+        ['Ship date', 'Monday, 3:15 PM'],
+        ['Carrier', 'Desert Line LTL · PRO 7731940'],
+        ['Contents', '412 cartons, 6 SKUs'],
+        ['Packaging', 'Cartons, floor-loaded'],
+        ['Special instructions', 'None on ship profile'],
+        ['Delivery attempt', 'Wednesday 7:40 AM · refused by consignee'],
+        ['Status', 'Returned to origin · re-delivery not scheduled'],
+      ] },
+      { title: 'Account notes · Brightline Home Goods', lines: [
+        ['Oct 2', 'Quarterly review with R. Delgado. Happy with fill rate. Wants earlier ASN emails. (P. Shah)'],
+        ['Sep 18', 'Brightline moves receiving to the new Reno DC from Oct 1. New dock takes palletized freight only, no floor-loaded cartons. Asked us to update their ship profile before the first October order. (K. Moore)'],
+        ['Sep 18', 'Ship profile change ticket #8812 opened, assigned to Fulfillment Ops queue. (K. Moore)'],
+        ['Aug 30', 'Invoice dispute on July freight resolved, credit memo issued. (P. Shah)'],
+        ['Aug 4', 'Contact change: Rosa Delgado replaces T. Hall as receiving lead. (P. Shah)'],
+      ] },
+      { title: 'Draft reply · Priya Shah', lines: [
+        'Hi Rosa,',
+        'Thank you for your patience, and I’m very sorry for the trouble with PO 44817. It looks like the carrier ran into delays on this lane, and we know how disruptive that is for your stores.',
+        'As a gesture of goodwill we’d like to offer a 10% credit on this shipment, and we’ll keep a close eye on Desert Line’s performance going forward.',
+        'Please let me know if there is anything else I can do.',
+        'Best,\nPriya',
+      ] },
+    ],
   },
   project: {
-    name: 'Marcus_Project_Scope.doc', meta: 'Project Delivery · decision due 3:30 PM',
-    body: ['The delivery date moved up.', 'Something has to be cut. Marcus owns the account context, but pulling him in costs time.', 'You can make the scope call yourself or coordinate first.'],
+    name: 'Marcus_Project_Scope.doc', meta: 'Project Delivery · decision due 3:30 PM', decision: 'Submit',
+    pages: [
+      { title: 'Harbor Point portal rollout · revised timeline', lines: [
+        'Harbor Point Distributors has moved go-live from November 14 to November 4 so the portal is live before their holiday freeze.',
+        'At current velocity that leaves about 30% of remaining scope unbuilt. Something comes out of this release; it can go into the December patch.',
+        ['Today 3:30 PM', 'Cut list due to engineering'],
+        ['Oct 28', 'Code freeze'],
+        ['Oct 31', 'Client acceptance testing'],
+        ['Nov 4', 'Go-live'],
+      ] },
+      { title: 'Remaining features', lines: [
+        ['Dashboard polish', 'Branded theme, chart animations, export to PDF · 6 days'],
+        ['Account handoff export', 'Account history and open issues, sent to Client Success · 5 days'],
+        ['Bulk shipment upload', 'CSV import for more than 50 orders · 4 days'],
+        ['Delivery notifications', 'Email and SMS on status change · 3 days'],
+        'Draft cut list (auto-generated by effort): Account handoff export, Delivery notifications. Saves 8 days.',
+      ] },
+      { title: 'Dependency map', lines: [
+        ['Dashboard polish', 'No downstream dependents'],
+        ['Account handoff export', 'Client Success onboarding call (Nov 5), Support macro set, Q1 renewal forecast'],
+        ['Bulk shipment upload', 'Harbor Point peak-week ordering (they place ~300 orders on Nov 10)'],
+        ['Delivery notifications', 'None in this release'],
+        'Items with downstream dependents should not be cut without a replacement plan from the owning team.',
+      ] },
+      { title: 'Marcus’s notes', lines: [
+        'Harbor Point’s ops lead cares about two things: getting peak orders in without retyping them, and not being asked the same questions twice by a new team.',
+        'Their CFO saw the polished dashboard mockups in the pitch. Nobody on their ops side has mentioned them since.',
+        'I can cover the gap on notifications with a daily email from my side for a month if needed. — M.',
+      ] },
+    ],
   },
   rework: {
-    name: 'FOLLOW_UP_REQUIRED.txt', meta: 'Generated from an earlier shortcut',
-    body: ['An earlier decision created a problem that now needs attention.', 'The exact consequence depends on what you rushed this morning.'],
+    name: 'FOLLOW_UP_REQUIRED.txt', meta: 'Generated from an earlier decision',
+    pages: [{ title: 'Follow-up', lines: [] }],
   },
   audit: {
-    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 2:15 PM',
-    body: ['Three shipments are stuck on the same routing exception.', 'Clearing the queue is quick. Tracing the recurring rule takes longer and produces very little visible activity.', 'The stale routing rule is in the notes attached to the third exception.'],
+    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 2:15 PM', decision: 'Submit',
+    pages: [
+      { title: 'Exception 1 of 3', lines: [
+        ['shipment_id', 'SHP-220914'],
+        ['dest_zip', '97301'],
+        ['service', 'LTL'],
+        ['status', 'HOLD_MANUAL_REVIEW'],
+        ['held_since', 'Today 6:02 AM'],
+        ['notes', 'Address validated. Carrier available. No reason code on hold. Release manually.'],
+      ] },
+      { title: 'Exception 2 of 3', lines: [
+        ['shipment_id', 'SHP-220951'],
+        ['dest_zip', '97305'],
+        ['service', 'LTL'],
+        ['status', 'HOLD_MANUAL_REVIEW'],
+        ['held_since', 'Today 6:02 AM'],
+        ['notes', 'Same as last week’s Salem holds. Released manually Thu and Fri. Customer asking why Salem is always late.'],
+      ] },
+      { title: 'Exception 3 of 3', lines: [
+        ['shipment_id', 'SHP-221006'],
+        ['dest_zip', '97317'],
+        ['service', 'LTL'],
+        ['status', 'HOLD_MANUAL_REVIEW'],
+        ['held_since', 'Today 6:02 AM'],
+        ['notes', 'Hold source: routing rule RR-0457, created 2025-08-19 by j.tan. Condition: dest_zip 973* AND service = LTL → hold for manual review. Comment on rule: “temporary, Salem terminal closed for remodel.”'],
+      ] },
+    ],
   },
   handoff: {
-    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 4:15 PM',
-    body: ['Tomorrow’s team needs the decisions, unresolved risks, and client context from today.', 'A short activity summary is easy to produce but does not explain why the current state looks the way it does.', 'The source notes are spread across the client file, project scope, and today’s follow-up.'],
+    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 4:15 PM', decision: 'Send',
+    pages: [
+      { title: 'Today’s activity log', lines: [] },
+      { title: 'Open risks', lines: [] },
+      { title: 'Client context', lines: [
+        'Brightline Home Goods is our largest home-goods account in the region and moved receiving to a new Reno DC this month. Rosa Delgado is the day-to-day contact; she prefers phone for anything urgent.',
+        'Halcyon Freight Services runs our Sparks storage and LTL consolidation. Procurement owns the contract; Ops owns the relationship.',
+        'Harbor Point Distributors goes live on the new carrier portal on November 4. Marcus Reed is account lead.',
+        'Tomorrow’s team starts at 8:00 AM and will read this before the 8:30 stand-up.',
+      ] },
+    ],
+  },
+  marcusDoc: {
+    name: 'Marcus_Client_Deck_Notes.doc', meta: 'From Marcus Reed · no deadline',
+    pages: [
+      { title: 'Talking points · Harbor Point check-in', lines: [
+        'Open with the timeline: we hit November 4, and here is exactly what’s in the release.',
+        'Pricing stays where we quoted it in September: flat per-seat, no implementation fee, first 60 days of support included.',
+        'Ask about their peak week ordering and who on their side owns the bulk upload.',
+      ] },
+      { title: 'Slides 6–9', lines: [
+        ['Slide 6', 'Release scope and what moves to December'],
+        ['Slide 7', 'Pricing: per-seat plus a one-time $4,500 implementation fee'],
+        ['Slide 8', 'Support model and escalation path'],
+        ['Slide 9', 'Next steps and owners'],
+      ] },
+    ],
   },
 };
 
@@ -327,7 +513,7 @@ let tutorialTimer = null;
 function freshUi() {
   return {
     oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialVisited: {}, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
-    selectedFile: null, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
+    selectedFile: null, filePage: {}, handoffChecked: {}, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
     typingThreads: {}, scrollThreadToBottom: null,
   };
 }
@@ -552,7 +738,7 @@ function announceChanges(before, after) {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) {
       const risk = narcRisk(after);
-      const actionRequired = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].some((id) => after.requests[id]?.status === 'open');
+      const actionRequired = NARC_REQUESTS.some((id) => after.requests[id]?.status === 'open');
       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc');
     }
   }
@@ -700,7 +886,7 @@ function renderChrome() {
     b.type = 'button';
     b.setAttribute('aria-current', String(ui.app === id));
     b.classList.toggle('is-open', ui.openApps.includes(id));
-    const narcOpen = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].filter((rid) => state.requests[rid]?.status === 'open').length;
+    const narcOpen = NARC_REQUESTS.filter((rid) => state.requests[rid]?.status === 'open').length;
     const count = id === 'messages' ? Math.max(openReq, unreadMessages) + (ui.tutorialUnread ? 1 : 0) : id === 'files' ? pendingTasks : id === 'narc' ? narcOpen : 0;
     if (count) b.append(h('span', 'badge', count));
     b.addEventListener('click', () => goApp(id));
@@ -759,7 +945,7 @@ function renderEmail() {
     const actions = h('div', 'mail-form', h('b', null, 'Choose a message'));
     if (!state.outbound.statusDana) actions.append(btn('Send Dana a real status update (5 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'statusDana' })));
     if (state.tasks.vendor.status === 'pending' && !state.outbound.procurementExtension) actions.append(btn('Ask Procurement for 20 more minutes (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'procurementExtension' })));
-    if (state.tasks.client.status === 'pending' && !state.outbound.clientForward) actions.append(btn('Forward Priya the account-note excerpt (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'clientForward' })));
+    if (state.tasks.client.status === 'pending' && !state.outbound.clientForward && (state.pages.client || 1) >= KEY_PAGE.client) actions.append(btn('Forward Priya the account-note excerpt (4 min)', 'btn', () => dispatch({ do: 'emailAction', id: 'clientForward' })));
     if (actions.childNodes.length > 1) detail.append(actions);
     else detail.append(h('div', 'mail-form-result', 'No useful outbound emails are available right now.'));
   }
@@ -798,8 +984,7 @@ function renderLoop() {
       labelBox.append(h('p', 'loop-urgency-label', `${remaining} min left`), track);
       const actions = h('div', 'loop-task-actions');
       actions.append(btn('Open file', 'loop-link', () => {
-        ui.selectedFile = id;
-        setMobileDetail('files', true);
+        openFile(id);
         goApp('files');
       }));
       if (id === 'client') actions.append(btn('Message Priya', 'loop-link', () => openThread('priya')));
@@ -813,7 +998,7 @@ function renderLoop() {
   main.append(taskBox);
 
   const side = h('aside', 'loop-side');
-  const standing = state.standing.status === 'trusted' ? 'Trusted Operator' : state.standing.status === 'review' ? 'Review open' : 'Standard standing';
+  const standing = standingName(state.standing.status, 'Standard standing');
   const risk = narcRisk();
   const activity = activityBand();
   const profile = h('div', 'loop-card', h('div', 'loop-card-h', 'Employee 4417'), h('div', 'employee-line', h('span', 'employee-avatar', '44'), h('div', null, h('b', null, 'Operations Associate'), h('p', `narc-inline-status risk-${risk.key}`, `NARC status: ${risk.label}`), h('p', 'loop-muted', `Visible activity: ${state.index}/100 · ${activity.label}`), h('p', `standing standing-${state.standing.status}`, standing))));
@@ -922,6 +1107,9 @@ function renderCalendar() {
   const pane = h('div', 'pane');
   pane.append(h('div', 'cal-head', h('div', 'who-h', 'Today · one workday')));
   pane.append(h('div', 'event', h('div', 'time', '9:00–5:00'), h('div', null, h('div', null, 'Employee 4417 · workday'), h('div', 'where', 'Meridian workstation'))));
+  if (state.flags.coveredForLuis) {
+    pane.append(h('div', 'event', h('div', 'time', '1:50–3:00'), h('div', null, h('div', null, 'Vendor meeting · Luis Perez'), h('div', 'where', 'No location · created by you'))));
+  }
   Object.entries(state.tasks).filter(([, t]) => t.status === 'pending').forEach(([id, t]) => {
     pane.append(h('div', 'event deadline-event',
       h('div', 'time', clock(t.deadline)),
@@ -937,44 +1125,128 @@ function renderCalendar() {
 }
 
 function visibleFiles() {
-  const ids = ['vendor', 'client', 'project'];
-  if (state.tasks.rework.status !== 'hidden') ids.push('rework');
-  if (state.tasks.audit.status !== 'hidden') ids.push('audit');
-  if (state.tasks.handoff.status !== 'hidden') ids.push('handoff');
-  return ids;
+  return ['vendor', 'client', 'project', 'rework', 'audit', 'handoff', 'marcusDoc'].filter((id) => fileVisible(state, id));
+}
+
+function openFile(id) {
+  ui.selectedFile = id;
+  setMobileDetail('files', true);
+  if (!state.opened[id]) state = act(state, { do: 'open', id });
+}
+
+function fileStatus(id) {
+  return state.tasks[id] ? state.tasks[id].status : (state.flags.helpedMarcus ? 'read' : 'unread');
+}
+
+// The handoff's first page is generated from the day's record: complete about
+// activity, silent about decisions.
+function handoffActivityLines() {
+  const lines = [`Generated ${clock(state.t)} from workstation activity · Employee 4417`];
+  Object.entries(state.tasks).filter(([id, t]) => t.status !== 'hidden' && id !== 'handoff').forEach(([id, t]) => {
+    lines.push([FILES[id].name, t.status === 'done' ? 'Completed' : t.status === 'missed' ? 'Deadline passed' : 'Open']);
+  });
+  const sent = state.log.filter((e) => e.kind === 'message' && e.from === 'me').length;
+  lines.push(['Messages sent', String(sent)]);
+  lines.push(['Files opened', String(Object.keys(state.opened).length)]);
+  lines.push(['Visible Activity', `${state.index}/100`]);
+  return lines;
+}
+
+function pageLines(id, page) {
+  const t = state.tasks[id];
+  if (id === 'rework') {
+    return t.kind === 'vendor'
+      ? ['From: Procurement', 'The Halcyon renewal you approved this morning bills storage at $18.20 a pallet position, up from $14.00. The cover letter said nothing changed. Please explain how this was approved and what you want to do about it before the 3:00 PM finance review.']
+      : ['From: Priya Shah', 'Brightline wrote back to the reply we sent this morning. Rosa says the second truck was turned away too, and she’s asking for a call with someone who can tell her what actually went wrong. I can’t cover this one again.'];
+  }
+  if (id === 'handoff' && page === 1) return handoffActivityLines();
+  return FILES[id].pages[page - 1].lines;
+}
+
+function renderPageLine(line) {
+  if (Array.isArray(line)) return h('div', 'doc-row', h('span', 'doc-key', line[0]), h('span', 'doc-val', line[1]));
+  const p = h('p', 'doc-p');
+  line.split('\n').forEach((part, i) => { if (i) p.append(h('br')); p.append(part); });
+  return p;
+}
+
+function renderHandoffRisks(detail) {
+  const risks = handoffRisks(state);
+  const box = h('div', 'handoff-risks');
+  const pending = state.tasks.handoff.status === 'pending';
+  if (!pending) {
+    const sent = state.flags.handoffRisks || [];
+    if (!sent.length) box.append(h('p', 'doc-p doc-empty', 'No open risks recorded.'));
+    risks.filter((r) => sent.includes(r.id)).forEach((r) => box.append(h('p', 'doc-p', `• ${r.label}`)));
+    detail.append(box);
+    return;
+  }
+  box.append(h('p', 'doc-p doc-empty', 'No open risks recorded.'));
+  if (!risks.length) {
+    box.append(h('p', 'doc-hint', 'Nothing from today to add yet.'));
+  } else {
+    box.append(h('p', 'doc-hint', 'Add from today:'));
+    risks.forEach((r) => {
+      const label = h('label', 'handoff-risk');
+      const input = h('input');
+      input.type = 'checkbox';
+      input.checked = Boolean(ui.handoffChecked[r.id]);
+      input.addEventListener('change', () => { ui.handoffChecked[r.id] = input.checked; });
+      label.append(input, h('span', null, r.label));
+      box.append(label);
+    });
+  }
+  detail.append(box);
 }
 
 function renderFiles() {
   const list = h('div', 'list');
   visibleFiles().forEach((id) => {
-    const f = FILES[id]; const t = state.tasks[id];
-    const row = h('button', 'row file-row', h('span', 'file-type', f.name.split('.').pop().slice(0, 4).toUpperCase()), h('div', 'file-row-copy', h('div', 'name', f.name), h('div', 'sub', `${f.meta} · ${t.status}`)));
+    const f = FILES[id];
+    const row = h('button', 'row file-row', h('span', 'file-type', f.name.split('.').pop().slice(0, 4).toUpperCase()), h('div', 'file-row-copy', h('div', 'name', f.name), h('div', 'sub', `${f.meta} · ${fileStatus(id)}`)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedFile === id));
-    row.addEventListener('click', () => {
-      ui.selectedFile = id;
-      setMobileDetail('files', true);
-      render();
-    }); list.append(row);
+    row.addEventListener('click', () => { openFile(id); render(); });
+    list.append(row);
   });
   const detail = h('div', 'detail file-body');
   const id = ui.selectedFile;
-  if (!id || !FILES[id]) detail.append(h('div', 'empty', 'Select a file.'));
+  if (!id || !FILES[id] || !visibleFiles().includes(id)) detail.append(h('div', 'empty', 'Select a file.'));
   else {
     const f = FILES[id]; const t = state.tasks[id];
-    detail.append(h('h2', null, f.name), h('div', 'meta', `${f.meta} · ${t.status}`));
-    const inspected = Boolean(state.inspected?.[id]);
-    if (id === 'rework' && t.kind === 'vendor') detail.append(h('p', null, 'Procurement found the 30% Halcyon increase after approval and wants an explanation.'));
-    else if (id === 'rework' && t.kind === 'client') detail.append(h('p', null, 'The canned client reply did not hold. The issue escalated again.'));
-    else if (!inspected && t.status === 'pending') detail.append(h('p', null, f.body[0]));
-    else f.body.forEach((p) => detail.append(h('p', null, p)));
-    if (t.status === 'pending') {
-      if (!inspected) {
-        detail.append(h('div', 'file-actions', btn('Review supporting details (3 min)', 'btn primary', () => dispatch({ do: 'inspect', id }))));
-      } else {
-        const actions = h('div', 'file-actions');
-        TASK_OPTIONS[id].forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
-        detail.append(actions);
-      }
+    detail.append(h('h2', null, f.name), h('div', 'meta', `${f.meta} · ${fileStatus(id)}`));
+
+    // The decision is on the document from page one, unlabeled. What it
+    // does depends on how far the player read, which nothing here says.
+    if (t?.status === 'pending') {
+      const actions = h('div', 'file-actions file-decision');
+      if (id === 'rework') REWORK_OPTIONS.forEach(([approach, label]) => actions.append(btn(label, 'btn primary', () => dispatch({ do: 'task', id, approach }))));
+      else if (id === 'handoff') actions.append(btn(f.decision, 'btn primary', () => dispatch({ do: 'task', id, include: Object.keys(ui.handoffChecked).filter((k) => ui.handoffChecked[k]) })));
+      else actions.append(btn(f.decision, 'btn primary', () => dispatch({ do: 'task', id })));
+      detail.append(actions);
+    }
+
+    const total = PAGE_COUNTS[id] || 1;
+    const read = state.pages[id] || 1;
+    const page = Math.min(ui.filePage[id] || 1, read);
+    const doc = h('article', 'doc-page');
+    doc.append(h('div', 'doc-page-title', f.pages[page - 1].title));
+    pageLines(id, page).forEach((line) => doc.append(renderPageLine(line)));
+    if (id === 'handoff' && page === 2) renderHandoffRisks(doc);
+    detail.append(doc);
+
+    if (total > 1) {
+      const pager = h('div', 'doc-pager');
+      const prev = btn('‹ Previous', 'btn', () => { ui.filePage[id] = page - 1; render(); });
+      if (page <= 1) prev.disabled = true;
+      // Turning back is free. Turning to a page not read yet is an action.
+      const next = btn('Next page ›', 'btn', () => {
+        ui.filePage[id] = page + 1;
+        if (page + 1 > read) dispatch({ do: 'page', id });
+        else render();
+      });
+      if (page >= total) next.disabled = true;
+      pager.append(prev, h('span', 'doc-page-count', `Page ${page} of ${total}`), next);
+      detail.append(pager);
     }
   }
   return windowShell('files', 'Files', h('div', 'body', list, detail));
@@ -1037,8 +1309,8 @@ function renderNarc() {
   const body = h('div', 'body narc-dashboard');
   const risk = narcRisk();
   const activity = activityBand();
-  const standingLabel = state.standing.status === 'trusted' ? 'TRUSTED OPERATOR' : state.standing.status === 'review' ? 'REVIEW OPEN' : 'STANDARD';
-  const openAssessmentId = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCase', 'marcusCase', 'narcResponse'].find((id) => state.requests[id]?.status === 'open');
+  const standingLabel = standingName(state.standing.status, 'Standard').toUpperCase();
+  const openAssessmentId = NARC_REQUESTS.find((id) => state.requests[id]?.status === 'open');
   const assessment = narcAssessment(openAssessmentId);
 
   const status = h('section', `narc-status-card risk-${risk.key}`,
@@ -1058,8 +1330,13 @@ function renderNarc() {
       h('div', null, h('strong', null, `${state.index}/100`), h('span', null, activity.label)),
       h('div', `narc-band narc-band-${activity.key}`, activity.range)
     ),
+    activityMeter(),
     h('p', 'narc-explainer', 'Higher means more keyboard, mouse, calendar, and other visible workstation activity. It does not measure work quality.')
   );
+  if (state.narc.lowSince !== null && !state.flags.formalReview) {
+    const left = Math.max(0, 30 - (state.t - state.narc.lowSince));
+    signals.append(h('p', 'narc-countdown', `Review opens in ${left} min unless activity recovers.`));
+  }
 
   const assessmentCard = h('section', `narc-assessment-card${openAssessmentId ? ' needs-action' : ''}`,
     h('div', 'narc-section-title', openAssessmentId ? 'ACTION REQUIRED' : 'CURRENT ASSESSMENT'),
@@ -1113,18 +1390,6 @@ function renderNarc() {
   return windowShell('narc', 'NARC', body);
 }
 
-function renderQuietAction() {
-  const old = root.querySelector('.quiet-card');
-  if (old) old.remove();
-  const nothingOpen = Object.values(state.tasks).every((t) => t.status !== 'pending') && Object.values(state.requests).every((r) => r.status !== 'open');
-  const unread = ui.notifications.some((n) => !n.read);
-  if (!nothingOpen || unread || state.phase === 'end' || !ui.oriented) return;
-  const next = nextEvent(state);
-  const label = next.t >= 17 * 60 ? 'Finish the workday' : `Advance to ${clock(next.t)}`;
-  const card = h('div', 'quiet-card', h('div', null, h('b', null, 'Current work is caught up'), h('span', null, `Next: ${clock(next.t)} · ${next.label}`)), btn(label, 'btn primary', () => dispatch({ do: 'workUntil' })));
-  root.append(card);
-}
-
 const STATUS_TONE = { employed: 'good', protected: 'good', warning: 'soon', fired: 'critical' };
 
 function renderEnd() {
@@ -1150,7 +1415,7 @@ function renderEnd() {
   narcSection.append(
     h('div', 'end-section-h', 'NARC metrics'),
     h('div', 'end-metric-row', h('span', null, 'Visible Activity'), h('b', null, `${e.index}/100`)),
-    h('div', 'end-metric-row', h('span', null, 'Standing'), h('b', null, e.standing.status === 'trusted' ? 'Trusted Operator' : e.standing.status === 'review' ? 'Review open' : 'Standard')),
+    h('div', 'end-metric-row', h('span', null, 'Standing'), h('b', null, standingName(e.standing.status, 'Standard'))),
     h('p', 'end-metric-note', e.standing.note)
   );
   box.append(narcSection);
@@ -1175,7 +1440,7 @@ function renderEnd() {
 }
 
 function render() {
-  renderChrome(); renderWindows(); renderEnd(); renderQuietAction(); renderNotificationCenter();
+  renderChrome(); renderWindows(); renderEnd(); renderNotificationCenter();
   requestAnimationFrame(() => {
     if (!ui.scrollThreadToBottom || ui.selectedThread !== ui.scrollThreadToBottom) return;
     const scroll = els.windows.querySelector('.window.app-messages .thread .scroll');
