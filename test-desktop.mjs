@@ -8,16 +8,16 @@ assert.match(app, /setMobileDetail\('messages', true\)/, 'message selection shou
 assert.match(app, /setMobileDetail\('files', true\)/, 'file selection should open mobile detail');
 assert.match(app, /markNotificationsRead\('messages', id\)/, 'reading a thread should reconcile notification unread state');
 assert.match(app, /\['vendor', 'client', 'project', 'rework', 'audit', 'handoff', 'marcusDoc'\]\.filter\(\(id\) => fileVisible\(state, id\)\)/, 'task files stay visible after completion, and the engine decides which exist');
-assert.match(app, /Visible Activity Index is not a direct measure of work quality\./, 'NARC should explain the Visible Activity Index');
-assert.match(app, /Explain the quiet work NARC missed/, 'midmorning checkpoint should describe the concrete player action');
+assert.match(app, /Your Visible Activity Index is available in the NARC app\./, 'the monitoring notice points at the NARC app');
+assert.match(app, /Submit context, or leave the read as is\./, 'midmorning checkpoint should describe the concrete player action');
 assert.match(app, /state\.flags\.loggedOffEarly/, 'end screen should distinguish early logoff');
-assert.match(app, /The Loop is your home base/, 'Dana should explain what The Loop is during onboarding');
+assert.match(app, /The Loop is where your work shows up/, 'Dana should explain what The Loop is during onboarding');
 assert.doesNotMatch(app, /completeTutorialTarget[\s\S]*?ui\.tutorialUnread = false;[\s\S]*?if \(step\.final\)/, 'advancing tutorial targets must not mark Dana read');
 assert.match(app, /loop-task-actions/, 'The Loop should offer more than a single file action');
 assert.match(app, /selectedArticle/, 'Browser should track an opened article');
 assert.match(app, /browser-story/, 'Browser headlines should be interactive');
 assert.match(app, /NARC SYSTEM UPDATE/, 'Focus Time adaptation should be visibly explained');
-assert.match(app, /your first work block was (low-input|highly visible) and the current activity record is mixed/i, '11:20 assessment should show concrete evidence');
+assert.match(app, /Your first work block was (low-input|highly visible) and the current activity record is mixed/, '11:20 assessment should show concrete evidence');
 
 console.log('desktop integration checks passed');
 
@@ -35,7 +35,7 @@ assert.match(app, /is typing/, 'message threads should show a typing indicator')
 assert.match(app, /scrollThreadToBottom/, 'sending or opening a conversation should keep the latest messages in view');
 assert.match(app, /pendingReplies/, 'chat replies should not appear immediately');
 assert.match(app, /\['context', 'Attach as context'\], \['accept', 'Acknowledge'\]/, "NARC's first review offers only Attach as context or Acknowledge (REDESIGN_SPEC Change 5)");
-assert.match(app, /Meridian may give it more weight later through Trusted Operator status/, 'NARC should explain why accepting the assessment can improve standing');
+assert.match(app, /eligible for Trusted Operator recognition/, 'NARC should say that accepting the assessment can improve standing');
 
 assert.match(app, /unreadMessages/, 'ambient coworker messages should contribute to the Messages badge');
 assert.match(app, /n\.thread === id/, 'each coworker row should surface unread ambient messages');

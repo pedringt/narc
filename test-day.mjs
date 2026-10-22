@@ -392,7 +392,7 @@ console.log('day.js tests passed');
   // blame's own visible:true accounts for 3 of this; the other 6 is the
   // one-time pattern bonus, on top of what each report already earns alone.
   assert.equal(s.index, beforeSecond + 9, 'the pattern earns a one-time bump on top of the report itself being visible activity');
-  assert.ok(s.log.some((e) => /strong collaboration/.test(e.text)), 'the pattern is named once it is clearly a pattern');
+  assert.ok(s.log.some((e) => /collaboration pattern/i.test(e.text)), 'the pattern is named once it is clearly a pattern');
   assert.ok(ending(s).lines.some((l) => /moved Visible Activity up 6 points/.test(l)), 'the ending states the mechanical benefit plainly, not just narratively');
 }
 
@@ -491,7 +491,7 @@ console.log('day.js tests passed');
   assert.equal(topic, 'dana-meridian');
   s = act(s, { do: 'chat', who: 'dana', topic });
   s = act(s, { do: 'deliverChat', topic });
-  assert.ok(s.threads.dana.some((m) => /chaos is less coordinated/i.test(m.text)), 'Dana should not reference the raccoon before Marcus tells that story');
+  assert.ok(s.threads.dana.some((m) => /chaos is less organized/i.test(m.text)), 'Dana should not reference the raccoon before Marcus tells that story');
 
   let later = newGame();
   later = act(later, { do: 'idle', minutes: (10 * 60 + 55) - later.t });
@@ -533,7 +533,7 @@ console.log('day.js tests passed');
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
   assert.equal(s.standing.status, 'trusted');
   assert.match(s.standing.note, /first completed task produced high visible activity/i);
-  assert.ok(s.log.some((e) => e.kind === 'narc' && /received no correction/i.test(e.text)));
+  assert.ok(s.log.some((e) => e.kind === 'narc' && /no correction received/i.test(e.text)));
 }
 
 // ------------------------------------------- time is tracked by category (#103)
@@ -601,7 +601,7 @@ console.log('day.js tests passed');
   const before = s.index;
   const ignored = act(s, { do: 'respond', id: 'narcResponse', choice: 'ignore' });
   assert.ok(ignored.index < before, 'leaving the gaming flag unanswered now costs Visible Activity');
-  assert.ok(ignored.log.some((e) => e.kind === 'narc' && /never used Focus Time/i.test(e.text)), 'a non-user is told the rule keys on the pattern, not the person');
+  assert.ok(ignored.log.some((e) => e.kind === 'narc' && /no individual Focus Time/i.test(e.text)), 'a non-user is told the pattern was applied to their account');
 
   const explained = act(s, { do: 'respond', id: 'narcResponse', choice: 'explain' });
   assert.ok(explained.index > ignored.index, 'explaining beats ignoring');
@@ -661,7 +661,7 @@ console.log('coworker decision tests passed');
   s = act(s, { do: 'respond', id: 'luisCover', choice: 'cover' });
   s = act(s, { do: 'idle', minutes: 600 });
   const e = ending(s);
-  assert.ok(e.lines.some((l) => /fake vendor meeting/.test(l)), 'the ending names covering for Luis');
+  assert.ok(e.lines.some((l) => /vendor meeting/i.test(l)), 'the ending names covering for Luis');
   assert.ok(e.contradictions.some((c) => /never happened/.test(c)), 'covering for Luis shows up as a contradiction');
 }
 console.log('softened Marcus and ending-line tests passed');
@@ -706,7 +706,7 @@ console.log('softened Marcus and ending-line tests passed');
   assert.equal(s.standing.status, 'review', 'context does not close a review the activity line opened');
   s = act(s, { do: 'idle', minutes: (12 * 60 + 15) - s.t });
   assert.deepEqual(requestChoices(s, 'danaCheckin'), ['review']);
-  assert.ok(s.threads.dana.some((m) => /review meeting/.test(m.text)));
+  assert.ok(s.threads.dana.some((m) => /that meeting|review meeting/.test(m.text)));
   const before = s.t;
   s = act(s, { do: 'respond', id: 'danaCheckin', choice: 'review' });
   assert.equal(s.t, before + 15, 'the review meeting costs 15 minutes');
@@ -859,7 +859,7 @@ console.log('softened Marcus and ending-line tests passed');
   s = act(s, { do: 'idle', minutes: 30 });
   assert.equal(s.standing.status, 'review');
   assert.deepEqual(requestChoices(s, 'danaCheckin'), ['review']);
-  assert.ok(s.threads.dana.at(-1).text.startsWith('Scratch that.'), 'Dana says the check-in is now the review meeting');
+  assert.ok(s.threads.dana.at(-1).text.startsWith('Hold on.'), 'Dana says the check-in is now the review meeting');
 }
 console.log('redesign phase 1-2 tests passed');
 
