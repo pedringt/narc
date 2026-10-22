@@ -26,6 +26,25 @@
 const START = 9 * 60; // 9:00
 const END = 17 * 60; // 5:00
 
+// The day's schedule in one place. Deadlines overlap on purpose: the three
+// morning tasks cannot all get the careful treatment before their deadlines,
+// which is the first real triage of the day (REDESIGN_SPEC Change 2). The
+// afternoon tasks arrive early enough that the work runs to about 3:00; the
+// last stretch belongs to the coworker cases and NARC's reaction.
+const DUE = {
+  vendor: 10 * 60 + 30,
+  client: 11 * 60,
+  project: 11 * 60 + 30,
+  rework: 14 * 60 + 30,
+  audit: 13 * 60 + 30,
+  handoff: 15 * 60,
+};
+const APPEARS = {
+  rework: 13 * 60,
+  audit: 12 * 60 + 30,
+  handoff: 13 * 60 + 30,
+};
+
 export const PEOPLE = {
   luis: { name: 'Luis Perez', role: 'Customer Operations' },
   marcus: { name: 'Marcus Reed', role: 'Account Management' },
@@ -60,22 +79,22 @@ export function newGame() {
     tasks: {
       vendor: {
         label: 'Recommend: renew or drop the Halcyon vendor contract',
-        detail: 'Their proposal is in Files. Renewal auto-triggers at 11:30 if you sit on it.',
-        deadline: 11 * 60 + 30,
+        detail: 'Their proposal is in Files. Renewal auto-triggers at 10:30 if you sit on it.',
+        deadline: DUE.vendor,
         status: 'pending',
         approach: null,
       },
       client: {
         label: "Priya's client is escalating — needs a response",
         detail: 'The thread and the account history are in Files.',
-        deadline: 13 * 60,
+        deadline: DUE.client,
         status: 'pending',
         approach: null,
       },
       project: {
         label: "Marcus's project: the deadline moved up. Something has to be cut.",
         detail: "The new timeline and Marcus's notes are in Files.",
-        deadline: 15 * 60 + 30,
+        deadline: DUE.project,
         status: 'pending',
         approach: null,
       },
@@ -84,19 +103,19 @@ export function newGame() {
       // that would exist no matter what the player did.
       rework: {
         label: '', detail: '', kind: null,
-        deadline: 15 * 60, status: 'hidden', approach: null,
+        deadline: DUE.rework, status: 'hidden', approach: null,
       },
       audit: {
         label: 'Clear the carrier exception queue before the afternoon cutoff',
         detail: 'Three shipments are stuck on routing exceptions. The queue export is in Files.',
-        deadline: 14 * 60 + 15,
+        deadline: DUE.audit,
         status: 'hidden',
         approach: null,
       },
       handoff: {
         label: 'Prepare the end-of-day client handoff',
         detail: 'Tomorrow’s team picks up from whatever you send. The notes are in Files.',
-        deadline: 16 * 60 + 15,
+        deadline: DUE.handoff,
         status: 'hidden',
         approach: null,
       },
@@ -200,12 +219,12 @@ function nextEvent(s) {
   if (tasks.project.status === 'pending') candidates.push({ t: tasks.project.deadline, label: "Marcus's project deadline" });
   if (tasks.rework.status === 'pending') candidates.push({ t: tasks.rework.deadline, label: 'the rework deadline' });
   else if (tasks.rework.status === 'hidden' && (flags.vendorRisky || flags.clientUnresolved)) {
-    candidates.push({ t: 13 * 60, label: 'this morning catching up with you' });
+    candidates.push({ t: APPEARS.rework, label: 'this morning catching up with you' });
   }
   if (tasks.audit.status === 'pending') candidates.push({ t: tasks.audit.deadline, label: 'the carrier exception cutoff' });
-  else if (tasks.audit.status === 'hidden') candidates.push({ t: 13 * 60 + 5, label: 'a new operations task' });
+  else if (tasks.audit.status === 'hidden') candidates.push({ t: APPEARS.audit, label: 'a new operations task' });
   if (tasks.handoff.status === 'pending') candidates.push({ t: tasks.handoff.deadline, label: 'the client handoff deadline' });
-  else if (tasks.handoff.status === 'hidden') candidates.push({ t: 14 * 60 + 10, label: 'the afternoon handoff request' });
+  else if (tasks.handoff.status === 'hidden') candidates.push({ t: APPEARS.handoff, label: 'the afternoon handoff request' });
   if (requests.luisTip.status === 'pending') candidates.push({ t: requests.luisTip.at, label: "Luis's tip" });
   if (requests.priyaDraft.status === 'pending') candidates.push({ t: requests.priyaDraft.at, label: "Priya's draft" });
   if (requests.luisCover.status === 'pending') candidates.push({ t: requests.luisCover.at, label: "Luis's favor" });
@@ -238,26 +257,41 @@ function nextEvent(s) {
 
 // Every meaningful action goes through here so time is always the resource
 // being spent, and the "what changed" feed always sees it.
-function spend(s, minutes, { visible = null, category = null } = {}) {
-  s.t = Math.min(END, s.t + minutes);
+function spend(s, minutes, { visible = null, category = null, drift = QUIET_DRIFT_MINUTES } = {}) {
+  const target = Math.min(END, s.t + minutes);
   // Visibility changes only make sense when time actually passes. A zero-minute
   // "leave/ignore" choice should not manufacture activity or inactivity.
   if (minutes > 0 && visible === true) s.index = Math.min(100, s.index + 3);
-  // Quiet work drifts the index down 1 point per 10 minutes (REDESIGN_SPEC
-  // Change 1), so a long careful read hurts more than a glance. The carry
-  // keeps the rate honest across many short actions such as page turns.
-  if (minutes > 0 && visible === false) {
-    s.narc.quietCarry += minutes;
-    s.index = Math.max(0, s.index - Math.floor(s.narc.quietCarry / 10));
-    s.narc.quietCarry %= 10;
-  }
   // category is omitted for idle and the jump to the next beat: that's
   // background time passing, not a choice about what to spend it on, so it
   // stays out of the #103 breakdown rather than diluting it.
   if (category && minutes > 0) s.time[category] += minutes;
-  checkThresholds(s);
-  checkBoundaries(s);
+  // Time advances in short ticks rather than one jump, so a scheduled beat
+  // (a message at 9:40, a deadline at 11:30) fires at its own minute and is
+  // logged with that minute -- not piled up, all stamped with the end of a
+  // long action. Quiet drift (1 point per 10 minutes, REDESIGN_SPEC Change 1)
+  // is applied per tick for the same reason: the meter falls during the
+  // read, not after it. The carry keeps the rate honest across many short
+  // actions such as page turns.
+  do {
+    const step = Math.min(TICK, target - s.t);
+    s.t += step;
+    if (step > 0 && visible === false) {
+      s.narc.quietCarry += step;
+      s.index = Math.max(0, s.index - Math.floor(s.narc.quietCarry / drift));
+      s.narc.quietCarry %= drift;
+    }
+    checkThresholds(s);
+    checkBoundaries(s);
+  } while (s.t < target && s.phase !== 'end');
 }
+const TICK = 5;
+// One point of Visible Activity per this many minutes of quiet work (reading,
+// phone calls, fixing things NARC can't see). Skipped stretches between
+// beats drift at half that rate: they're ordinary background work, which
+// produces some input, not a head-down read.
+const QUIET_DRIFT_MINUTES = 5;
+const IDLE_DRIFT_MINUTES = 10;
 
 function hasPending(s) {
   return Object.values(s.tasks).some((t) => t.status === 'pending')
@@ -270,7 +304,7 @@ function hasPending(s) {
 // (tuning lever A, chosen by Paige 2026-10-21).
 function jumpIfIdle(s) {
   if (s.phase === 'end' || hasPending(s)) return;
-  spend(s, Math.max(0, nextEvent(s).t - s.t), { visible: false });
+  spend(s, Math.max(0, nextEvent(s).t - s.t), { visible: false, drift: IDLE_DRIFT_MINUTES });
 }
 
 // Visible Activity's two failure boundaries (REDESIGN_SPEC Change 1). Low:
@@ -336,7 +370,7 @@ function checkThresholds(s) {
   // afternoon was missing. Only one fires (vendor takes priority) so this
   // stays one obligation, not a pile of them; a careful morning earns a
   // quieter afternoon instead of manufactured busywork.
-  if (tasks.rework.status === 'hidden' && s.t >= 13 * 60) {
+  if (tasks.rework.status === 'hidden' && s.t >= APPEARS.rework) {
     if (s.flags.vendorRisky) {
       tasks.rework.status = 'pending';
       tasks.rework.kind = 'vendor';
@@ -452,7 +486,7 @@ function checkThresholds(s) {
       ? 'Round two. They answered the version you fixed, so here’s the follow-up. Same deal: read it before I send?'
       : 'You said you’d read the first one after. They already answered it, so here’s round two. Read this one before I send?');
   }
-  if (!s.flags.priyaRateNudge && s.t >= 10 * 60 + 40) {
+  if (!s.flags.priyaRateNudge && s.t >= 10 * 60 + 5) {
     s.flags.priyaRateNudge = true;
     if (s.tasks.vendor.status === 'pending' && s.opened.vendor && pageOf(s, 'vendor') <= 2) {
       say(s, 'priya', 'Random question: did you get to the rate table on Halcyon? Procurement has been weird about their renewals all year.');
@@ -491,23 +525,23 @@ function checkThresholds(s) {
     say(s, 'marcus', 'NARC opened an attendance review. My bad pattern is real. Today’s cause is also real. If you found the transit alert, put it in NARC.');
   }
 
-  if (tasks.audit.status === 'hidden' && s.t >= 13 * 60 + 5) {
+  if (tasks.audit.status === 'hidden' && s.t >= APPEARS.audit) {
     if (s.t >= tasks.audit.deadline) {
       tasks.audit.status = 'missed';
       s.index = Math.max(0, s.index - 4);
       note(s, 'The carrier cutoff passed before you got to the exception queue. Ops cleared it manually.', 'consequence');
     } else {
       tasks.audit.status = 'pending';
-      note(s, 'Operations added a carrier exception queue task. Cutoff is 2:15 PM.', 'task');
+      note(s, 'Operations added a carrier exception queue task. Cutoff is 1:30 PM.', 'task');
     }
   }
-  if (tasks.handoff.status === 'hidden' && s.t >= 14 * 60 + 10) {
+  if (tasks.handoff.status === 'hidden' && s.t >= APPEARS.handoff) {
     if (s.t >= tasks.handoff.deadline) {
       tasks.handoff.status = 'missed';
       note(s, 'The handoff request arrived and expired before you got to it. Dana sent tomorrow’s team an incomplete status note instead.', 'consequence');
     } else {
       tasks.handoff.status = 'pending';
-      note(s, 'Dana added an end-of-day client handoff. A usable summary is due by 4:15 PM.', 'task');
+      note(s, 'Dana added an end-of-day client handoff. A usable summary is due by 3:00 PM.', 'task');
     }
   }
   if (!s.flags.narcObservationMessages && s.t >= 10 * 60 + 50) {
@@ -824,7 +858,7 @@ export function act(state, a) {
       // The explicit "do nothing, just watch the clock" action -- kept only
       // so the engine can be asked whether idling is ever actually the best
       // move, not because the player should reach for it.
-      spend(s, a.minutes || 15, { visible: false });
+      spend(s, a.minutes || 15, { visible: false, drift: IDLE_DRIFT_MINUTES });
       note(s, 'You let time pass without doing anything NARC or anyone else can see.', 'system');
       break;
     }
@@ -893,9 +927,13 @@ export function handoffRisks(s) {
   return risks;
 }
 
-// Careful minutes are 1.5x the REDESIGN_SPEC Change 2 table (tuning chosen
-// by Paige 2026-10-21 after the bot suite showed the table left ~110 min of
-// slack). The handoff's careful cost comes from its checklist instead.
+// The reading itself is paid for page by page (5 min a page, `page`). What a
+// task charges on commit is the work of acting on what the player found:
+// sending a contract back, calling the client, looping Marcus in. The fast
+// commit is a few minutes because it acts on nothing. The handoff's careful
+// cost comes from its checklist instead. (The earlier 1.5x-of-spec minutes
+// double-charged the read: 15 min of page turns, then 68 silent minutes on
+// Approve. Paige, 2026-10-22.)
 const TASK_OPTIONS = {
   vendor: {
     quick: {
@@ -903,8 +941,8 @@ const TASK_OPTIONS = {
       result: 'You approved the Halcyon renewal.',
     },
     thorough: {
-      minutes: 68, visible: false, actual: 2,
-      result: 'You sent the Halcyon renewal back with the page 4 rate flagged. Halcyon reissued it at $14.00 before signing.',
+      minutes: 40, visible: false, actual: 2,
+      result: 'Halcyon renewal sent back with the page 4 rate flagged. Forty minutes on the phone with Janelle Ruiz. Reissued at $14.00.',
     },
   },
   client: {
@@ -913,8 +951,8 @@ const TASK_OPTIONS = {
       result: 'You replied to the client, apologized for the trouble and promised a follow-up.',
     },
     investigate: {
-      minutes: 68, visible: false, actual: 2, trust: { priya: 2 },
-      result: 'You told the client the order went out in cartons against their own pallet instruction, and set up a re-ship on pallets. Priya noticed.',
+      minutes: 40, visible: false, actual: 2, trust: { priya: 2 },
+      result: 'Called Rosa Delgado. Told her the order shipped in cartons against her Sep 18 instruction. Re-ship on pallets booked for tomorrow. Forty minutes.',
     },
   },
   project: {
@@ -923,13 +961,13 @@ const TASK_OPTIONS = {
       result: "You submitted the cut list for Marcus's project.",
     },
     consult: {
-      minutes: 52, visible: false, actual: 1, trust: { marcus: 2 },
+      minutes: 30, visible: false, actual: 1, trust: { marcus: 2 },
       result: 'You cut the dashboard polish and kept the handoff context. Marcus backs the call.',
     },
   },
   rework: {
     quiet: {
-      minutes: 45, visible: false, actual: 2,
+      minutes: 30, visible: false, actual: 2,
       result: (t) => (t.kind === 'vendor'
         ? 'You renegotiated the Halcyon rate yourself before it reached anyone else. Handled, quietly, on your own time.'
         : "You called the client directly and actually fixed it this time. Priya didn't have to know."),
@@ -947,8 +985,8 @@ const TASK_OPTIONS = {
       result: 'You cleared the three carrier exceptions.',
     },
     trace: {
-      minutes: 45, visible: false, actual: 1,
-      result: 'You traced all three exceptions to a routing rule from fourteen months ago and retired it.',
+      minutes: 30, visible: false, actual: 1,
+      result: 'Routing rule RR-0457 retired. Three holds released. Ticket to j.tan. Half an hour.',
     },
   },
   handoff: {

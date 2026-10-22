@@ -224,7 +224,7 @@ const REWORK_OPTIONS = [['quiet', 'Fix it yourself'], ['escalate', 'Tell Dana']]
 // on the page points at it. Page counts must match PAGE_COUNTS in day.js.
 const FILES = {
   vendor: {
-    name: 'Halcyon_Vendor_Renewal.pdf', meta: 'Procurement · renewal due 11:30 AM', decision: 'Approve',
+    name: 'Halcyon_Vendor_Renewal.pdf', meta: 'Procurement · renewal due 10:30 AM', decision: 'Approve',
     pages: [
       { title: 'Cover letter', lines: [
         'Halcyon Freight Services · 1180 Commerce Way, Suite 400 · Sparks, NV',
@@ -232,7 +232,7 @@ const FILES = {
         'Re: Renewal of Master Services Agreement MSA-2291',
         'Thank you for another year of partnership. Your account team has enjoyed supporting Meridian’s growth across the Western region, and we are pleased to enclose the renewal of your Master Services Agreement for the coming term.',
         'This renewal carries forward your current service levels and contacts with no changes to commercial terms. Sections 2 through 4 restate the agreement in our updated template for your records.',
-        'Please return the signed signature page by 11:30 AM today. Agreements not returned by the renewal deadline continue automatically on the terms enclosed.',
+        'Please return the signed signature page by 10:30 AM today. Agreements not returned by the renewal deadline continue automatically on the terms enclosed.',
         'Warm regards,\nJanelle Ruiz, Senior Account Manager',
       ] },
       { title: 'Section 2 · Service summary', lines: [
@@ -271,7 +271,7 @@ const FILES = {
     ],
   },
   client: {
-    name: 'Priya_Client_Escalation.txt', meta: 'Client Operations · response due 1:00 PM', decision: 'Reply',
+    name: 'Priya_Client_Escalation.txt', meta: 'Client Operations · response due 11:00 AM', decision: 'Reply',
     pages: [
       { title: 'Thread · PO 44817 delivery refused', lines: [
         'Export: Priya Shah · 52 threads this week · 31 tagged client:',
@@ -308,12 +308,12 @@ const FILES = {
     ],
   },
   project: {
-    name: 'Marcus_Project_Scope.doc', meta: 'Project Delivery · decision due 3:30 PM', decision: 'Submit',
+    name: 'Marcus_Project_Scope.doc', meta: 'Project Delivery · decision due 11:30 AM', decision: 'Submit',
     pages: [
       { title: 'Harbor Point portal rollout · revised timeline', lines: [
         'Harbor Point Distributors has moved go-live from November 14 to November 4 so the portal is live before their holiday freeze.',
         'At current velocity that leaves about 30% of remaining scope unbuilt. Something comes out of this release; it can go into the December patch.',
-        ['Today 3:30 PM', 'Cut list due to engineering'],
+        ['Today 11:30 AM', 'Cut list due to engineering'],
         ['Oct 28', 'Code freeze'],
         ['Oct 31', 'Client acceptance testing'],
         ['Nov 4', 'Go-live'],
@@ -344,7 +344,7 @@ const FILES = {
     pages: [{ title: 'Follow-up', lines: [] }],
   },
   audit: {
-    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 2:15 PM', decision: 'Submit',
+    name: 'Carrier_Exception_Queue.csv', meta: 'Operations · cutoff 1:30 PM', decision: 'Submit',
     pages: [
       { title: 'Exception 1 of 3', lines: [
         ['shipment_id', 'SHP-220914'],
@@ -373,7 +373,7 @@ const FILES = {
     ],
   },
   handoff: {
-    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 4:15 PM', decision: 'Send',
+    name: 'Client_Handoff_Notes.doc', meta: 'Client Operations · due 3:00 PM', decision: 'Send',
     pages: [
       { title: 'Today’s activity log', lines: [] },
       { title: 'Open risks', lines: [] },
@@ -720,10 +720,10 @@ function announceChanges(before, after) {
     showToast('Files', 'A morning shortcut just came back as a new file.', 'files');
   }
   if (after.tasks.audit.status === 'pending' && before.tasks.audit.status !== 'pending') {
-    showToast('The Loop', 'New task: clear the carrier exception queue by 2:15 PM.', 'intranet');
+    showToast('The Loop', 'New task: clear the carrier exception queue by 1:30 PM.', 'intranet');
   }
   if (after.tasks.handoff.status === 'pending' && before.tasks.handoff.status !== 'pending') {
-    showToast('Dana Whitfield', 'New task: prepare the client handoff by 4:15 PM.', 'intranet');
+    showToast('Dana Whitfield', 'New task: prepare the client handoff by 3:00 PM.', 'intranet');
   }
   if (after.flags.surveyEmailAvailable && !before.flags.surveyEmailAvailable) {
     setTimeout(() => showToast('People Operations', 'Quarterly employee pulse survey is open.', 'email', { email: 'survey' }), 500);
@@ -1156,7 +1156,7 @@ function pageLines(id, page) {
   const t = state.tasks[id];
   if (id === 'rework') {
     return t.kind === 'vendor'
-      ? ['From: Procurement', 'The Halcyon renewal you approved this morning bills storage at $18.20 a pallet position, up from $14.00. The cover letter said nothing changed. Please explain how this was approved and what you want to do about it before the 3:00 PM finance review.']
+      ? ['From: Procurement', 'The Halcyon renewal you approved this morning bills storage at $18.20 a pallet position, up from $14.00. The cover letter said nothing changed. Please explain how this was approved and what you want to do about it before the 2:30 PM finance review.']
       : ['From: Priya Shah', 'Brightline wrote back to the reply we sent this morning. Rosa says the second truck was turned away too, and she’s asking for a call with someone who can tell her what actually went wrong. I can’t cover this one again.'];
   }
   if (id === 'handoff' && page === 1) return handoffActivityLines();
