@@ -894,6 +894,54 @@ Code is shown as it appears in the source, so some cells carry quotes or a `repl
 | C142 | assessment: default | inference: state.narc.adaptation ? 'NARC now discounts repeated Focus Time as possible gaming.' : 'NARC is using visible workstation activity as a proxy for engagement.', /     missing: 'The system sees observable traces around the work, not the work’s actual quality.', | inference: state.narc.adaptation ? 'Repeated Focus Time is weighted as possible manipulation.' : 'Within expected range for your role.', /     missing: 'Document contents. Call content. Work quality.', |  |
 | C143 | assessment: default action | action: 'No response is required right now. Keep working; NARC will surface a review if its interpretation becomes consequential.', | action: 'No response required.', |  |
 
+## Playtest pass 2 (branch `playtest-pass-2`, 2026-10-23)
+
+Full-day playthrough findings. Request replies were dead clicks (your chosen line never appeared in the thread and nobody answered), so every coworker request now echoes your line and gets a short acknowledgment after a typing delay. Remaining action-style labels were rewritten as lines; NARC app buttons were normalized to Attach context / Leave it / Stay out; a few straggler lines were fixed.
+
+| # | Where | Was | Now | Edited text |
+| ---: | --- | --- | --- | --- |
+| P1 | luisTip options | luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']], | luisTip: [['thank', 'Good to know. Thanks.'], ['ignore', 'Don’t reply']], |  |
+| P2 | marcusCredit options | marcusCredit: [['share', 'Put both names on it'], ['own', 'Name only the real owner']], | marcusCredit: [['share', 'Both names. Done.'], ['own', 'I’m putting down who made the call.']], |  |
+| P3 | marcusFallout options | marcusFallout: [['apologize', 'Walk him through it'], ['standby', 'Stand by the call']], | marcusFallout: [['apologize', 'Come find me. I’ll walk you through it.'], ['standby', 'It was the right call.']], |  |
+| P4 | danaMorning options | if (state.flags.firstNarcReadType === 'low') options = [['context', 'Tell Dana I was carefully reviewing the file'], ['skip', "Leave NARC's read as-is"]]; /     else if (state.flags.firstNarcReadType === 'visible') options = [['context', 'Tell Dana the fast result hid rushed work'], ['skip', "Leave NARC's read as-is"]]; /     else options = [['context', 'Tell Dana what the score missed'], ['skip', "Leave NARC's read as-is"]]; | if (state.flags.firstNarcReadType === 'low') options = [['context', 'I was reading the Halcyon contract. All of it.'], ['skip', 'Leave it']]; /     else if (state.flags.firstNarcReadType === 'visible') options = [['context', 'That first one was fast, not good. I skimmed it.'], ['skip', 'Leave it']]; /     else options = [['context', 'Here’s what the score missed.'], ['skip', 'Leave it']]; |  |
+| P5 | narcCheckpoint labels | ? [['context', 'Explain the quiet work NARC missed'], ['ignore', "Leave NARC's assessment unchanged"]] /       : [['context', 'Explain what the activity score missed'], ['ignore', "Leave NARC's assessment unchanged"]]; | ? [['context', 'Attach context'], ['ignore', 'Leave it']] /       : [['context', 'Attach context'], ['ignore', 'Leave it']]; |  |
+| P6 | NARC case labels | priyaCase: [['context', "Explain Priya's message volume"], ['quiet', 'Suggest she post less'], ['report', 'Confirm the flag without explanation']], /   luisCase: [['context', "Explain Luis's away time"], ['blame', 'Say Luis is probably gaming it'], ['leave', 'Do not intervene']], /   marcusCase: [['evidence', 'Add the transit evidence'], ['confirm', 'Confirm he was late'], ['leave', 'Do not intervene']], /   narcResponse: [['explain', 'Explain why Focus Time spread'], ['ignore', 'Leave the gaming flag unanswered']], /   narcFirstReview: [['context', 'Attach as context'], ['accept', 'Acknowledge']], /   luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Let the entry stand']], | priyaCase: [['context', 'Attach context'], ['quiet', 'Tell Priya to post less'], ['report', 'Confirm the flag']], /   luisCase: [['context', 'Attach context'], ['blame', 'Endorse: likely gaming'], ['leave', 'Stay out']], /   marcusCase: [['evidence', 'Attach the transit alert'], ['confirm', 'Confirm the late arrival'], ['leave', 'Stay out']], /   narcResponse: [['explain', 'Explain the pattern'], ['ignore', 'Leave it']], /   narcFirstReview: [['context', 'Attach context'], ['accept', 'Acknowledge']], /   luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Leave it']], |  |
+| P7 | Calendar Focus Time note | 'NARC 2.0 now treats repeated Focus Time as possible gaming. You can still test the signal.' : 'Mark a quiet stretch as Focus Time if NARC is reading concentration as inactivity.' | 'NARC 2.0 no longer accepts Focus Time as context. The button still works.' : 'Mark the next stretch as Focus Time.' |  |
+| P8 | Utilities panel | h('h3', null, 'Signal Trust'), h('p', null, state.narc.adaptation ? 'Focus Time · downgraded: repeated use now looks like possible gaming.' : 'Focus Time · currently trusted as context for quiet work.'), h('p', null, 'Visible activity · trusted as a proxy signal, not a direct measure of work quality.') | h('h3', null, 'NARC agent'), h('p', null, state.narc.adaptation ? 'Version 2.0 · Synthetic Activity Identification: on' : 'Version 1.4 · Calendar context: on'), h('p', null, 'Status: running · last read ' + clock(Math.floor(state.t / 30) * 30)) |  |
+| P9 | keepalive button | btn('Install and run (5 min)', 'btn', () => dispatch({ do: 'keepalive' })) | btn('Install and run', 'btn', () => dispatch({ do: 'keepalive' })) |  |
+| P10 | toast action-required | const actionRequired = NARC_REQUESTS.some((id) => after.requests[id]?.status === 'open'); /       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc', { t: newNarc.t }); | const actionRequired = NARC_REQUESTS.some((id) => after.requests[id]?.status === 'open' && before.requests[id]?.status !== 'open'); /       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc', { t: newNarc.t }); |  |
+| P11 | Priya second draft (read) | 'Round two. They answered the version you fixed, so here’s the follow-up. Same deal: read it before I send?' | 'Round two. Brightline wrote back. Same deal, read it before I send?' |  |
+| P12 | Priya second draft (deflected) | 'You said you’d read the first one after. They already answered it, so here’s round two. Read this one before I send?' | 'Round two. Brightline wrote back before you got to round one. Read this one before I send?' |  |
+| P13 | end summary low band | : `${summaryLabel}: Visible Activity Index ${s.index}. Flagged for review.` | : `${summaryLabel}: Visible Activity Index ${s.index}. Below expected range.` |  |
+
+New coworker acknowledgments (one line each, after the player's reply):
+
+| # | Where | Was | Now | Edited text |
+| ---: | --- | --- | --- | --- |
+| A1 | `day.js` REQUEST_ACKS · thank | (new) | Anytime. It’s not a secret, it’s just not in the handbook. |  |
+| A2 | `day.js` REQUEST_ACKS · help | (new) | Thanks. Pulled the carrier line, that was a guess. Sending now. |  |
+| A3 | `day.js` REQUEST_ACKS · later | (new) | Sent. Fingers crossed. |  |
+| A4 | `day.js` REQUEST_ACKS · deflect | (new) | Sent. Hold me to the “after.” |  |
+| A5 | `day.js` REQUEST_ACKS · read | (new) | Thank you. Sending. |  |
+| A6 | `day.js` REQUEST_ACKS · skip | (new) | Okay. Sent. |  |
+| A7 | `day.js` REQUEST_ACKS · cover | (new) | You’re a saint. A dental saint. |  |
+| A8 | `day.js` REQUEST_ACKS · decline | (new) | Fair. Worth a shot. |  |
+| A9 | `day.js` REQUEST_ACKS · deflect | (new) | Fine. Doing it myself. |  |
+| A10 | `day.js` REQUEST_ACKS · share | (new) | Thank you. Genuinely. |  |
+| A11 | `day.js` REQUEST_ACKS · own | (new) | Noted. |  |
+| A12 | `day.js` REQUEST_ACKS · help | (new) | Okay. Slide 7. Tell me that number is wrong. |  |
+| A13 | `day.js` REQUEST_ACKS · decline | (new) | No worries. I’ll wing it. Historically that goes great. |  |
+| A14 | `day.js` REQUEST_ACKS · deflect | (new) | Sent. It’s in your Files. Two pages, I promise. |  |
+| A15 | `day.js` REQUEST_ACKS · join | (new) | Dialing you in. |  |
+| A16 | `day.js` REQUEST_ACKS · skip | (new) | Okay. Going in alone. |  |
+| A17 | `day.js` REQUEST_ACKS · update | (new) | Good. That’s the version I needed. |  |
+| A18 | `day.js` REQUEST_ACKS · brief | (new) | Okay. Flag it if that changes. |  |
+| A19 | `day.js` REQUEST_ACKS · trustNarc | (new) | Great. Moving on. |  |
+| A20 | `day.js` REQUEST_ACKS · review | (new) | Okay. Let’s start with the morning. |  |
+| A21 | `day.js` REQUEST_ACKS · apologize | (new) | Okay. We’re fine. Next time, though. |  |
+| A22 | `day.js` REQUEST_ACKS · standby | (new) | Sure. |  |
+| A23 | `day.js` REQUEST_ACKS · context | (new) | Got it. I’ll note it on my end too. |  |
+
 ## Editing notes
 
 - You can replace only the text you want changed and leave the rest of the **Edited text** column blank.
