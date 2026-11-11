@@ -36,34 +36,37 @@ const NARC_REQUESTS = ['narcFirstReview', 'narcCheckpoint', 'priyaCase', 'luisCa
 // clock and the meter say what something cost (REDESIGN_SPEC Change 5).
 // The engine decides which of these are available right now.
 const REQUEST_OPTIONS = {
-  luisTip: [['thank', 'Say thanks'], ['ignore', 'Say nothing']],
+  luisTip: [['thank', 'Good to know. Thanks.'], ['ignore', 'Don’t reply']],
   priyaDraft: [['help', 'Send it over.'], ['later', 'Can’t right now, send it as is.'], ['deflect', 'Send it. I’ll read it after.']],
   priyaDraft2: [['read', 'Send it over.'], ['skip', 'Send it, it’s fine.']],
   luisCover: [['cover', 'Done.'], ['decline', 'I’m not putting a fake meeting on the calendar.'], ['deflect', 'Just mark it Focus Time yourself.']],
-  marcusCredit: [['share', 'Put both names on it'], ['own', 'Name only the real owner']],
+  marcusCredit: [['share', 'Both names. Done.'], ['own', 'I’m putting down who made the call.']],
   marcusFavor: [['help', 'Pull it up.'], ['decline', 'Not today.'], ['deflect', 'Send me the doc, I’ll look when I can.']],
   marcusLoop: [['join', 'Joining now.'], ['skip', 'Can’t, I’m buried. You’ve got this.']],
   danaCheckin: [['update', 'Here’s where everything actually is.'], ['brief', 'Mostly on track.'], ['trustNarc', 'NARC’s summary is accurate.'], ['review', 'Okay. Let’s go through it.']],
-  marcusFallout: [['apologize', 'Walk him through it'], ['standby', 'Stand by the call']],
-  priyaCase: [['context', "Explain Priya's message volume"], ['quiet', 'Suggest she post less'], ['report', 'Confirm the flag without explanation']],
-  luisCase: [['context', "Explain Luis's away time"], ['blame', 'Say Luis is probably gaming it'], ['leave', 'Do not intervene']],
-  marcusCase: [['evidence', 'Add the transit evidence'], ['confirm', 'Confirm he was late'], ['leave', 'Do not intervene']],
-  narcResponse: [['explain', 'Explain why Focus Time spread'], ['ignore', 'Leave the gaming flag unanswered']],
-  narcFirstReview: [['context', 'Attach as context'], ['accept', 'Acknowledge']],
-  luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Let the entry stand']],
+  marcusFallout: [['apologize', 'Come find me. I’ll walk you through it.'], ['standby', 'It was the right call.']],
+  priyaCase: [['context', 'Attach context'], ['quiet', 'Tell Priya to post less'], ['report', 'Confirm the flag']],
+  luisCase: [['context', 'Attach context'], ['blame', 'Endorse: likely gaming'], ['leave', 'Stay out']],
+  marcusCase: [['evidence', 'Attach the transit alert'], ['confirm', 'Confirm the late arrival'], ['leave', 'Stay out']],
+  narcResponse: [['explain', 'Explain the pattern'], ['ignore', 'Leave it']],
+  narcFirstReview: [['context', 'Attach context'], ['accept', 'Acknowledge']],
+  luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Leave it']],
 };
+
+// Choices that are the absence of a reply: nothing goes in the thread.
+const SILENT_CHOICES = new Set(['luisTip:ignore', 'danaMorning:skip']);
 
 function requestOptions(id) {
   let options = REQUEST_OPTIONS[id] || [];
   if (id === 'danaMorning') {
-    if (state.flags.firstNarcReadType === 'low') options = [['context', 'Tell Dana I was carefully reviewing the file'], ['skip', "Leave NARC's read as-is"]];
-    else if (state.flags.firstNarcReadType === 'visible') options = [['context', 'Tell Dana the fast result hid rushed work'], ['skip', "Leave NARC's read as-is"]];
-    else options = [['context', 'Tell Dana what the score missed'], ['skip', "Leave NARC's read as-is"]];
+    if (state.flags.firstNarcReadType === 'low') options = [['context', 'I was reading the Halcyon contract. All of it.'], ['skip', 'Leave it']];
+    else if (state.flags.firstNarcReadType === 'visible') options = [['context', 'That first one was fast, not good. I skimmed it.'], ['skip', 'Leave it']];
+    else options = [['context', 'Here’s what the score missed.'], ['skip', 'Leave it']];
   }
   if (id === 'narcCheckpoint') {
     options = state.flags.firstNarcReadType === 'low'
-      ? [['context', 'Explain the quiet work NARC missed'], ['ignore', "Leave NARC's assessment unchanged"]]
-      : [['context', 'Explain what the activity score missed'], ['ignore', "Leave NARC's assessment unchanged"]];
+      ? [['context', 'Attach context'], ['ignore', 'Leave it']]
+      : [['context', 'Attach context'], ['ignore', 'Leave it']];
   }
   const allowed = requestChoices(state, id);
   return options.filter(([choice]) => allowed.includes(choice));
@@ -691,18 +694,19 @@ function dispatch(action) {
   if (thread) ui.scrollThreadToBottom = thread;
   announceChanges(before, state);
   render();
+  // A coworker's answer to a request lands after a typing delay, the same
+  // way an optional chat reply does, so the exchange reads as a conversation.
+  if (thread) deliverPending(thread, `ack:${action.id}`);
 }
 
-function sendChat(who, topic) {
-  const before = state;
-  state = act(state, { do: 'chat', who, topic });
+// Shows "<name> is typing" and then delivers the engine's pending reply for
+// `topic` into the thread. No-op when nothing is pending.
+function deliverPending(who, topic) {
   const pending = state.pendingReplies[topic];
+  if (!pending) return;
   ui.typingThreads[who] = true;
   ui.scrollThreadToBottom = who;
-  announceChanges(before, state);
   render();
-
-  if (!pending) return;
   const delay = Math.min(2500, 800 + pending.text.length * 10);
   setTimeout(() => {
     const beforeReply = state;
@@ -712,6 +716,14 @@ function sendChat(who, topic) {
     announceChanges(beforeReply, state);
     render();
   }, delay);
+}
+
+function sendChat(who, topic) {
+  const before = state;
+  state = act(state, { do: 'chat', who, topic });
+  announceChanges(before, state);
+  render();
+  deliverPending(who, topic);
 }
 
 function announceChanges(before, after) {
@@ -738,7 +750,7 @@ function announceChanges(before, after) {
     const newNarc = newEntries.find((e) => e.kind === 'narc');
     if (newNarc) {
       const risk = narcRisk(after);
-      const actionRequired = NARC_REQUESTS.some((id) => after.requests[id]?.status === 'open');
+      const actionRequired = NARC_REQUESTS.some((id) => after.requests[id]?.status === 'open' && before.requests[id]?.status !== 'open');
       showToast(`NARC · ${risk.label}`, actionRequired ? `Action required. ${newNarc.text}` : newNarc.text, 'narc', { t: newNarc.t });
     }
   }
@@ -1067,11 +1079,6 @@ function renderMessages() {
     if (ui.typingThreads[id]) {
       scroll.append(h('div', 'typing', h('span', null, `${t.name.split(' ')[0]} is typing`), h('span', 'typing-dots', '•••')));
     }
-    if (id === 'dana' && state.requests.danaMorning.status === 'handled') {
-      scroll.append(h('div', 'bubble me', state.flags.morningContext
-        ? (state.flags.firstNarcReadType === 'low' ? 'I was carefully reviewing the file. That is what the low-activity read missed.' : 'The visible activity came from moving fast. It did not mean the work was careful.')
-        : "I left NARC's first-hour read as-is."));
-    }
     wrap.append(scroll);
     const compose = h('div', 'compose');
     const tutorialRequired = id === 'dana' && ui.tutorialStep >= 0 && !ui.tutorialDone;
@@ -1084,7 +1091,7 @@ function renderMessages() {
     }
     requiredRequests.forEach(([reqId]) => {
       const chips = h('div', 'chips');
-      requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice }))));
+      requestOptions(reqId).forEach(([choice, label]) => chips.append(btn(label, 'chip', () => dispatch({ do: 'respond', id: reqId, choice, line: SILENT_CHOICES.has(`${reqId}:${choice}`) ? null : label }))));
       compose.append(chips);
     });
     const hasRequiredAction = tutorialRequired || requiredRequests.length > 0;
@@ -1120,7 +1127,7 @@ function renderCalendar() {
     ));
   });
   const card = h('div', 'card');
-  card.append(h('h3', null, 'Focus Time'), h('p', 'note', state.narc.adaptation ? 'NARC 2.0 now treats repeated Focus Time as possible gaming. You can still test the signal.' : 'Mark a quiet stretch as Focus Time if NARC is reading concentration as inactivity.'));
+  card.append(h('h3', null, 'Focus Time'), h('p', 'note', state.narc.adaptation ? 'NARC 2.0 no longer accepts Focus Time as context. The button still works.' : 'Mark the next stretch as Focus Time.'));
   card.append(btn(state.narc.adaptation ? 'Use Focus Time anyway (5 min)' : 'Mark next block as Focus Time (5 min)', state.narc.adaptation ? 'btn' : 'btn primary', () => dispatch({ do: 'focus' })));
   state.calendar.forEach((c) => card.append(h('div', 'line', h('span', null, clock(c.at)), h('span', null, c.label))));
   pane.append(card);
@@ -1257,14 +1264,14 @@ function renderFiles() {
 
 function renderUtilities() {
   const cards = h('div', 'cards');
-  cards.append(h('div', 'card', h('h3', null, 'Signal Trust'), h('p', null, state.narc.adaptation ? 'Focus Time · downgraded: repeated use now looks like possible gaming.' : 'Focus Time · currently trusted as context for quiet work.'), h('p', null, 'Visible activity · trusted as a proxy signal, not a direct measure of work quality.')));
+  cards.append(h('div', 'card', h('h3', null, 'NARC agent'), h('p', null, state.narc.adaptation ? 'Version 2.0 · Synthetic Activity Identification: on' : 'Version 1.4 · Calendar context: on'), h('p', null, 'Status: running · last read ' + clock(Math.floor(state.t / 30) * 30))));
 
   if (state.flags.keepaliveAvailable) {
     const keepalive = h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOL'), h('h3', null, 'keepalive.pkg'));
     if (state.flags.keepaliveUsed) {
       keepalive.append(h('p', null, 'Running. Simulated input is being counted as visible workstation activity.'), h('div', 'status-on', 'ACTIVE'));
     } else {
-      keepalive.append(h('p', null, 'Sent by Marcus. Simulates small input events so the workstation does not appear idle.'), btn('Install and run (5 min)', 'btn', () => dispatch({ do: 'keepalive' })));
+      keepalive.append(h('p', null, 'Sent by Marcus. Simulates small input events so the workstation does not appear idle.'), btn('Install and run', 'btn', () => dispatch({ do: 'keepalive' })));
     }
     cards.append(keepalive);
   } else {

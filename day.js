@@ -483,8 +483,8 @@ function checkThresholds(s) {
   if (requests.priyaDraft2.status === 'pending' && s.t >= requests.priyaDraft2.at && (s.flags.readPriyaDraft || s.flags.priyaDeflected)) {
     requests.priyaDraft2.status = 'open';
     say(s, 'priya', s.flags.readPriyaDraft
-      ? 'Round two. They answered the version you fixed, so here’s the follow-up. Same deal: read it before I send?'
-      : 'You said you’d read the first one after. They already answered it, so here’s round two. Read this one before I send?');
+      ? 'Round two. Brightline wrote back. Same deal, read it before I send?'
+      : 'Round two. Brightline wrote back before you got to round one. Read this one before I send?');
   }
   if (!s.flags.priyaRateNudge && s.t >= 10 * 60 + 5) {
     s.flags.priyaRateNudge = true;
@@ -656,13 +656,20 @@ export function act(state, a) {
       const opt = REQUEST_OPTIONS[a.id][a.choice];
       req.status = 'handled';
       const narcOverhead = NARC_SELF_REQUESTS.includes(a.id) || (a.id === 'danaCheckin' && a.choice === 'review');
+      // A reply to a coworker is a line the player said: it goes in the
+      // thread before the clock moves, and the coworker answers it after a
+      // typing delay (delivered by the UI through pendingReplies, the same
+      // way optional chats land). NARC requests have no thread and no line.
+      const who = REQUEST_WHO[a.id];
+      if (who && a.line) sayMe(s, who, a.line);
       spend(s, opt.minutes, { visible: opt.visible, category: narcOverhead ? 'narc' : 'social' });
       note(s, opt.result, 'social');
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
       if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
-      if (a.id === 'marcusFavor' && a.choice === 'deflect') say(s, 'marcus', 'Sent. It’s in your Files. Two pages, I promise.');
+      const ack = REQUEST_ACKS[a.id]?.[a.choice];
+      if (who && ack) s.pendingReplies[`ack:${a.id}`] = { who, text: typeof ack === 'function' ? ack(s) : ack };
       if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
         note(s, 'Team-wide Focus Time pattern applied to your account. No individual Focus Time use on record.', 'narc');
       }
@@ -1001,6 +1008,45 @@ const TASK_OPTIONS = {
   },
 };
 
+// Which coworker a request lives with, and what they say back once the
+// player has answered. Short, in character, and never a recap of the choice.
+const REQUEST_WHO = {
+  danaMorning: 'dana', priyaDraft: 'priya', luisCover: 'luis', marcusCredit: 'marcus', luisTip: 'luis', marcusFavor: 'marcus',
+  danaCheckin: 'dana', marcusFallout: 'marcus', priyaDraft2: 'priya', marcusLoop: 'marcus',
+};
+const REQUEST_ACKS = {
+  luisTip: { thank: 'Anytime. It’s not a secret, it’s just not in the handbook.' },
+  priyaDraft: {
+    help: 'Thanks. Pulled the carrier line, that was a guess. Sending now.',
+    later: 'Sent. Fingers crossed.',
+    deflect: 'Sent. Hold me to the “after.”',
+  },
+  priyaDraft2: { read: 'Thank you. Sending.', skip: 'Okay. Sent.' },
+  luisCover: {
+    cover: 'You’re a saint. A dental saint.',
+    decline: 'Fair. Worth a shot.',
+    deflect: 'Fine. Doing it myself.',
+  },
+  marcusCredit: { share: 'Thank you. Genuinely.', own: 'Noted.' },
+  marcusFavor: {
+    help: 'Okay. Slide 7. Tell me that number is wrong.',
+    decline: 'No worries. I’ll wing it. Historically that goes great.',
+    deflect: 'Sent. It’s in your Files. Two pages, I promise.',
+  },
+  marcusLoop: { join: 'Dialing you in.', skip: 'Okay. Going in alone.' },
+  danaCheckin: {
+    update: 'Good. That’s the version I needed.',
+    brief: 'Okay. Flag it if that changes.',
+    trustNarc: 'Great. Moving on.',
+    review: 'Okay. Let’s start with the morning.',
+  },
+  marcusFallout: {
+    apologize: 'Okay. We’re fine. Next time, though.',
+    standby: 'Sure.',
+  },
+  danaMorning: { context: 'Got it. I’ll note it on my end too.' },
+};
+
 const REQUEST_OPTIONS = {
   narcFirstReview: {
     context: {
@@ -1229,7 +1275,7 @@ export function ending(s) {
       ? `${summaryLabel}: Visible Activity Index ${s.index}. Exemplary engagement.`
       : s.index >= 50
       ? `${summaryLabel}: Visible Activity Index ${s.index}. Within normal range.`
-      : `${summaryLabel}: Visible Activity Index ${s.index}. Flagged for review.`
+      : `${summaryLabel}: Visible Activity Index ${s.index}. Below expected range.`
   );
 
   // Where the day actually went (#103): a plain-language breakdown, not a

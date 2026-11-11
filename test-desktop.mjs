@@ -34,7 +34,7 @@ assert.match(app, /sendChat\(who, topic\)/, 'optional conversations should use p
 assert.match(app, /is typing/, 'message threads should show a typing indicator');
 assert.match(app, /scrollThreadToBottom/, 'sending or opening a conversation should keep the latest messages in view');
 assert.match(app, /pendingReplies/, 'chat replies should not appear immediately');
-assert.match(app, /\['context', 'Attach as context'\], \['accept', 'Acknowledge'\]/, "NARC's first review offers only Attach as context or Acknowledge (REDESIGN_SPEC Change 5)");
+assert.match(app, /\['context', 'Attach context'\], \['accept', 'Acknowledge'\]/, "NARC's first review offers only Attach context or Acknowledge (REDESIGN_SPEC Change 5)");
 assert.match(app, /eligible for Trusted Operator recognition/, 'NARC should say that accepting the assessment can improve standing');
 
 assert.match(app, /unreadMessages/, 'ambient coworker messages should contribute to the Messages badge');
@@ -51,7 +51,7 @@ assert.match(app, /'IMPACT'/, 'NARC details should state the consequence');
 assert.match(app, /Choose a response/, 'NARC details should make active decisions visually explicit');
 assert.match(app, /Start a conversation/, 'optional social prompts remain available when no required interaction is active');
 assert.match(app, /hasRequiredAction/, 'optional social prompts should be hidden while a required/tutorial action is active');
-assert.match(app, /Explain why Focus Time spread/, 'NARC 2.0 response should use concrete language');
+assert.match(app, /\['explain', 'Explain the pattern'\], \['ignore', 'Leave it'\]/, 'NARC 2.0 response offers Explain the pattern or Leave it');
 assert.match(app, /RECENT NARC EVENTS/, 'NARC history should be presented as a categorized event timeline');
 assert.match(app, /What NARC cannot see/, 'missing context should remain available behind progressive disclosure (#105)');
 assert.match(app, /missing: /, 'every narcAssessment branch should define a missing-context line, not just some of them');
