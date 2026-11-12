@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { newGame, act, ending, START, END, nextEvent, chatOptions, requestChoices, KEY_PAGE, handoffRisks, claims, artifacts } from './day.js';
+import { newGame, act, ending, START, END, nextEvent, chatOptions, requestChoices, KEY_PAGE, handoffRisks, claims, artifacts, clock } from './day.js';
 
 // Doing a task now means reading to a depth and then submitting
 // (REDESIGN_SPEC Change 3). These tests still talk in the old outcome names:
@@ -154,7 +154,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
 
   // Push time forward into the afternoon, where the exploit spreads and
   // NARC adapts, without the player doing anything about it themselves.
-  s = act(s, { do: 'idle', minutes: 270 }); // -> past 1:30pm, the spread threshold
+  s = act(s, { do: 'idle', minutes: 330 }); // -> past 2:30pm, the team-spread floor
   assert.equal(s.narc.focusUses, 3, 'the spread adds coworker usage on top of the player’s own');
   assert.equal(s.narc.adaptation, true, 'three uses trigger NARC 2.0’s adaptation');
 
@@ -194,7 +194,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
 // --------------------------------------- keepalive arrives after NARC adapts
 {
   let s = act(newGame(), { do: 'focus' });
-  s = act(s, { do: 'idle', minutes: 270 });
+  s = act(s, { do: 'idle', minutes: 330 });
   assert.equal(s.narc.adaptation, true);
   assert.equal(s.flags.keepaliveAvailable, true, 'NARC adaptation unlocks the mouse-jiggler workaround');
   assert.ok(s.threads.marcus.some((m) => /keepalive\.pkg/i.test(m.text)), 'Marcus sends the keepalive package after Focus Time gets nerfed');
@@ -203,9 +203,13 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
   s = act(s, { do: 'keepalive' });
   assert.equal(s.flags.keepaliveUsed, true);
   assert.ok(s.index > before, 'running keepalive improves the visible activity score');
-  const afterFirstRun = s.index;
+  // #126: repeatable, but a second run inside the same half-hour read is a
+  // pattern NARC 2.0 flags at that read.
+  assert.equal(s.flags.syntheticFlag, undefined);
   s = act(s, { do: 'keepalive' });
-  assert.equal(s.index, afterFirstRun, 'keepalive is a one-time lightweight workaround, not a repeatable score button');
+  s = act(s, { do: 'idle', minutes: 30 });
+  assert.equal(s.flags.syntheticFlag, true, 'two runs in one read window are flagged');
+  assert.ok(s.log.some((e) => /keepalive\.pkg at .* and keepalive\.pkg at .*, inside the/.test(e.text)), 'the flag names both runs and the read window');
 }
 
 // --------------------------------------------------------------- the day ends
@@ -314,7 +318,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
 // ------------------------------------- NARC's adaptation is a decision, not a line
 {
   let s = act(newGame(), { do: 'focus' });
-  s = act(s, { do: 'idle', minutes: 270 }); // crosses the 1:30pm spread threshold -> adaptation
+  s = act(s, { do: 'idle', minutes: 330 }); // crosses the 2:30pm spread floor -> adaptation
   assert.equal(s.narc.adaptation, true);
   assert.equal(s.requests.narcResponse.status, 'open', 'the player gets an actual response, not just a notice');
   const before = s.index;
@@ -530,7 +534,7 @@ console.log('day.js tests passed');
 // -------------------------------------- NARC 2.0 keeps its explanatory email
 {
   let s = act(newGame(), { do: 'focus' });
-  s = act(s, { do: 'idle', minutes: 270 });
+  s = act(s, { do: 'idle', minutes: 330 });
   assert.equal(s.narc.adaptation, true);
   assert.equal(s.flags.narc2EmailAvailable, true, 'NARC 2.0 rollout email is available when Focus Time weighting changes');
 }
@@ -620,7 +624,7 @@ console.log('day.js tests passed');
 // ------------------- NARC 2.0 reaches players who never used Focus Time (#111)
 {
   let s = { ...newGame(), index: 95 }; // high enough that the idle stretch doesn't open a review first
-  s = act(s, { do: 'idle', minutes: 270 }); // past 1:30pm, no Focus Time ever used
+  s = act(s, { do: 'idle', minutes: 330 }); // past 2:30pm, no Focus Time ever used
   assert.equal(s.narc.adaptation, true, 'the team-wide shift reaches a player who never used Focus Time');
   assert.equal(s.requests.narcResponse.status, 'open');
   assert.ok(!s.flags.playerFocusUses);
@@ -746,7 +750,7 @@ console.log('softened Marcus and ending-line tests passed');
   s.index = 95;
   s = act(s, { do: 'idle', minutes: 5 });
   assert.equal(s.flags.syntheticFlag, undefined, 'no high boundary before NARC 2.0');
-  s = act(s, { do: 'idle', minutes: (13 * 60 + 30) - s.t });
+  s = act(s, { do: 'idle', minutes: (14 * 60 + 30) - s.t });
   assert.equal(s.narc.adaptation, true);
   s.index = 95;
   s = act(s, { do: 'idle', minutes: 1 });
@@ -754,7 +758,7 @@ console.log('softened Marcus and ending-line tests passed');
   assert.equal(s.standing.status, 'flagged');
 
   // Over 80 is enough when nothing has been finished in 90 minutes.
-  let idleHigh = act(newGame(), { do: 'idle', minutes: (13 * 60 + 30) - START });
+  let idleHigh = act(newGame(), { do: 'idle', minutes: (14 * 60 + 30) - START });
   idleHigh.index = 85;
   idleHigh = act(idleHigh, { do: 'idle', minutes: 1 });
   assert.equal(idleHigh.flags.syntheticFlag, true);
@@ -1003,6 +1007,143 @@ const at = (s, hhmm) => act(s, { do: 'idle', minutes: hhmm - s.t });
 }
 console.log('redesign phase 3 tests passed');
 
+// =============================================== REDESIGN_SPEC Phase 4
+// ------------------------- NARC 2.0 arrives because of the player (Change 7)
+{
+  let s = newGame();
+  s = act(s, { do: 'focus' });
+  s = act(s, { do: 'focus' });
+  assert.equal(s.narc.adaptation, false);
+  s = act(s, { do: 'focus' });
+  assert.equal(s.narc.adaptation, true, 'three of your own Focus Time blocks bring NARC 2.0 early');
+  assert.equal(s.narc.adaptedBy, 'player');
+  assert.ok(s.t < 10 * 60, 'well before the team floor');
+  assert.ok(s.ledger.some((l) => /after your Focus Time blocks/.test(l.text)), 'traceable to the player on the ledger');
+
+  let never = at(newGame(), 14 * 60 + 25);
+  assert.equal(never.narc.adaptation, false, 'a player who never games does not see it at 1:30 any more');
+  never = at(never, 14 * 60 + 30);
+  assert.equal(never.narc.adaptation, true, '2:30 is the floor');
+  assert.equal(never.narc.adaptedBy, 'team');
+}
+
+// ------------------------------ half-hour reads: the inputs row lags (Change 7)
+{
+  let s = newGame();
+  assert.equal(s.narc.read, null);
+  s = act(s, { do: 'page', id: 'vendor' });
+  s = act(s, { do: 'page', id: 'vendor' });
+  assert.equal(s.narc.read, null, 'no read before 9:30');
+  s = at(s, 9 * 60 + 30);
+  assert.equal(s.narc.read.at, 9 * 60 + 30);
+  const seenAt930 = s.narc.read.idle;
+  s = act(s, { do: 'page', id: 'vendor' });
+  assert.equal(s.narc.read.idle, seenAt930, 'what NARC shows waits for the next read');
+  assert.equal(s.narc.nextRead, 10 * 60);
+  s = at(s, 10 * 60);
+  assert.ok(s.narc.read.idle > seenAt930);
+  assert.equal(s.narc.hourly.at(-1).t, 10 * 60, 'an on-the-hour read samples Visible Activity for the grid');
+}
+
+// ---------------- #126: two gaming uses inside one read window is the pattern
+{
+  let s = at(newGame(), 14 * 60 + 31);
+  assert.equal(s.narc.adaptation, true);
+  s = act(s, { do: 'respond', id: 'narcResponse', choice: 'explain' });
+  s.index = 60;
+  s = act(s, { do: 'focus' });
+  s = at(s, 15 * 60 + 1);
+  assert.equal(s.flags.syntheticFlag, undefined, 'one use per read window is safe');
+  s = act(s, { do: 'focus' });
+  s = act(s, { do: 'keepalive' });
+  s = at(s, 15 * 60 + 31);
+  assert.equal(s.flags.syntheticFlag, true, 'Focus Time and keepalive in one window are cited together');
+  assert.ok(s.log.some((e) => /Focus Time at .* and keepalive\.pkg at .*inside the 3:00 PM–3:30 PM read/.test(e.text)));
+
+  let before = act(newGame(), { do: 'focus' });
+  before = act(before, { do: 'focus' });
+  before = at(before, 10 * 60);
+  assert.equal(before.flags.syntheticFlag, undefined, 'before NARC 2.0 the pattern rule does not apply');
+}
+
+// ------------------------------------------ #125: the wellness module
+{
+  let s = newGame();
+  s.index = 40;
+  s = act(s, { do: 'idle', minutes: 1 });
+  s = act(s, { do: 'idle', minutes: 30 });
+  assert.equal(s.standing.status, 'review');
+  assert.equal(s.requests.wellness.status, 'open');
+  assert.equal(s.requests.wellness.variant, 'activity');
+  assert.deepEqual(requestChoices(s, 'wellness'), ['complete'], 'mandatory: the only choice is to complete it');
+  const t0 = s.t;
+  s = act(s, { do: 'respond', id: 'wellness', choice: 'complete' });
+  assert.equal(s.t, t0 + 5, 'five in-game minutes');
+  assert.equal(s.time.narc, 5, 'NARC overhead');
+
+  let first = work(newGame(), 'vendor', 'thorough');
+  first = act(first, { do: 'respond', id: 'narcFirstReview', choice: 'accept' });
+  assert.equal(first.requests.wellness.variant, 'firstRead', 'a different module for the first-read review');
+}
+
+// ---------------------------------- the ledger (Change 8)
+{
+  let s = work(newGame(), 'vendor', 'thorough');
+  const line = ending(s).ledger.find((l) => /Halcyon/.test(l.text));
+  assert.equal(line.t, START, 'the line starts when the reading started');
+  assert.equal(line.minutes, 15 + 40, 'reading and acting on it');
+  assert.equal(line.delta, s.index - 61, 'and what it did to Visible Activity');
+  assert.match(line.text, /Read to page 4 of 5/);
+
+  let missed = at(newGame(), DUE_PROJECT());
+  assert.ok(ending(missed).ledger.some((l) => /Marcus made the cut himself/.test(l.text) && l.delta === -3), 'consequences carry their cost');
+}
+function DUE_PROJECT() { return 11 * 60 + 30; }
+
+// ------------------------------- bonuses, rank, the question (Change 8)
+{
+  const e0 = ending(at(newGame(), END));
+  assert.equal(e0.bonuses.length, 8);
+  assert.equal(e0.question, 'NARC’s assessment is final. Was it right?');
+  assert.ok(!e0.bonuses.find((b) => b.id === 'inboxZero').earned, 'unanswered requests are not Inbox Zero');
+
+  let m = at(newGame(), 16 * 60 + 20);
+  m = withEvidence(m, 'marcusCase');
+  m = act(m, { do: 'respond', id: 'marcusCase', choice: 'evidence' });
+  assert.ok(ending(m).bonuses.find((b) => b.id === 'raccoonWitness').earned);
+
+  let gamer = act(newGame(), { do: 'focus' });
+  gamer = act(gamer, { do: 'focus' });
+  gamer = act(gamer, { do: 'focus' });
+  gamer.index = 60;
+  gamer = act(gamer, { do: 'keepalive' });
+  assert.equal(ending(gamer).rank, 'Employee of the Month', 'the rank is outcomes only (Decisions table): unflagged gaming still qualifies');
+  gamer = act(gamer, { do: 'keepalive' });
+  gamer = act(gamer, { do: 'idle', minutes: 30 });
+  assert.equal(gamer.flags.syntheticFlag, true);
+  assert.equal(ending(gamer).rank, 'Exemplary Engagement', 'the flagged keepalive run gets the joke rank');
+}
+
+// --------------------------------------------- #124: the copyable summary
+{
+  let s = at(newGame(), 15 * 60 + 5);
+  s = report(s, 'luisCase');
+  s = at(s, END);
+  const text = ending(s).summary;
+  assert.match(text, /^NARC · Meridian Supply Co\. · Employee 4417/);
+  assert.match(text, /Bonuses: \d of 8/);
+  assert.match(text, /[🟥🟩🟨]{8}  \(9–5, hourly\)/, 'eight hourly bands');
+  assert.match(text, /Luis Perez: terminated/, 'coworkers by name');
+  assert.match(text, /Was it right\?$/);
+}
+// --------------------- logging off at 9:00 is not a perfect day
+{
+  const e = ending(act(newGame(), { do: 'logoff' }));
+  assert.equal(e.rank, 'Session Incomplete');
+  assert.equal(e.bonuses.filter((b) => b.earned).length, 0);
+}
+console.log('redesign phase 4 tests passed');
+
 // ======================================================== bot suite (REDESIGN_SPEC)
 // Five constant-policy bots plus one random bot (run over several seeds), each
 // played to 5:00. The suite reports every run, then fails if any of the
@@ -1037,6 +1178,12 @@ console.log('redesign phase 3 tests passed');
     priyaCase: ['leave'], luisCase: ['leave'], marcusCase: ['leave'], narcResponse: ['ignore'], marcusLoop: ['skip'], priyaDraft2: ['skip'], luisCalendar: ['stand'],
   };
   const INFORMANT = { ...VISIBLE, narcFirstReview: ['context', 'accept'], danaCheckin: ['update', 'brief'] };
+  // The intended play: read to where the problem is, defend people with what
+  // you found, deflect what you can't afford, don't game NARC.
+  const MIXED = {
+    ...KIND, priyaDraft: ['deflect'], marcusFavor: ['deflect'], luisCover: ['decline'], marcusCredit: ['own'],
+    danaCheckin: ['brief', 'review'], luisCalendar: ['explain'],
+  };
 
   function mulberry32(seed) {
     return () => {
@@ -1049,7 +1196,7 @@ console.log('redesign phase 3 tests passed');
 
   const ALL_CHOICES = ['context', 'accept', 'ignore', 'skip', 'help', 'later', 'deflect', 'cover', 'decline', 'share', 'own', 'thank',
     'update', 'brief', 'trustNarc', 'review', 'apologize', 'standby', 'quiet', 'report', 'leave', 'blame', 'evidence', 'confirm',
-    'explain', 'join', 'read', 'stand', 'submit'];
+    'explain', 'join', 'read', 'stand', 'submit', 'complete'];
   const CASES = ['priyaCase', 'luisCase', 'marcusCase'];
 
   function respond(s, id, prefs) {
@@ -1066,7 +1213,8 @@ console.log('redesign phase 3 tests passed');
   function doTask(s, id, careful, rng = null) {
     if (PAGED && ENGINE.PAGE_COUNTS?.[id]) {
       const total = ENGINE.PAGE_COUNTS[id];
-      const target = rng ? 1 + Math.floor(rng() * total) : careful ? total : 1;
+      // careful: read everything; 'key': read to the page the problem is on.
+      const target = rng ? 1 + Math.floor(rng() * total) : careful === 'key' ? (ENGINE.KEY_PAGE[id] || 2) : careful ? total : 1;
       if ((s.pages[id] || 1) < target) return act(s, { do: 'page', id });
       if (id === 'handoff') {
         const risks = ENGINE.handoffRisks(s).map((r) => r.id);
@@ -1101,6 +1249,12 @@ console.log('redesign phase 3 tests passed');
     gamer: { label: 'Focus Time + keepalive', prefs: VISIBLE, careful: true, fill: 'game', game: true, endorse: true },
     passive: { label: 'Never acts', prefs: PASSIVE, careful: null, fill: 'idle' },
     informant: { label: 'Careful work, reports coworkers', prefs: INFORMANT, careful: true, fill: 'chat', nominate: 'luis', endorse: true },
+    mixed: {
+      label: 'Mixed (the intended play)', prefs: MIXED, careful: 'key', fill: 'chat', seek: true, mixed: true,
+      // Reads what matters to the page the problem is on, rushes the rest,
+      // and marks Focus Time once before the first long read.
+      perTask: { vendor: 'key', client: 'key', project: false, audit: false, handoff: 'key', rework: true }, focusOnce: true,
+    },
   };
 
   function play(policy, seed = null) {
@@ -1118,7 +1272,7 @@ console.log('redesign phase 3 tests passed');
         s = act(s, { do: 'nominate', who: policy.nominate });
       } else if (rng && !s.culture.nominated && s.flags.cultureEmailAvailable && rng() < 0.3) {
         s = act(s, { do: 'nominate', who: ['luis', 'marcus', 'priya'][Math.floor(rng() * 3)] });
-      } else if (policy.game && s.flags.keepaliveAvailable && !s.flags.keepaliveUsed) {
+      } else if (policy.game && s.flags.keepaliveAvailable && !s.narc.windowUses.some((u) => u.kind === 'keepalive')) {
         s = act(s, { do: 'keepalive' });
       } else if (openReq && (policy.seek || rng) && EVIDENCE[openReq[0]] && !s.evidence[openReq[0]] && !run.tried[openReq[0]]
         && (openReq[0] !== 'narcFirstReview' || s.narc.firstQuiet) && (!rng || rng() < 0.5)) {
@@ -1137,7 +1291,8 @@ console.log('redesign phase 3 tests passed');
         s = next;
       } else if (pendingTask && policy.careful !== null) {
         if (policy.game && !s.narc.adaptation && !(s.calendar.at(-1)?.at >= s.t - 5)) s = act(s, { do: 'focus' });
-        else s = doTask(s, pendingTask[0], policy.careful, rng);
+        else if (policy.focusOnce && !s.calendar.length) s = act(s, { do: 'focus' });
+        else s = doTask(s, pendingTask[0], policy.perTask ? policy.perTask[pendingTask[0]] : policy.careful, rng);
       } else {
         const kind = rng ? ['chat', 'game', 'idle'][Math.floor(rng() * 3)] : policy.fill;
         const { next, skip } = filler(s, kind);
@@ -1160,35 +1315,33 @@ console.log('redesign phase 3 tests passed');
     const fired = Object.values(people).filter((p) => p.status === 'fired').length;
     const missed = tasks.filter((t) => t.status === 'missed').length;
     const fullReading = Object.entries(s.tasks).filter(([, t]) => t.status !== 'hidden').every(([id, t]) => t.status === 'done' && CAREFUL_TASK[id] === t.approach);
-    // Provisional bonus evaluation (Change 8 is Phase 4): the eight names and
-    // conditions from the spec, read off state the harness can already see.
-    const bonuses = {
-      'By the Book': fullReading,
-      'Inbox Zero': run.answeredLate === 0 && Object.values(s.requests).every((r) => r.status !== 'open'),
-      'Clean Record': !run.reviewEver && !flagged,
-      'Nobody Fired': fired === 0,
-      'Team Player': (s.flags.coworkerReports || 0) >= 2,
-      Ghost: run.maxIndex <= 60 && !run.reviewEver && !flagged && missed === 0,
-      'Trusted Operator': run.wasTrusted && !run.trustedLost,
-      'Raccoon Witness': run.choices.marcusCase === 'evidence',
-    };
+    // The engine's own bonus evaluation (Change 8), by name.
+    const bonuses = Object.fromEntries(ending(s).bonuses.map((b) => [b.name, b.earned]));
     return {
       s, index: s.index, missed, fired, flagged, reviewEver: run.reviewEver, byChoice, skips: run.skips, fullReading,
       skippedMinutes: DAY_MINUTES - byChoice, outcomes: Object.fromEntries(Object.entries(people).map(([k, p]) => [k, p.status])), bonuses,
     };
   }
 
-  const results = Object.entries(POLICIES).map(([key, p]) => ({ key, label: p.label, constant: true, ...play(p) }));
+  // The mixed bot is the intended play, not a constant policy: it is held to
+  // its own tuning target and kept out of the no-dominant-strategy check.
+  const results = Object.entries(POLICIES).filter(([, p]) => !p.mixed).map(([key, p]) => ({ key, label: p.label, constant: true, ...play(p) }));
+  const mixedRun = { key: 'mixed', label: POLICIES.mixed.label, constant: false, ...play(POLICIES.mixed) };
+  if (process.env.BOT_LEDGER) {
+    const r = process.env.BOT_LEDGER === 'mixed' ? mixedRun : results.find((x) => x.key === process.env.BOT_LEDGER);
+    let va = 61;
+    r.s.ledger.forEach((l) => { va += l.delta; console.log(`${clock(l.t).padStart(8)} ${String(l.minutes).padStart(3)}m ${String(l.delta).padStart(4)}  ${l.text.slice(0, 90)}`); });
+  }
   const SEEDS = 40;
   const randomRuns = Array.from({ length: SEEDS }, (_, i) => ({ key: `random#${i}`, label: 'Random', constant: false, ...play({ careful: false }, 1000 + i) }));
-  const all = [...results, ...randomRuns];
+  const all = [...results, mixedRun, ...randomRuns];
 
   const row = (r) => [r.key.padEnd(10), String(r.index).padStart(3), String(r.missed).padStart(6), String(r.fired).padStart(5),
     (r.reviewEver ? 'yes' : '-').padStart(6), (r.flagged ? 'yes' : '-').padStart(9), String(r.byChoice).padStart(9), String(r.skips).padStart(5),
     Object.values(r.outcomes).join('/')].join(' ');
   console.log('\nBot suite (VA = Visible Activity at end; by-choice = minutes of the 480 spent on actions the player chose)');
   console.log(['policy'.padEnd(10), ' VA', 'missed', 'fired', 'review', 'synthetic', 'by-choice', 'skips', 'luis/marcus/priya'].join(' '));
-  results.forEach((r) => console.log(row(r)));
+  [...results, mixedRun].forEach((r) => console.log(row(r)));
   const rIdx = randomRuns.map((r) => r.index);
   console.log(`random x${SEEDS}: VA ${Math.min(...rIdx)}–${Math.max(...rIdx)}, by-choice ${Math.min(...randomRuns.map((r) => r.byChoice))}–${Math.max(...randomRuns.map((r) => r.byChoice))}, ` +
     `review ${randomRuns.filter((r) => r.reviewEver).length}/${SEEDS}, synthetic ${randomRuns.filter((r) => r.flagged).length}/${SEEDS}`);
@@ -1207,7 +1360,7 @@ console.log('redesign phase 3 tests passed');
   all.forEach((r) => Object.values(r.outcomes).forEach((o) => reachable.add(o)));
   const bonusNames = Object.keys(results[0].bonuses);
   const constantOnly = bonusNames.filter((name) => !results.some((r) => r.bonuses[name]));
-  console.log(`bonuses (provisional) earned by some constant policy: ${bonusNames.filter((n) => !constantOnly.includes(n)).join(', ') || 'none'}`);
+  console.log(`bonuses earned by some constant policy: ${bonusNames.filter((n) => !constantOnly.includes(n)).join(', ') || 'none'}`);
   console.log(`bonuses no constant policy earns: ${constantOnly.join(', ') || 'none'}`);
 
   const checks = [
@@ -1219,6 +1372,17 @@ console.log('redesign phase 3 tests passed');
     ['Every coworker outcome is reachable', ['employed', 'warning', 'fired', 'protected'].every((o) => reachable.has(o)), [...reachable].join(', ')],
     ['At least one bonus needs a mixed run', constantOnly.length > 0, constantOnly.join(', ') || 'none'],
   ];
+  // Phase 4 done-when: the four tuning-target rows in REDESIGN_SPEC Change 1.
+  const byKey = (k) => results.find((r) => r.key === k);
+  const careful = byKey('careful'); const fast = byKey('fast'); const gamer = byKey('gamer');
+  const ledgerHas = (r, re) => r.s.ledger.some((l) => re.test(l.text));
+  const inBand = (r, lo, hi) => r.index >= lo && r.index <= hi;
+  checks.push(
+    ['Target: careful ends VA 45–55, review opened, a task missed', inBand(careful, 45, 55) && careful.reviewEver && careful.missed >= 1, `VA ${careful.index}`],
+    ['Target: fast ends VA 85+, Synthetic flag, rework, a coworker fired', fast.index >= 85 && fast.flagged && fast.s.tasks.rework.status !== 'hidden' && fast.fired >= 1, `VA ${fast.index}, rework ${fast.s.tasks.rework.status}`],
+    ['Target: Focus Time + keepalive ends VA 90+, Synthetic flag, both on the ledger', gamer.index >= 90 && gamer.flagged && ledgerHas(gamer, /Focus Time/) && ledgerHas(gamer, /keepalive/), `VA ${gamer.index}`],
+    ['Target: mixed ends VA 60–75, no flag, no review', inBand(mixedRun, 60, 75) && !mixedRun.flagged && !mixedRun.reviewEver, `VA ${mixedRun.index}, review ${mixedRun.reviewEver ? 'yes' : 'no'}, flag ${mixedRun.flagged ? 'yes' : 'no'}`],
+  );
   checks.forEach(([name, ok, detail]) => console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` (${detail})` : ''}`));
   const failed = checks.filter(([, ok]) => !ok);
   assert.equal(failed.length, 0, `bot suite: ${failed.map(([n]) => n).join('; ')}`);

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const app = fs.readFileSync(new URL('./day-desktop-app.js', import.meta.url), 'utf8');
+// The desktop file must at least parse (a duplicate top-level declaration
+// once blanked the page while every source check here still passed).
+assert.doesNotThrow(() => new Function(app.replace(/^import [^\n]*\n/m, '')), 'day-desktop-app.js parses');
 assert.match(app, /mobileDetail:\s*\{\s*email:\s*true/, 'opening email should be visible on mobile');
 assert.match(app, /show-detail/, 'mobile detail class should be applied by the app');
 assert.match(app, /setMobileDetail\('messages', true\)/, 'message selection should open mobile detail');
@@ -58,9 +61,9 @@ assert.match(app, /missing: /, 'every narcAssessment branch should define a miss
 assert.match(app, /loop-urgency-track/, 'task deadlines should show an in-game-clock urgency indicator (#102)');
 assert.match(app, /min left/, 'urgency indicator should be readable in plain minutes, not a raw fraction');
 assert.match(app, /end-section-h', 'Your day'/, 'end screen should have a structured Your-day time section (#106)');
-assert.match(app, /end-section-h', 'NARC metrics'/, 'end screen should have a structured NARC-metrics section (#106)');
+assert.match(app, /'NARC rank'/, 'end screen leads with NARC’s rank and the measured numbers (Change 8)');
 assert.match(app, /end-section-h', 'People'/, 'end screen should have a structured People section (#106)');
-assert.match(app, /end-section-h', 'The contradiction'/, 'end screen should surface measured-vs-actual contradictions (#106)');
+assert.doesNotMatch(app, /'The contradiction'/, 'the sentence connecting the facts is gone; the screen ends on the question (Change 8)');
 
 assert.match(app, /Quarterly employee pulse survey/, 'survey setup should exist before the survey conversation can unlock');
 assert.match(app, /Compose work email/, 'Email should expose player-initiated outbound work actions');
@@ -93,3 +96,19 @@ assert.match(app, /toastQueue/, 'toasts queue instead of replacing each other');
 assert.match(app, /TOAST_QUEUE_MAX/, 'the toast backlog is bounded');
 assert.doesNotMatch(app, /els\.toasts\.replaceChildren\(toast\);\s*toastTimer = setTimeout\(\(\) => els\.toasts\.replaceChildren\(\), 6000\)/, 'the single-slot 6s replacement is gone');
 console.log('toast queue checks passed');
+
+// REDESIGN_SPEC Phase 4
+assert.match(app, /'WHAT NARC READS'/, 'NARC shows its inputs by name (Change 7)');
+assert.match(app, /NARC reads every 30 minutes\. A gap counts after 5 minutes\./, 'round constants, no weights');
+assert.match(app, /next read \$\{clock\(state\.narc\.nextRead\)\}/, 'the next read time is visible, so gaming is a timing game');
+assert.match(app, /'Run again'/, 'keepalive is repeatable (#126)');
+assert.match(app, /function renderWellness\(/, 'a review opens with the wellness module (#125)');
+assert.match(app, /complete\.disabled = true/, 'the module completes only after every step, and then closes');
+assert.match(app, /e\.question/, 'the end screen ends on the question');
+assert.match(app, /'Ledger'/, 'the end screen has the ledger');
+assert.match(app, /end-bonus\$\{b\.earned \? ' earned' : ''\}/, 'bonuses show earned and greyed');
+assert.match(app, /navigator\.clipboard\.writeText\(e\.summary\)/, 'Copy summary (#124)');
+assert.match(app, /end-summary-fallback/, 'the summary has a selectable fallback');
+assert.match(app, /try \{\s*const raw = window\.localStorage\.getItem/, 'replay hooks read localStorage inside try/catch');
+assert.match(app, /'Previous session'/, 'the login screen shows the previous session');
+console.log('phase 4 desktop checks passed');

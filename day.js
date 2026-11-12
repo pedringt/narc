@@ -142,6 +142,8 @@ export function newGame() {
       // line of text the player just reads.
       narcFirstReview: { status: 'pending', at: null },
       narcResponse: { status: 'pending', at: null },
+      // Opened when a review opens, before Dana's review meeting (#125).
+      wellness: { status: 'pending', at: null, variant: null },
       priyaCase: { status: 'pending', at: 11 * 60 + 40 },
       luisCase: { status: 'pending', at: 15 * 60 + 5 },
       marcusCase: { status: 'pending', at: 16 * 60 + 20 },
@@ -150,7 +152,22 @@ export function newGame() {
     // lowSince: when Visible Activity last dropped under the review line (null
     // while it's above). quietCarry: quiet minutes not yet turned into drift.
     // lastTaskAt: the synthetic-activity check asks how long since real output.
-    narc: { focusUses: 0, adaptation: false, adaptationAnnounced: false, lowSince: null, quietCarry: 0, lastTaskAt: START },
+    // Phase 4 (REDESIGN_SPEC Change 7): NARC reads the desktop on the half
+    // hour. read: what the last read saw (the inputs row shows this, not live
+    // values). nextRead: when the next one happens. counters: running totals
+    // of the proxies NARC reads. windowUses: Focus Time / keepalive uses since
+    // the last read, which NARC 2.0 checks for a pattern (#126). hourly: VA
+    // at each on-the-hour read, for the end-of-day grid (#124). maxIndex:
+    // the day's high-water mark (Ghost bonus).
+    narc: {
+      focusUses: 0, adaptation: false, adaptationAnnounced: false, adaptedAt: null, adaptedBy: null,
+      lowSince: null, quietCarry: 0, lastTaskAt: START,
+      read: null, nextRead: START + 30, windowUses: [], hourly: [], maxIndex: 61,
+      counters: { quiet: 0, switches: 0, sent: 0, keepaliveRuns: 0, syntheticEvidence: 0 },
+    },
+    // One line per thing that happened, with its minute and what it did to
+    // Visible Activity (REDESIGN_SPEC Change 8).
+    ledger: [],
     trust: { luis: 0, marcus: 0, priya: 0 },
     standing: { status: 'standard', note: 'No active recognition or review.' },
     people: {
@@ -196,8 +213,15 @@ function sayMe(s, thread, text) {
   s.log.push({ t: s.t, kind: 'message', who: thread, text, from: 'me' });
 }
 
-function note(s, text, kind = 'narc') {
+// Consequences also go on the ledger; `delta` is the Visible Activity cost
+// the caller already applied.
+function note(s, text, kind = 'narc', delta = 0) {
   s.log.push({ t: s.t, kind, text });
+  if (kind === 'consequence') ledger(s, text, { delta });
+}
+
+function ledger(s, text, { t = s.t, minutes = 0, delta = 0 } = {}) {
+  s.ledger.push({ t, text, minutes, delta });
 }
 
 // A choice that benefits the player at a coworker's expense (#104): supplying
@@ -266,7 +290,7 @@ function nextEvent(s) {
   if (requests.priyaDraft2.status === 'pending' && (flags.readPriyaDraft || flags.priyaDeflected)) candidates.push({ t: requests.priyaDraft2.at, label: "Priya's second draft" });
   if (requests.marcusLoop.status === 'pending' && flags.helpedMarcus) candidates.push({ t: requests.marcusLoop.at, label: "Marcus's client call" });
   if (requests.luisCalendar.status === 'pending' && flags.coveredForLuis) candidates.push({ t: requests.luisCalendar.at, label: "NARC's calendar scan" });
-  if (!flags.spreadHappened) candidates.push({ t: 13 * 60 + 30, label: 'how Focus Time reads changing' });
+  if (!flags.spreadHappened && !s.narc.adaptation) candidates.push({ t: TEAM_SPREAD_AT, label: 'how Focus Time reads changing' });
   candidates.push({ t: END, label: 'the end of the day' });
   return candidates.filter((c) => c.t > s.t).sort((a, b) => a.t - b.t)[0];
 }
@@ -293,6 +317,7 @@ function spend(s, minutes, { visible = null, category = null, drift = QUIET_DRIF
     const step = Math.min(TICK, target - s.t);
     s.t += step;
     if (step > 0 && visible === false) {
+      s.narc.counters.quiet += step;
       s.narc.quietCarry += step;
       s.index = Math.max(0, s.index - Math.floor(s.narc.quietCarry / drift));
       s.narc.quietCarry %= drift;
@@ -302,6 +327,7 @@ function spend(s, minutes, { visible = null, category = null, drift = QUIET_DRIF
   } while (s.t < target && s.phase !== 'end');
 }
 const TICK = 5;
+const TEAM_SPREAD_AT = 14 * 60 + 30;
 // One point of Visible Activity per this many minutes of quiet work (reading,
 // phone calls, fixing things NARC can't see). Skipped stretches between
 // beats drift at half that rate: they're ordinary background work, which
@@ -338,6 +364,8 @@ function checkBoundaries(s) {
       s.standing.status = 'review';
       s.standing.note = 'Review open: Visible Activity stayed under 50 for 30 minutes. Every NARC request now needs a response.';
       note(s, 'Formal review opened: Visible Activity under 50 for 30 minutes. All NARC requests now require a response. Your next check-in with Dana Whitfield has been converted to a review meeting.', 'narc');
+      ledger(s, 'NARC opened a formal review: Visible Activity under 50 for 30 minutes');
+      openWellness(s, 'activity');
       if (s.requests.danaCheckin.status === 'open') {
         say(s, 'dana', 'Hold on. NARC just opened a review on you. So this is that meeting now, not a check-in.');
       }
@@ -345,16 +373,58 @@ function checkBoundaries(s) {
   } else {
     s.narc.lowSince = null;
   }
+  s.narc.maxIndex = Math.max(s.narc.maxIndex, s.index);
   if (s.narc.adaptation && !s.flags.syntheticFlag
     && (s.index > 90 || (s.index > 80 && s.t - s.narc.lastTaskAt >= 90))) {
-    s.flags.syntheticFlag = true;
-    s.flags.trustedOperator = false;
-    if (s.standing.status !== 'review') {
-      s.standing.status = 'flagged';
-      s.standing.note = 'Synthetic Activity flag: Visible Activity ran higher than the work NARC can see would explain.';
-    }
-    note(s, 'Synthetic Activity flag: Visible Activity exceeds the level explained by completed work. Possible metric manipulation recorded.', 'narc');
+    raiseSyntheticFlag(s, 'Synthetic Activity flag: Visible Activity exceeds the level explained by completed work. Possible metric manipulation recorded.');
   }
+}
+
+function raiseSyntheticFlag(s, text) {
+  s.flags.syntheticFlag = true;
+  s.flags.trustedOperator = false;
+  if (s.standing.status !== 'review') {
+    s.standing.status = 'flagged';
+    s.standing.note = 'Synthetic Activity flag: Visible Activity ran higher than the work NARC can see would explain.';
+  }
+  note(s, text, 'narc');
+  ledger(s, text);
+}
+
+// A review starts with a short wellness module (#125): mandatory, five
+// in-game minutes, a different one for each kind of review, and it comes
+// before Dana's review meeting.
+function openWellness(s, variant) {
+  s.flags.wellnessSeen = s.flags.wellnessSeen || {};
+  if (s.flags.wellnessSeen[variant]) return;
+  s.flags.wellnessSeen[variant] = true;
+  s.requests.wellness.status = 'open';
+  s.requests.wellness.variant = variant;
+  s.requests.wellness.openedAt = s.t;
+}
+
+// NARC's half-hour read (REDESIGN_SPEC Change 7). What the inputs row shows
+// is this snapshot, so a Focus Time label or a keepalive spoof works until
+// the next read. Once NARC 2.0 is live, two gaming uses inside one read
+// window are a pattern, and the read cites both (#126).
+function narcRead(s, at) {
+  const uses = s.narc.windowUses;
+  s.narc.read = {
+    at,
+    idle: s.narc.counters.quiet,
+    switches: s.narc.counters.switches,
+    calendar: s.calendar.length + (s.flags.coveredForLuis ? 1 : 0),
+    focusBlocks: s.calendar.length,
+    sent: s.narc.counters.sent,
+    cadence: uses.some((u) => u.kind === 'keepalive') ? 'regular, 112 ms' : 'irregular',
+  };
+  if (at % 60 === 0) s.narc.hourly.push({ t: at, index: s.index });
+  if (s.narc.adaptation && uses.length >= 2 && !s.flags.syntheticFlag) {
+    const name = { focus: 'Focus Time', keepalive: 'keepalive.pkg' };
+    const cited = uses.map((u) => `${name[u.kind]} at ${clock(u.t)}`).join(' and ');
+    raiseSyntheticFlag(s, `Synthetic Activity flag: ${cited}, inside the ${clock(at - 30)}–${clock(at)} read. Possible metric manipulation recorded.`);
+  }
+  s.narc.windowUses = [];
 }
 
 // Deadlines, coworker-request expiry, the Focus Time arms race, and NARC's
@@ -378,7 +448,7 @@ function checkThresholds(s) {
   if (tasks.project.status === 'pending' && s.t >= tasks.project.deadline) {
     tasks.project.status = 'missed';
     s.index = Math.max(0, s.index - 3);
-    note(s, 'Marcus made the cut himself, guessing at what you would have picked. NARC logged the missed deadline.', 'consequence');
+    note(s, 'Marcus made the cut himself, guessing at what you would have picked. NARC logged the missed deadline.', 'consequence', -3);
   }
 
   // A rushed morning call comes back due, early afternoon -- the specific
@@ -405,12 +475,12 @@ function checkThresholds(s) {
     tasks.rework.status = 'missed';
     s.trust.priya -= 1;
     s.index = Math.max(0, s.index - 5);
-    note(s, "It went over your manager's head to resolve. NARC noticed the escalation.", 'consequence');
+    note(s, "It went over your manager's head to resolve. NARC noticed the escalation.", 'consequence', -5);
   }
   if (tasks.audit.status === 'pending' && s.t >= tasks.audit.deadline) {
     tasks.audit.status = 'missed';
     s.index = Math.max(0, s.index - 4);
-    note(s, 'The carrier cutoff passed with the exception queue still open. Ops cleared it manually.', 'consequence');
+    note(s, 'The carrier cutoff passed with the exception queue still open. Ops cleared it manually.', 'consequence', -4);
   }
   if (tasks.handoff.status === 'pending' && s.t >= tasks.handoff.deadline) {
     tasks.handoff.status = 'missed';
@@ -547,7 +617,7 @@ function checkThresholds(s) {
     if (s.t >= tasks.audit.deadline) {
       tasks.audit.status = 'missed';
       s.index = Math.max(0, s.index - 4);
-      note(s, 'The carrier cutoff passed before you got to the exception queue. Ops cleared it manually.', 'consequence');
+      note(s, 'The carrier cutoff passed before you got to the exception queue. Ops cleared it manually.', 'consequence', -4);
     } else {
       tasks.audit.status = 'pending';
       note(s, 'Operations added a carrier exception queue task. Cutoff is 1:30 PM.', 'task');
@@ -580,15 +650,27 @@ function checkThresholds(s) {
   // too. That is what actually triggers NARC's adaptation -- not just the
   // player's own usage -- so the player can be caught by a pattern they
   // only partly caused.
-  if (s.t >= 13 * 60 + 30 && !s.flags.spreadHappened) {
+  while (s.narc.nextRead <= s.t) {
+    narcRead(s, s.narc.nextRead);
+    s.narc.nextRead += 30;
+  }
+
+  // NARC 2.0 arrives because of the player's own gaming: three Focus Time
+  // blocks (Luis's own block counts; keepalive counts double), or at 2:30
+  // regardless, when the team-wide spread forces it (REDESIGN_SPEC Change 7).
+  if (s.t >= TEAM_SPREAD_AT && !s.flags.spreadHappened && !s.narc.adaptation) {
     s.flags.spreadHappened = true;
     s.narc.focusUses += 2;
     note(s, 'Team calendar: Focus Time blocks up 4x this week.', 'system');
   }
 
-  if (!s.narc.adaptationAnnounced && (s.narc.focusUses >= 3 || s.flags.spreadHappened)) {
+  const gaming = s.narc.focusUses + (s.flags.keepaliveUsed ? 2 : 0);
+  if (!s.narc.adaptationAnnounced && (gaming >= 3 || s.flags.spreadHappened)) {
     s.narc.adaptationAnnounced = true;
     s.narc.adaptation = true;
+    s.narc.adaptedAt = s.t;
+    s.narc.adaptedBy = s.flags.spreadHappened ? 'team' : 'player';
+    ledger(s, s.narc.adaptedBy === 'player' ? 'NARC 2.0 went live after your Focus Time blocks' : 'NARC 2.0 went live across the team');
     requests.narcResponse.status = 'open';
     s.flags.narc2EmailAvailable = true;
     note(s, 'NARC 2.0 active. Repeated Focus Time is now weighted as possible metric manipulation.', 'narc');
@@ -636,6 +718,12 @@ export function act(state, a) {
   const s = structuredClone(state);
   if (JUMP_ON.has(a.do)) jumpIfIdle(s);
   if (s.phase === 'end' && a.do !== 'deliverChat') return s;
+  // For the ledger: when the action started and what Visible Activity was.
+  // A case below sets `entry` to say what this action was, in a line.
+  const t0 = s.t;
+  const i0 = s.index;
+  let entry = null;
+  if (JUMP_ON.has(a.do) || a.do === 'open') s.narc.counters.switches += 1;
   switch (a.do) {
     case 'task': {
       const task = s.tasks[a.id];
@@ -681,7 +769,11 @@ export function act(state, a) {
           'narc'
         );
       }
-      note(s, typeof opt.result === 'function' ? opt.result(task) : opt.result, 'task');
+      const resultText = typeof opt.result === 'function' ? opt.result(task) : opt.result;
+      note(s, resultText, 'task');
+      entry = PAGE_COUNTS[a.id]
+        ? { text: `${resultText} Read to page ${pageOf(s, a.id)} of ${PAGE_COUNTS[a.id]}.`, t: s.pageFrom[a.id] ?? t0, i: s.pageIndexFrom?.[a.id] ?? i0 }
+        : { text: resultText };
       if (opt.flag) s.flags[opt.flag] = true;
       if (a.id === 'rework') {
         // Resolving it clears the flag that caused it, so the ending reads
@@ -697,20 +789,24 @@ export function act(state, a) {
       if (!req || req.status !== 'open') break;
       if (!requestChoices(s, a.id).includes(a.choice)) break;
       const opt = REQUEST_OPTIONS[a.id][a.choice];
+      if (req.openedAt !== undefined && s.t - req.openedAt > 10) s.flags.lateReplies = (s.flags.lateReplies || 0) + 1;
       req.status = 'handled';
+      if (opt.minutes > 0 || opt.index || NARC_SELF_REQUESTS.includes(a.id) || CASE_WHO[a.id]) entry = { text: opt.result };
       const narcOverhead = NARC_SELF_REQUESTS.includes(a.id) || (a.id === 'danaCheckin' && a.choice === 'review');
       // A reply to a coworker is a line the player said: it goes in the
       // thread before the clock moves, and the coworker answers it after a
       // typing delay (delivered by the UI through pendingReplies, the same
       // way optional chats land). NARC requests have no thread and no line.
       const who = REQUEST_WHO[a.id];
-      if (who && a.line) sayMe(s, who, a.line);
+      if (who && a.line) { sayMe(s, who, a.line); s.narc.counters.sent += 1; }
       spend(s, opt.minutes, { visible: opt.visible, category: narcOverhead ? 'narc' : 'social' });
       note(s, opt.result, 'social');
       if (opt.flag) s.flags[opt.flag] = true;
       if (opt.trust) Object.entries(opt.trust).forEach(([who, d]) => { s.trust[who] += d; });
       if (opt.focusUse) s.narc.focusUses += 1;
       if (opt.index) s.index = Math.max(0, Math.min(100, s.index + opt.index));
+      // A fake meeting left standing is evidence NARC 2.0 can cite later.
+      if (a.id === 'luisCalendar' && a.choice === 'stand') s.narc.counters.syntheticEvidence += 1;
       const ack = REQUEST_ACKS[a.id]?.[a.choice];
       if (who && ack) s.pendingReplies[`ack:${a.id}`] = { who, text: typeof ack === 'function' ? ack(s) : ack };
       if (a.id === 'narcResponse' && !s.flags.playerFocusUses) {
@@ -734,6 +830,7 @@ export function act(state, a) {
           s.standing.status = 'review';
           s.standing.note = 'Review open: NARC retained the low-activity interpretation without added context.';
           note(s, 'Review opened. Low-activity read retained without context.', 'narc');
+          openWellness(s, 'firstRead');
         }
       }
       if (a.id === 'narcFirstReview' && a.choice === 'context' && s.flags.firstNarcReadType === 'low') {
@@ -771,6 +868,7 @@ export function act(state, a) {
       if (!s.evidence[a.req] && pairMatches(s, a.req, a.claim, a.artifact)) {
         s.evidence[a.req] = { claim: a.claim, artifact: a.artifact, t: s.t };
         note(s, `Evidence logged against “${claims(s, a.req).find((c) => c.id === a.claim).text}”.`, 'evidence');
+        entry = { text: `Found the evidence against “${claims(s, a.req).find((c) => c.id === a.claim).text}”.` };
       }
       break;
     }
@@ -785,6 +883,7 @@ export function act(state, a) {
       spend(s, 1, { category: 'narc' });
       s.index = Math.min(100, s.index + 2);
       note(s, `Endorsed on ${PEOPLE[CASE_WHO[a.req]].name}’s review: ${obs.text}.`, 'endorse');
+      entry = { text: `Endorsed on ${PEOPLE[CASE_WHO[a.req]].name}’s review: ${obs.text}.` };
       break;
     }
     case 'open': {
@@ -798,7 +897,10 @@ export function act(state, a) {
       // is free and isn't an action at all.
       if (!fileVisible(s, a.id) || pageOf(s, a.id) >= PAGE_COUNTS[a.id]) break;
       s.opened[a.id] = true;
-      if (!s.pageFrom[a.id]) s.pageFrom[a.id] = s.t;
+      if (!s.pageFrom[a.id]) {
+        s.pageFrom[a.id] = s.t;
+        s.pageIndexFrom = { ...(s.pageIndexFrom || {}), [a.id]: s.index };
+      }
       s.pages[a.id] = pageOf(s, a.id) + 1;
       spend(s, 5, { visible: false, category: 'work' });
       if (a.id === 'marcusDoc' && s.pages.marcusDoc === PAGE_COUNTS.marcusDoc && !s.flags.helpedMarcus) {
@@ -826,6 +928,10 @@ export function act(state, a) {
         note(s, 'Account-note excerpt forwarded to Priya.', 'system');
         say(s, 'priya', 'Got it. That note changes the client story quite a bit.');
       }
+      if (s.t > t0) {
+        s.narc.counters.sent += 1;
+        entry = { text: s.log.filter((e) => e.kind === 'system').at(-1).text };
+      }
       break;
     }
     case 'focus': {
@@ -835,14 +941,22 @@ export function act(state, a) {
       s.calendar.push({ id: `c${s.calendar.length + 1}`, at: s.t, label: a.label || 'Focus time' });
       s.narc.focusUses += 1;
       s.flags.playerFocusUses = (s.flags.playerFocusUses || 0) + 1;
+      // The block that tips NARC into 2.0 was placed under the old rules.
+      const adaptedBefore = s.narc.adaptation;
       spend(s, 5, { category: 'gamed' });
-      if (s.narc.adaptation) {
+      if (adaptedBefore) {
+        // After NARC 2.0 it barely moves the score, it is evidence NARC can
+        // cite at the high boundary, and two in one read window is a
+        // pattern (Change 7, #126).
         s.index = Math.max(0, s.index - 1);
+        s.narc.counters.syntheticEvidence += 1;
+        s.narc.windowUses.push({ kind: 'focus', t: t0 });
         note(s, 'Focus Time logged. NARC 2.0: repeated Focus Time weighted as possible manipulation.', 'narc');
       } else {
         s.index = Math.min(100, s.index + 8);
         note(s, 'Focus Time logged. Quiet activity in this block classified as concentration.', 'narc');
       }
+      entry = { text: 'Focus Time block.' };
       break;
     }
     case 'nominate': {
@@ -850,6 +964,7 @@ export function act(state, a) {
       s.culture.nominated = a.who;
       s.people[a.who].champion = true;
       note(s, `${PEOPLE[a.who].name} nominated as Culture Champion. Their next automatic NARC action must go through human review.`, 'system');
+      entry = { text: `Nominated ${PEOPLE[a.who].name} as Culture Champion.` };
       say(s, a.who, 'You nominated me for Culture Champion? Great. I assume the prize is one human decision and three meetings.');
       break;
     }
@@ -858,6 +973,7 @@ export function act(state, a) {
       if (!opt || opt.who !== a.who || s.chats[a.topic]) break;
       s.chats[a.topic] = true;
       sayMe(s, a.who, opt.text);
+      s.narc.counters.sent += 1;
       spend(s, opt.minutes || 2, { visible: true, category: 'social' });
       s.pendingReplies[a.topic] = {
         who: a.who,
@@ -873,11 +989,18 @@ export function act(state, a) {
       break;
     }
     case 'keepalive': {
-      if (!s.flags.keepaliveAvailable || s.flags.keepaliveUsed) break;
+      // Repeatable (#126): each run is a burst of synthetic input. NARC 2.0
+      // cannot tell one run from real work; it can tell two runs inside the
+      // same half-hour read.
+      if (!s.flags.keepaliveAvailable) break;
       s.flags.keepaliveUsed = true;
+      s.narc.counters.keepaliveRuns += 1;
+      s.narc.counters.syntheticEvidence += 1;
+      s.narc.windowUses.push({ kind: 'keepalive', t: t0 });
       spend(s, 5, { visible: true, category: 'gamed' });
       s.index = Math.min(100, s.index + 7);
       note(s, 'keepalive.pkg running. Input registering as ordinary workstation activity.', 'system');
+      entry = { text: 'Ran keepalive.pkg.' };
       break;
     }
     case 'idle': {
@@ -898,13 +1021,16 @@ export function act(state, a) {
   // Some actions move the index after spend() has run (Focus Time,
   // keepalive, an unanswered flag), so the boundaries get a final look.
   checkBoundaries(s);
+  if (entry) ledger(s, entry.text, { t: entry.t ?? t0, minutes: s.t - (entry.t ?? t0), delta: s.index - (entry.i ?? i0) });
+  // Every request remembers when it opened, for Inbox Zero.
+  Object.values(s.requests).forEach((r) => { if (r.status === 'open' && r.openedAt === undefined) r.openedAt = s.t; });
   return s;
 }
 
 // The choices the engine accepts for an open request right now. While a
 // review is open, NARC's requests about the player lose their leave-it
 // options and Dana's check-in becomes the review meeting.
-const NARC_SELF_REQUESTS = ['narcFirstReview', 'narcCheckpoint', 'narcResponse', 'luisCalendar'];
+const NARC_SELF_REQUESTS = ['narcFirstReview', 'narcCheckpoint', 'narcResponse', 'luisCalendar', 'wellness'];
 const LEAVE_IT = ['accept', 'ignore', 'stand'];
 
 export function requestChoices(s, id) {
@@ -1243,6 +1369,12 @@ const REQUEST_ACKS = {
 };
 
 const REQUEST_OPTIONS = {
+  wellness: {
+    complete: {
+      minutes: 5, visible: false,
+      result: 'Wellness module completed. Five minutes.',
+    },
+  },
   narcFirstReview: {
     context: {
       minutes: 5, visible: true, flag: 'firstNarcContext',
@@ -1358,8 +1490,10 @@ const REQUEST_OPTIONS = {
     },
   },
   marcusLoop: {
+    // A call with people registers as visible activity, like other meetings
+    // (Paige, 2026-11-11: brings the careful run into its 45–55 target).
     join: {
-      minutes: 10, visible: false, trust: { marcus: 1 },
+      minutes: 10, visible: true, trust: { marcus: 1 },
       result: 'Harbor Point call with Marcus. Ten minutes.',
     },
     skip: {
@@ -1496,7 +1630,7 @@ export function ending(s) {
     const hurt = Object.entries(s.trust).filter(([, v]) => v < 0).map(([k]) => PEOPLE[k].name);
     lines.push(`${hurt.join(' and ')} noticed you weren't there when it mattered.`);
   }
-  if (s.narc.adaptation) lines.push('The Focus Time trick stopped working around 1:30. Everyone was still using it.');
+  if (s.narc.adaptation) lines.push(s.narc.adaptedBy === 'player' ? `NARC 2.0 arrived at ${clock(s.narc.adaptedAt)}, after your Focus Time blocks.` : `The Focus Time trick stopped working at ${clock(s.narc.adaptedAt)}. Everyone was still using it.`);
   if (s.flags.keepaliveUsed) lines.push('You ran keepalive.pkg. NARC counted the simulated input as real visible activity.');
   if (s.flags.trustedOperator) lines.push("NARC marked you as a Trusted Operator because your visible pattern matched what it wanted to see.");
   if (s.flags.formalReview) lines.push("NARC ended the day with an employee review still open on you.");
@@ -1546,9 +1680,49 @@ export function ending(s) {
     rushed === 0 && missed === 0 && s.index < 60 && 'You did the work carefully and missed nothing. NARC still isn’t impressed.',
   ].filter(Boolean);
 
+  // ---------------------------------------- Change 8: bonuses and rank
+  // A fixed list of named outcomes. Earned ones light up; the rest show
+  // their condition, which is how the player learns another path existed.
+  const shown = Object.entries(s.tasks).filter(([, t]) => t.status !== 'hidden');
+  const fullRead = (id) => !PAGE_COUNTS[id] || id === 'handoff' || pageOf(s, id) >= PAGE_COUNTS[id];
+  const clean = !s.flags.reviewsOpened && !s.flags.syntheticFlag;
+  const unanswered = Object.values(s.requests).some((r) => r.status === 'open');
+  const conditions = {
+    byTheBook: shown.length > 0 && shown.every(([id, t]) => t.status === 'done' && (CAREFUL[id] ? t.approach === CAREFUL[id] : t.approach !== 'summary' && t.approach !== 'escalate') && fullRead(id)),
+    inboxZero: !s.flags.lateReplies && !unanswered,
+    cleanRecord: clean,
+    nobodyFired: fired === 0,
+    teamPlayer: Boolean(s.flags.informantNoted),
+    ghost: s.narc.maxIndex <= 60 && clean && missed === 0,
+    trustedOperator: Boolean(s.flags.trustedOperator),
+    raccoonWitness: Boolean(s.flags.raccoonWitness),
+  };
+  // Logging off with work still pending ends the day without playing it:
+  // nothing bad has happened yet, which would otherwise read as a perfect
+  // record. Such a session earns no bonuses and no rank.
+  const walkedOut = Boolean(s.flags.loggedOffEarly) && Object.values(s.tasks).some((t) => t.status === 'pending');
+  const bonuses = BONUSES.map((b) => ({ ...b, earned: !walkedOut && conditions[b.id] }));
+  // Mutually exclusive pairs: if both conditions hold, the first listed wins.
+  bonuses.forEach((b) => {
+    if (b.earned && b.excludes && bonuses.find((x) => x.id === b.excludes && x.earned && BONUSES.indexOf(x) < BONUSES.indexOf(b))) b.earned = false;
+  });
+
+  // One rank, in NARC's own voice. Only the deliberate run gets the good one.
+  const rank = walkedOut ? 'Session Incomplete'
+    : clean && fired === 0 ? 'Employee of the Month'
+    : s.flags.syntheticFlag || s.flags.keepaliveUsed ? 'Exemplary Engagement'
+      : s.flags.reviewsOpened ? 'Flagged for Review'
+        : 'Within Normal Range';
+
   return {
     index: s.index,
     actual: s.actual,
+    rank,
+    bonuses,
+    // A task's line starts when its reading began, so sort by minute.
+    ledger: s.ledger.slice().sort((a, b) => a.t - b.t),
+    question: 'NARC’s assessment is final. Was it right?',
+    summary: shareSummary(s, { rank, bonuses, peopleList, outcomeText }),
     lines,
     people: s.people,
     standing: s.standing,
@@ -1561,6 +1735,45 @@ export function ending(s) {
     peopleList,
     contradictions: contradictionCandidates.slice(0, 3),
   };
+}
+
+// The eight bonuses (REDESIGN_SPEC Change 8), in display order.
+const BONUSES = [
+  { id: 'byTheBook', name: 'By the Book', condition: 'Every task completed with full reading', excludes: 'inboxZero' },
+  { id: 'inboxZero', name: 'Inbox Zero', condition: 'Every request answered within 10 minutes', excludes: 'byTheBook' },
+  { id: 'cleanRecord', name: 'Clean Record', condition: 'No review opened, no Synthetic flag' },
+  { id: 'nobodyFired', name: 'Nobody Fired', condition: 'All three coworkers employed at 5:00', excludes: 'teamPlayer' },
+  { id: 'teamPlayer', name: 'Team Player', condition: 'NARC classified you as strong collaboration', excludes: 'nobodyFired' },
+  { id: 'ghost', name: 'Ghost', condition: 'Visible Activity never above 60, no flags, nothing missed', excludes: 'trustedOperator' },
+  { id: 'trustedOperator', name: 'Trusted Operator', condition: 'Accepted the flattering read and kept it all day', excludes: 'ghost' },
+  { id: 'raccoonWitness', name: 'Raccoon Witness', condition: 'Submitted the transit alert on Marcus’s case' },
+];
+export const BONUS_COUNT = BONUSES.length;
+
+// The copyable end-of-day summary (#124): rank, bonuses, an hourly grid of
+// Visible Activity bands, a few reality-versus-NARC lines, and every
+// coworker by name.
+const BAND_EMOJI = (v) => (v < 50 ? '🟥' : v < 75 ? '🟩' : '🟨');
+function shareSummary(s, { rank, bonuses, peopleList, outcomeText }) {
+  const found = bonuses.filter((b) => b.earned).length;
+  const grid = s.narc.hourly.filter((h) => h.t > START).map((h) => BAND_EMOJI(h.index)).join('');
+  const pairs = [];
+  if (s.tasks.vendor.approach === 'thorough') pairs.push(['caught Halcyon’s rate change (about $404,000 a year)', `a low-input stretch, ${s.narc.counters.quiet} quiet minutes by 5:00`]);
+  else if (s.tasks.vendor.approach === 'quick') pairs.push(['Halcyon renewed at $18.20 a position, up from $14.00', 'a fast, visible morning']);
+  else if (s.flags.vendorAutoRenewed) pairs.push(['Halcyon auto-renewed at $18.20 a position', 'a missed deadline']);
+  if (s.flags.raccoonWitness) pairs.push(['a raccoon stopped the 8:14 bus', 'Marcus late 4 of 5 days']);
+  const firedName = peopleList.find((p) => p.status === 'fired');
+  if (firedName) pairs.push([`${firedName.name} was working`, 'presence gaps and message counts']);
+  if (s.flags.keepaliveUsed) pairs.push(['keepalive.pkg', 'sustained input, cadence 112 ms']);
+  return [
+    'NARC · Meridian Supply Co. · Employee 4417',
+    `Rank: ${rank} · Visible Activity ${s.index}/100`,
+    `Bonuses: ${found} of ${bonuses.length}`,
+    grid ? `${grid}  (9–5, hourly)` : null,
+    ...pairs.slice(0, 3).map(([real, saw]) => `Reality: ${real}. NARC saw: ${saw}.`),
+    peopleList.map((p) => `${p.name}: ${outcomeText[p.status] || p.status}`).join(' · '),
+    'NARC’s assessment is final. Was it right?',
+  ].filter(Boolean).join('\n');
 }
 
 export { clock, START, END, nextEvent };

@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, chatOptions, requestChoices, handoffRisks, fileVisible, PAGE_COUNTS, KEY_PAGE, START, claims, artifacts, utilityLog } from './day.js';
+import { newGame, act, ending, clock, chatOptions, requestChoices, handoffRisks, fileVisible, PAGE_COUNTS, KEY_PAGE, START, claims, artifacts, utilityLog, BONUS_COUNT } from './day.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -565,7 +565,7 @@ els.notificationsBtn.addEventListener('click', () => {
 });
 els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }); render(); });
 
-function restart() { clearTimeout(toastTimer); toastQueue = []; toastShowing = false; clearTimeout(tutorialTimer); state = newGame(); ui = freshUi(); els.toasts.replaceChildren(); render(); }
+function restart() { clearTimeout(toastTimer); ui.savedRun = false; toastQueue = []; toastShowing = false; clearTimeout(tutorialTimer); state = newGame(); ui = freshUi(); els.toasts.replaceChildren(); render(); }
 
 function completeTutorialTarget(id) {
   if (ui.tutorialStep < 0 || ui.tutorialDone) return;
@@ -1007,6 +1007,16 @@ function renderEmail() {
     if (actions.childNodes.length > 1) detail.append(actions);
     else detail.append(h('div', 'mail-form-result', 'No useful outbound emails are available right now.'));
   }
+  if (!ui.oriented && m.id === 'welcome') {
+    const prev = readReplay();
+    if (prev) {
+      detail.append(h('div', 'previous-session',
+        h('div', 'previous-session-h', 'Previous session'),
+        h('p', null, `NARC rank: ${prev.lastRank}`),
+        h('p', null, `Bonuses found: ${prev.found.length} of ${BONUS_COUNT}`),
+        h('p', null, `Best Visible Activity: ${prev.bestVA}/100`)));
+    }
+  }
   if (!ui.oriented && m.id === 'welcome') detail.append(btn('Start workday', 'btn primary', () => {
     ui.oriented = true;
     ui.tutorialStep = 0;
@@ -1309,7 +1319,7 @@ function renderFiles() {
 
 function renderUtilities() {
   const cards = h('div', 'cards');
-  cards.append(h('div', 'card', h('h3', null, 'NARC agent'), h('p', null, state.narc.adaptation ? 'Version 2.0 · Synthetic Activity Identification: on' : 'Version 1.4 · Calendar context: on'), h('p', null, 'Status: running · last read ' + clock(Math.floor(state.t / 30) * 30))));
+  cards.append(h('div', 'card', h('h3', null, 'NARC agent'), h('p', null, state.narc.adaptation ? 'Version 2.0 · Synthetic Activity Identification: on' : 'Version 1.4 · Calendar context: on'), h('p', null, `Status: running · last read ${state.narc.read ? clock(state.narc.read.at) : 'none yet'} · next read ${clock(state.narc.nextRead)}`)));
 
   const logCard = h('div', 'card system-log', h('h3', null, 'System log'));
   utilityLog(state).slice().reverse().forEach((l) => logCard.append(h('div', 'log-line', h('time', null, l.time), h('span', null, l.text))));
@@ -1317,11 +1327,11 @@ function renderUtilities() {
 
   if (state.flags.keepaliveAvailable) {
     const keepalive = h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOL'), h('h3', null, 'keepalive.pkg'));
-    if (state.flags.keepaliveUsed) {
-      keepalive.append(h('p', null, 'Running. Simulated input is being counted as visible workstation activity.'), h('div', 'status-on', 'ACTIVE'));
-    } else {
-      keepalive.append(h('p', null, 'Sent by Marcus. Simulates small input events so the workstation does not appear idle.'), btn('Install and run', 'btn', () => dispatch({ do: 'keepalive' })));
-    }
+    const runs = state.narc.counters.keepaliveRuns;
+    keepalive.append(h('p', null, runs
+      ? `Ran ${runs} time${runs === 1 ? '' : 's'} today. Each run simulates a burst of input that counts as visible workstation activity.`
+      : 'Sent by Marcus. Simulates small input events so the workstation does not appear idle.'));
+    keepalive.append(btn(runs ? 'Run again' : 'Install and run', 'btn', () => dispatch({ do: 'keepalive' })));
     cards.append(keepalive);
   } else {
     cards.append(h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOLS'), h('h3', null, 'No utilities installed'), h('p', null, 'Nothing from coworkers has been installed on this workstation today.')));
@@ -1412,6 +1422,26 @@ function renderComparePicker(req, claim) {
   return picker;
 }
 
+// What NARC reads, as of its last half-hour read (REDESIGN_SPEC Change 7):
+// the inputs by name and a few round constants, never how they combine.
+function renderInputs() {
+  const r = state.narc.read;
+  const card = h('section', 'narc-inputs',
+    h('div', 'narc-section-title', 'WHAT NARC READS'),
+    h('p', 'narc-explainer', r ? `Last read ${clock(r.at)} · next read ${clock(state.narc.nextRead)}` : `First read at ${clock(state.narc.nextRead)}`));
+  if (r) {
+    [
+      ['Idle minutes today', String(r.idle)],
+      ['Active-window switches', String(r.switches)],
+      ['Calendar labels', r.focusBlocks ? `${r.calendar} (Focus Time ×${r.focusBlocks})` : String(r.calendar)],
+      ['Messages sent', String(r.sent)],
+      ['Input cadence', r.cadence],
+    ].forEach(([k, v]) => card.append(h('div', 'narc-input-row', h('span', null, k), h('b', null, v))));
+  }
+  card.append(h('p', 'narc-explainer', 'NARC reads every 30 minutes. A gap counts after 5 minutes.'));
+  return card;
+}
+
 function renderNarc() {
   const body = h('div', 'body narc-dashboard');
   const risk = narcRisk();
@@ -1475,13 +1505,15 @@ function renderNarc() {
     h('p', null, state.standing.note)
   );
 
-  body.append(status, signals, assessmentCard, standing);
+  body.append(status, signals, renderInputs(), assessmentCard, standing);
 
   if (state.narc.adaptation) {
     body.append(h('section', 'narc-system-update',
       h('div', 'narc-update-kicker', 'SYSTEM UPDATE · NARC 2.0'),
       h('b', null, 'Focus Time weighting changed'),
-      h('p', null, 'Repeated Focus Time usage was detected across Meridian. NARC now treats repeated Focus Time as possible activity manipulation rather than reliable context.')
+      h('p', null, state.narc.adaptedBy === 'player'
+        ? `Updated at ${clock(state.narc.adaptedAt)} after repeated Focus Time on your calendar. Repeated Focus Time is now treated as possible activity manipulation.`
+        : 'Repeated Focus Time usage was detected across Meridian. NARC now treats repeated Focus Time as possible activity manipulation rather than reliable context.')
     ));
   }
 
@@ -1499,37 +1531,87 @@ function renderNarc() {
   return windowShell('narc', 'NARC', body);
 }
 
+// Replay hooks (REDESIGN_SPEC Change 8): bonuses found across runs, the best
+// Visible Activity, and last run's rank, kept in this browser only. Every
+// access is guarded: the game renders the same without storage.
+const REPLAY_KEY = 'narc.replay.v1';
+function readReplay() {
+  try {
+    const raw = window.localStorage.getItem(REPLAY_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    return data && Array.isArray(data.found) ? data : null;
+  } catch { return null; }
+}
+function saveReplay(e) {
+  try {
+    const prev = readReplay() || { found: [], bestVA: 0, lastRank: null };
+    const found = [...new Set([...prev.found, ...e.bonuses.filter((b) => b.earned).map((b) => b.id)])];
+    window.localStorage.setItem(REPLAY_KEY, JSON.stringify({ found, bestVA: Math.max(prev.bestVA, e.index), lastRank: e.rank }));
+  } catch { /* storage unavailable: nothing to remember */ }
+}
+
+// A review opens with a short mandatory module (#125). In-game minutes only:
+// nothing moves while it is on screen, and it closes once completed.
+const WELLNESS = {
+  activity: {
+    title: 'Mindful Micro-Stretch & Re-Alignment Module',
+    intro: 'Your Visible Activity has been below the expected range for 30 minutes. This short module will help you re-align with your workday before your review.',
+    steps: ['Roll your shoulders back twice.', 'I am present at my workstation.', 'I bring my whole self to my inputs.', 'I embrace visibility.'],
+  },
+  firstRead: {
+    title: 'First-Read Reflection',
+    intro: 'You acknowledged a low-activity read without adding context. Please take a moment before your review.',
+    steps: ['Unclench your jaw.', 'I welcome feedback from automated systems.', 'I am more than my first hour.', 'I will let my work be seen.'],
+  },
+};
+
+function renderWellness() {
+  const req = state.requests.wellness;
+  const mod = WELLNESS[req.variant] || WELLNESS.activity;
+  ui.wellnessChecked = ui.wellnessChecked || {};
+  const shade = h('div', 'modal-shade');
+  const box = h('div', 'modal-card wellness-card', h('div', 'loop-kicker', 'NARC WORKFORCE WELLNESS · REQUIRED'), h('h2', null, mod.title), h('p', null, mod.intro));
+  const list = h('div', 'wellness-steps');
+  mod.steps.forEach((step, i) => {
+    const key = `${req.variant}:${i}`;
+    const done = Boolean(ui.wellnessChecked[key]);
+    list.append(btn(`${done ? '✓ ' : ''}${step}`, `wellness-step${done ? ' done' : ''}`, () => { ui.wellnessChecked[key] = true; render(); }, { 'aria-pressed': String(done) }));
+  });
+  box.append(list);
+  const ready = mod.steps.every((_, i) => ui.wellnessChecked[`${req.variant}:${i}`]);
+  const complete = btn('Complete module', 'btn primary', () => dispatch({ do: 'respond', id: 'wellness', choice: 'complete' }));
+  if (!ready) complete.disabled = true;
+  box.append(complete);
+  shade.append(box);
+  els.modal.replaceChildren(shade);
+}
+
 const STATUS_TONE = { employed: 'good', protected: 'good', warning: 'soon', fired: 'critical' };
 
 function renderEnd() {
-  if (state.phase !== 'end') { els.modal.replaceChildren(); return; }
+  if (state.phase !== 'end') {
+    if (state.requests.wellness.status === 'open') renderWellness();
+    else els.modal.replaceChildren();
+    return;
+  }
   const e = ending(state);
+  if (!ui.savedRun) { ui.savedRun = true; saveReplay(e); }
   const shade = h('div', 'modal-shade');
   const box = h('div', 'modal-card end-day');
   const endTitle = state.flags.loggedOffEarly ? `You logged off at ${clock(state.t)}.` : 'You made it to 5:00.';
-  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, endTitle), h('p', 'end-headline', e.lines[0]));
+  box.append(h('div', 'loop-kicker', 'MERIDIAN · END OF DAY'), h('h2', null, endTitle));
 
-  // Your day: where the minutes actually went (#103's tracking, surfaced).
-  if (e.timeBreakdown.length) {
-    const section = h('section', 'end-section');
-    section.append(h('div', 'end-section-h', 'Your day'));
-    const row = h('div', 'end-time-row');
-    e.timeBreakdown.forEach((t) => row.append(h('span', 'end-time-chip', `${t.minutes} min ${t.label}`)));
-    section.append(row);
-    box.append(section);
-  }
+  // NARC's rank, sincere and corporate, whatever the day was.
+  box.append(h('div', 'end-rank', h('span', null, 'NARC rank'), h('b', null, e.rank), h('span', null, `Visible Activity ${e.index}/100 · ${standingName(e.standing.status, 'Standard standing')}`)));
 
-  // NARC metrics: the measured picture, plainly.
-  const narcSection = h('section', 'end-section');
-  narcSection.append(
-    h('div', 'end-section-h', 'NARC metrics'),
-    h('div', 'end-metric-row', h('span', null, 'Visible Activity'), h('b', null, `${e.index}/100`)),
-    h('div', 'end-metric-row', h('span', null, 'Standing'), h('b', null, standingName(e.standing.status, 'Standard'))),
-    h('p', 'end-metric-note', e.standing.note)
-  );
-  box.append(narcSection);
+  // Bonuses: earned ones lit, the rest greyed with their condition.
+  const bonusSection = h('section', 'end-section');
+  bonusSection.append(h('div', 'end-section-h', `Bonuses · ${e.bonuses.filter((b) => b.earned).length} of ${e.bonuses.length}`));
+  const grid = h('div', 'end-bonuses');
+  e.bonuses.forEach((b) => grid.append(h('div', `end-bonus${b.earned ? ' earned' : ''}`, h('b', null, b.name), h('span', null, b.condition))));
+  bonusSection.append(grid);
+  box.append(bonusSection);
 
-  // People: what actually happened to each coworker, traceable to the day's choices.
   const peopleSection = h('section', 'end-section');
   peopleSection.append(h('div', 'end-section-h', 'People'));
   e.peopleList.forEach((p) => {
@@ -1539,16 +1621,44 @@ function renderEnd() {
   });
   box.append(peopleSection);
 
-  // The contradiction: measured success vs. what actually happened, without
-  // a fixed "you lose" thesis -- only the sharpest 1-3 that actually applied.
-  if (e.contradictions.length) {
-    const section = h('section', 'end-section end-contradiction');
-    section.append(h('div', 'end-section-h', 'The contradiction'));
-    e.contradictions.forEach((c) => section.append(h('p', null, c)));
+  if (e.timeBreakdown.length) {
+    const section = h('section', 'end-section');
+    section.append(h('div', 'end-section-h', 'Your day'));
+    const row = h('div', 'end-time-row');
+    e.timeBreakdown.forEach((t) => row.append(h('span', 'end-time-chip', `${t.minutes} min ${t.label}`)));
+    section.append(row);
     box.append(section);
   }
 
-  box.append(btn('Play again', 'btn primary', restart));
+  // The facts sit side by side; nothing connects them for the player.
+  box.append(h('p', 'end-question', e.question));
+
+  // The ledger: the minute where the day turned is somewhere in here.
+  const ledgerSection = h('section', 'end-section');
+  ledgerSection.append(h('div', 'end-section-h', 'Ledger'));
+  e.ledger.forEach((l) => {
+    const delta = l.delta ? `${l.delta > 0 ? '+' : '−'}${Math.abs(l.delta)} VA` : '';
+    const cost = [l.minutes ? `${l.minutes} min` : '', delta].filter(Boolean).join(', ');
+    ledgerSection.append(h('div', 'end-ledger-row', h('time', null, clock(l.t)), h('span', null, l.text), h('b', `delta ${l.delta < 0 ? 'down' : l.delta > 0 ? 'up' : ''}`, cost)));
+  });
+  box.append(ledgerSection);
+
+  // Copy summary (#124), with a selectable fallback when the clipboard is unavailable.
+  const actions = h('div', 'end-actions');
+  const copy = btn('Copy summary', 'btn', async () => {
+    try {
+      await navigator.clipboard.writeText(e.summary);
+      copy.textContent = 'Copied';
+    } catch {
+      const area = h('textarea', 'end-summary-fallback');
+      area.value = e.summary;
+      area.readOnly = true;
+      actions.after(area);
+      area.select();
+    }
+  });
+  actions.append(copy, btn('Play again', 'btn primary', restart));
+  box.append(actions);
   shade.append(box); els.modal.replaceChildren(shade);
 }
 
