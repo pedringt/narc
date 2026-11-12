@@ -1,6 +1,6 @@
 # NARC Handoff
 
-## Current status (2026-10-21)
+## Current status (2026-11-11)
 
 **Paige played the #70 build and reported back: it's at a good base level but "not that fun and doesn't feel like a game."** That feedback was turned into a research pass and an approved redesign. **The active plan is `docs/REDESIGN_SPEC.md`.** Read it before anything else in this file.
 
@@ -8,7 +8,11 @@ Short version of the diagnosis (full numbers in the spec): a bot that picks ever
 
 Build order is four phases. **Phases 1 and 2 are built together, then Paige playtests.** Do not start Phase 3 until she has. Run the bot suite described in the spec between phases. All six open design questions were settled on 2026-10-21 and are recorded in the spec's Decisions table; do not re-open them.
 
-**Phases 1 and 2 are built on branch `redesign-phase-1-2` (2026-10-21, not merged, not pushed).** All engine, desktop and archived-week tests pass. With the spec's numbers as written, the bot suite at the end of `test-day.mjs` failed three of six conditions (the careful run ended at VA 74 with no review or miss, still dominant). Paige then chose three tuning levers: skipped idle time drifts like quiet work, context on coworker cases is quiet, and careful task costs are 1.5x the spec table. With those, five of six pass: careful ends at VA 41 with a review and one missed task, and fast ends at 87 with the Synthetic flag. **Still failing:** the budget check. Paige defined "best-scoring" as the highest-VA clean run (no review, no flag, nobody fired). Only random runs end clean (10 of 45), and they spend 193–301 minutes by choice; the best is VA 76 at 235 minutes. For a clean, mixed day, time still doesn't bind. `BOT_DEBUG=1 node test-day.mjs` lists every clean run. Copy changes from this branch are logged at the end of `docs/GAME_COPY_EDITABLE.md`.
+**Phases 1 and 2 are on `main`** (PRs #121–#123, Oct 21–23), tuned after playtests: honest careful costs, overlapping morning deadlines, the clock ticks in 5-minute steps, every coworker reply lands in the thread.
+
+**Phase 3 is built on branch `redesign-phase-3` (2026-11-11, PR open, not merged).** Change 4: each line in "What NARC saw" has **Compare with…**, which lists only what the player has opened (file pages, messages in threads they looked at, the new Utilities › System log). Four authored pairs unlock a verb, two with a second channel: the first read ↔ the key page of the document being read (Attach context); Priya's 52 threads ↔ Brightline page 1's "31 tagged client:" (Reclassify); Luis's 11:40 gap ↔ his 11:45 Desert Line message or the 11:41/11:44 returns log (Add work context); Marcus's late arrival ↔ the 8:14 transit alert or his raccoon message (Submit evidence). A wrong pair costs a minute and says nothing. Change 6: coworker reviews are composed by **Endorse** (1 min, +2 VA per observation) and **Submit the record**; outcomes are decided then but heard in the next hour-block (Priya 12:05, Luis 4:05 as a People Operations headcount email and a greyed thread, Marcus on the end screen). Culture Champion opens at 10:30. The bot suite passes all six checks. Also salvaged from #118: toasts queue instead of overwriting, and the final tutorial message is delivered.
+
+**Next:** Paige playtests Phase 3, then Phase 4 (Changes 7 and 8), which also carries #124 (shareable summary), #125 (wellness module before the review meeting) and #126 (keepalive and Focus Time pattern rule). Watch in Phase 4: the gaming bot ends at VA 33 with no Synthetic flag, so the Change 1 tuning row for Focus Time + keepalive (VA 90+, flagged) does not hold yet; Change 7's player-triggered NARC 2.0 is where that gets fixed.
 
 Everything below this line describes the build as it stood before the redesign. It's still accurate about what the code does today, and the authority/release rules at the bottom still apply.
 

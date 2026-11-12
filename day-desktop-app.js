@@ -1,4 +1,4 @@
-import { newGame, act, ending, clock, chatOptions, requestChoices, handoffRisks, fileVisible, PAGE_COUNTS, KEY_PAGE, START } from './day.js';
+import { newGame, act, ending, clock, chatOptions, requestChoices, handoffRisks, fileVisible, PAGE_COUNTS, KEY_PAGE, START, claims, artifacts, utilityLog } from './day.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -45,9 +45,9 @@ const REQUEST_OPTIONS = {
   marcusLoop: [['join', 'Joining now.'], ['skip', 'Can’t, I’m buried. You’ve got this.']],
   danaCheckin: [['update', 'Here’s where everything actually is.'], ['brief', 'Mostly on track.'], ['trustNarc', 'NARC’s summary is accurate.'], ['review', 'Okay. Let’s go through it.']],
   marcusFallout: [['apologize', 'Come find me. I’ll walk you through it.'], ['standby', 'It was the right call.']],
-  priyaCase: [['context', 'Attach context'], ['quiet', 'Tell Priya to post less'], ['report', 'Confirm the flag']],
-  luisCase: [['context', 'Attach context'], ['blame', 'Endorse: likely gaming'], ['leave', 'Stay out']],
-  marcusCase: [['evidence', 'Attach the transit alert'], ['confirm', 'Confirm the late arrival'], ['leave', 'Stay out']],
+  priyaCase: [['context', 'Reclassify'], ['quiet', 'Tell Priya to post less'], ['submit', 'Submit the record'], ['leave', 'Stay out']],
+  luisCase: [['context', 'Add work context'], ['submit', 'Submit the record'], ['leave', 'Stay out']],
+  marcusCase: [['evidence', 'Submit evidence'], ['submit', 'Submit the record'], ['leave', 'Stay out']],
   narcResponse: [['explain', 'Explain the pattern'], ['ignore', 'Leave it']],
   narcFirstReview: [['context', 'Attach context'], ['accept', 'Acknowledge']],
   luisCalendar: [['explain', 'Explain the meeting'], ['stand', 'Leave it']],
@@ -149,7 +149,7 @@ function narcAssessment(id) {
       inference: 'Consistent with inefficient coordination.',
       missing: 'Thread contents. Which threads are client work.',
       consequence: 'Without context, the count is sufficient for an employment recommendation.',
-      action: 'Add context, advise Priya to reduce volume, or confirm the flag.',
+      action: 'Endorse what the record should say, or stay out.',
     };
   }
   if (id === 'luisCase') {
@@ -159,7 +159,7 @@ function narcAssessment(id) {
       inference: 'Consistent with inconsistent presence or activity manipulation.',
       missing: 'Phone activity. Paper work. Where he was.',
       consequence: 'Without context, the review proceeds to warning or termination.',
-      action: 'Add context, endorse the gaming read, or stay out.',
+      action: 'Endorse what the record should say, or stay out.',
     };
   }
   if (id === 'marcusCase') {
@@ -169,7 +169,7 @@ function narcAssessment(id) {
       inference: 'Today’s delay is consistent with the pattern.',
       missing: 'Cause of today’s delay.',
       consequence: 'Without new evidence, the pattern is the finding.',
-      action: 'Attach evidence, confirm the late arrival, or stay out.',
+      action: 'Endorse what the record should say, or stay out.',
     };
   }
   if (id === 'narcResponse') {
@@ -461,6 +461,8 @@ function currentEmails() {
   if (state.flags.cultureEmailAvailable) out.unshift(CULTURE_EMAIL);
   if (state.flags.surveyEmailAvailable) out.unshift(SURVEY_EMAIL);
   if (state.flags.narc2EmailAvailable) out.unshift(NARC2_EMAIL);
+  // Engine emails (headcount notices) are the newest mail of the day.
+  state.inbox.forEach((m) => out.unshift(m));
   return out;
 }
 
@@ -516,7 +518,7 @@ let tutorialTimer = null;
 function freshUi() {
   return {
     oriented: false, tutorialStep: -1, tutorialDone: false, tutorialUnread: false, tutorialVisited: {}, app: 'email', openApps: ['email'], selectedEmail: 'welcome',
-    selectedFile: null, filePage: {}, handoffChecked: {}, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
+    selectedFile: null, filePage: {}, handoffChecked: {}, compare: null, selectedThread: null, selectedArticle: null, mobileDetail: { email: true, messages: false, files: false, browser: false }, positions: {}, notifications: [], notificationCenterOpen: false, nextNotificationId: 1,
     typingThreads: {}, scrollThreadToBottom: null,
   };
 }
@@ -563,23 +565,36 @@ els.notificationsBtn.addEventListener('click', () => {
 });
 els.logoff.addEventListener('click', () => { state = act(state, { do: 'logoff' }); render(); });
 
-function restart() { state = newGame(); ui = freshUi(); render(); }
+function restart() { clearTimeout(toastTimer); toastQueue = []; toastShowing = false; clearTimeout(tutorialTimer); state = newGame(); ui = freshUi(); els.toasts.replaceChildren(); render(); }
 
 function completeTutorialTarget(id) {
   if (ui.tutorialStep < 0 || ui.tutorialDone) return;
   ui.tutorialVisited[id] = true;
 
   let advanced = false;
+  let finalDelivered = null;
   while (!ui.tutorialDone) {
     const step = TUTORIAL_STEPS[ui.tutorialStep];
     if (!step || !ui.tutorialVisited[step.target]) break;
     if (step.final) {
       ui.tutorialDone = true;
-      ui.tutorialUnread = false;
+      // The last step targets The Loop, which step one already visited, so
+      // it is reached in the same call that advanced into it. The player has
+      // not seen its message yet; deliver it like every earlier step.
+      ui.tutorialUnread = advanced;
+      if (advanced) finalDelivered = step;
       break;
     }
     ui.tutorialStep += 1;
     advanced = true;
+  }
+
+  if (finalDelivered) {
+    clearTimeout(tutorialTimer);
+    tutorialTimer = setTimeout(() => {
+      render();
+      showToast('Dana Whitfield', finalDelivered.text, 'messages', { thread: 'dana', tutorial: true });
+    }, 250);
   }
 
   if (!ui.tutorialDone && advanced) {
@@ -743,6 +758,9 @@ function announceChanges(before, after) {
   if (after.flags.cultureEmailAvailable && !before.flags.cultureEmailAvailable) {
     setTimeout(() => showToast('Culture Team', 'Culture Champion nominations are open. One nomination can protect a coworker from an automatic NARC action.', 'email', { email: 'culture' }), 700);
   }
+  after.inbox.slice(before.inbox.length).forEach((m) => {
+    showToast(m.from, m.subject, 'email', { email: m.id, t: m.t });
+  });
   if (after.narc.adaptation && !before.narc.adaptation) {
     showToast('NARC SYSTEM UPDATE', 'Repeated Focus Time usage detected across Meridian. NARC 2.0 now treats repeated Focus Time as possible activity manipulation.', 'narc');
     setTimeout(() => showToast('People Operations', 'NARC 2.0: new capabilities. Focus Time weighting has changed.', 'email', { email: 'narc2' }), 1200);
@@ -796,8 +814,30 @@ function renderNotificationCenter() {
   els.notificationCenter.replaceChildren(header, list);
 }
 
-function showToast(source, text, app = null, meta = {}) {
+const TOAST_MS = 5000;
+const TOAST_QUEUE_MAX = 3;
+let toastQueue = [];
+let toastShowing = false;
+
+function nextToast() {
   clearTimeout(toastTimer);
+  const next = toastQueue.shift();
+  if (!next) { toastShowing = false; els.toasts.replaceChildren(); return; }
+  toastShowing = true;
+  const toast = h('button', 'toast', h('span', 'app', next.item.source), h('span', 'text', next.item.text));
+  toast.type = 'button';
+  toast.addEventListener('click', () => {
+    openNotification(next.item);
+    nextToast();
+  });
+  els.toasts.replaceChildren(toast);
+  toastTimer = setTimeout(nextToast, TOAST_MS);
+}
+
+// One toast at a time, each shown for its full duration (from #118). Every
+// notification still lands in the notification center; a backlog drops the
+// oldest non-tutorial toasts rather than flashing past them.
+function showToast(source, text, app = null, meta = {}) {
   const item = {
     id: ui.nextNotificationId++,
     source,
@@ -813,14 +853,17 @@ function showToast(source, text, app = null, meta = {}) {
   ui.notifications.push(item);
   renderNotificationCenter();
 
-  const toast = h('button', 'toast', h('span', 'app', source), h('span', 'text', text));
-  toast.type = 'button';
-  toast.addEventListener('click', () => {
-    els.toasts.replaceChildren();
-    openNotification(item);
-  });
-  els.toasts.replaceChildren(toast);
-  toastTimer = setTimeout(() => els.toasts.replaceChildren(), 6000);
+  const entry = { item, priority: Boolean(meta.tutorial) };
+  // A new tutorial step supersedes any older step still waiting, and goes
+  // to the front of the line.
+  if (entry.priority) toastQueue = [entry, ...toastQueue.filter((q) => !q.priority)];
+  else toastQueue.push(entry);
+  while (toastQueue.length > TOAST_QUEUE_MAX) {
+    const drop = toastQueue.findIndex((q) => !q.priority);
+    if (drop < 0) break;
+    toastQueue.splice(drop, 1);
+  }
+  if (!toastShowing) nextToast();
 }
 
 function windowShell(id, title, ...body) {
@@ -1046,7 +1089,8 @@ function renderMessages() {
     const unread = ui.notifications.filter((n) => !n.read && n.app === 'messages' && n.thread === id).length;
     const active = Math.max(requestForThread(id).length, unread) + (id === 'dana' && ui.tutorialUnread ? 1 : 0);
     const preview = latestThreadPreview(id);
-    const row = h('button', `row message-row${active ? ' unread' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', preview)));
+    const gone = state.people[id]?.status === 'fired' && state.people[id].announced;
+    const row = h('button', `row message-row${active ? ' unread' : ''}${gone ? ' is-gone' : ''}`, h('span', `msg-avatar avatar-${id}`, t.name.split(' ').map((p) => p[0]).join('').slice(0, 2)), h('div', 'message-row-copy', h('div', 'top', h('span', 'name', t.name), active ? h('span', 'pill', active) : null), h('div', 'sub sub-b', preview)));
     row.type = 'button'; row.setAttribute('aria-current', String(ui.selectedThread === id));
     row.addEventListener('click', () => {
       ui.selectedThread = id;
@@ -1063,7 +1107,8 @@ function renderMessages() {
   if (!id) detail.append(h('div', 'empty', 'Select a conversation.'));
   else {
     const t = THREADS[id];
-    const wrap = h('div', 'thread', h('header', null, h('b', null, t.name), h('span', null, t.role)));
+    const gone = state.people[id]?.status === 'fired' && state.people[id].announced;
+    const wrap = h('div', `thread${gone ? ' is-gone' : ''}`, h('header', null, h('b', null, t.name), h('span', null, gone ? 'No longer with Meridian' : t.role)));
     const scroll = h('div', 'scroll');
     const msgs = threadMessages(id);
     const tutorialMsgs = id === 'dana' && ui.tutorialStep >= 0 ? TUTORIAL_STEPS.slice(0, ui.tutorialStep + 1) : [];
@@ -1095,7 +1140,7 @@ function renderMessages() {
       compose.append(chips);
     });
     const hasRequiredAction = tutorialRequired || requiredRequests.length > 0;
-    const optional = hasRequiredAction ? [] : chatOptions(state, id).slice(0, 3);
+    const optional = hasRequiredAction || gone ? [] : chatOptions(state, id).slice(0, 3);
     if (optional.length) {
       const typing = Boolean(ui.typingThreads[id]);
       const smallTalk = h('div', `optional-chat${typing ? ' is-waiting' : ''}`, h('div', 'compose-state', typing ? `${t.name.split(' ')[0]} is replying…` : 'Start a conversation'));
@@ -1107,7 +1152,7 @@ function renderMessages() {
       smallTalk.append(chips);
       compose.append(smallTalk);
     }
-    if (!compose.childNodes.length) compose.append(h('div', 'compose-state', 'Nothing else needs a reply right now.'));
+    if (!compose.childNodes.length) compose.append(h('div', 'compose-state', gone ? `${t.name} is no longer with Meridian.` : 'Nothing else needs a reply right now.'));
     wrap.append(compose); detail.append(wrap);
   }
   return windowShell('messages', 'Messages', h('div', 'body', list, detail));
@@ -1266,6 +1311,10 @@ function renderUtilities() {
   const cards = h('div', 'cards');
   cards.append(h('div', 'card', h('h3', null, 'NARC agent'), h('p', null, state.narc.adaptation ? 'Version 2.0 · Synthetic Activity Identification: on' : 'Version 1.4 · Calendar context: on'), h('p', null, 'Status: running · last read ' + clock(Math.floor(state.t / 30) * 30))));
 
+  const logCard = h('div', 'card system-log', h('h3', null, 'System log'));
+  utilityLog(state).slice().reverse().forEach((l) => logCard.append(h('div', 'log-line', h('time', null, l.time), h('span', null, l.text))));
+  cards.append(logCard);
+
   if (state.flags.keepaliveAvailable) {
     const keepalive = h('div', 'card sketchy', h('div', 'utility-kicker', 'UNVERIFIED TOOL'), h('h3', null, 'keepalive.pkg'));
     if (state.flags.keepaliveUsed) {
@@ -1315,6 +1364,54 @@ function renderBrowser() {
   return windowShell('browser', 'Browser', h('div', 'browser-shell', h('div', 'browser-toolbar', h('div', 'browser-address', address)), h('div', 'body browser-body', list, detail)));
 }
 
+// What NARC saw, one line per observation (REDESIGN_SPEC Changes 4 and 6).
+// Every line can be compared with something the player has opened; on a
+// coworker review every line can also be endorsed into the record. Nothing
+// here says which comparison matters or whether one worked.
+function artifactLabel(x) {
+  if (x.source === 'files') return `${FILES[x.file].name} · page ${x.page} · ${FILES[x.file].pages[x.page - 1].title}`;
+  if (x.source === 'messages') return `${THREADS[x.who].name}, ${clock(x.t)}: “${x.text.length > 90 ? `${x.text.slice(0, 88)}…` : x.text}”`;
+  return `System log · ${x.time} · ${x.text}`;
+}
+
+function renderClaims(req, list) {
+  const box = h('div', 'narc-saw', h('div', 'narc-saw-h', 'WHAT NARC SAW'));
+  const isCase = ['priyaCase', 'luisCase', 'marcusCase'].includes(req);
+  const endorsed = isCase ? state.cases[req].endorsed : [];
+  list.forEach((c) => {
+    const row = h('div', 'narc-saw-row', h('p', null, c.text));
+    const tools = h('div', 'narc-saw-tools');
+    tools.append(btn('Compare with…', 'btn small', () => {
+      ui.compare = ui.compare?.claim === c.id ? null : { req, claim: c.id };
+      render();
+    }, { 'aria-expanded': String(ui.compare?.claim === c.id) }));
+    if (isCase) {
+      if (endorsed.includes(c.id)) tools.append(h('span', 'narc-endorsed', 'Endorsed'));
+      else tools.append(btn('Endorse', 'btn small', () => dispatch({ do: 'endorse', req, obs: c.id })));
+    }
+    row.append(tools);
+    if (ui.compare?.req === req && ui.compare.claim === c.id) row.append(renderComparePicker(req, c.id));
+    box.append(row);
+  });
+  return box;
+}
+
+function renderComparePicker(req, claim) {
+  const picker = h('div', 'compare-picker', h('div', 'compare-picker-h', 'Compare with something you’ve opened today'));
+  const items = artifacts(state);
+  if (!items.length) picker.append(h('p', 'compare-empty', 'Nothing opened yet.'));
+  [['files', 'Files'], ['messages', 'Messages'], ['utilities', 'Utilities']].forEach(([source, label]) => {
+    const group = items.filter((x) => x.source === source);
+    if (!group.length) return;
+    picker.append(h('div', 'compare-group', label));
+    group.forEach((x) => picker.append(btn(artifactLabel(x), 'compare-item', () => {
+      ui.compare = null;
+      dispatch({ do: 'compare', req, claim, artifact: x.id });
+    })));
+  });
+  return picker;
+}
+
 function renderNarc() {
   const body = h('div', 'body narc-dashboard');
   const risk = narcRisk();
@@ -1352,8 +1449,10 @@ function renderNarc() {
     h('div', 'narc-section-title', openAssessmentId ? 'ACTION REQUIRED' : 'CURRENT ASSESSMENT'),
     h('h3', null, assessment.title)
   );
+  const seen = openAssessmentId ? claims(state, openAssessmentId) : [];
+  if (seen.length) assessmentCard.append(renderClaims(openAssessmentId, seen));
   [
-    ['SIGNAL', assessment.signal],
+    ...(seen.length ? [] : [['SIGNAL', assessment.signal]]),
     ['NARC SAYS', assessment.inference],
     ['IMPACT', assessment.consequence],
   ].forEach(([label, text]) => assessmentCard.append(h('div', 'narc-explain-row', h('span', null, label), h('p', null, text))));
@@ -1433,7 +1532,11 @@ function renderEnd() {
   // People: what actually happened to each coworker, traceable to the day's choices.
   const peopleSection = h('section', 'end-section');
   peopleSection.append(h('div', 'end-section-h', 'People'));
-  e.peopleList.forEach((p) => peopleSection.append(h('div', `end-person tone-${STATUS_TONE[p.status] || 'soon'}`, h('span', null, p.name), h('b', null, p.label))));
+  e.peopleList.forEach((p) => {
+    peopleSection.append(h('div', `end-person tone-${STATUS_TONE[p.status] || 'soon'}`, h('span', null, p.name), h('b', null, p.label)));
+    // A review the day ended before announcing (Marcus's) is heard here.
+    if (p.line) peopleSection.append(h('p', 'end-person-line', `“${p.line}”`));
+  });
   box.append(peopleSection);
 
   // The contradiction: measured success vs. what actually happened, without
@@ -1449,7 +1552,18 @@ function renderEnd() {
   shade.append(box); els.modal.replaceChildren(shade);
 }
 
+// What the player can see on screen becomes something they can compare
+// later: the open thread, and Utilities' system log. Free, no clock.
+function noteWhatIsVisible() {
+  const visible = isMobile() ? (ui.app ? [ui.app] : []) : ui.openApps;
+  const thread = ui.selectedThread;
+  if (visible.includes('messages') && thread && (!isMobile() || ui.mobileDetail.messages)
+    && state.seenThread[thread] !== state.threads[thread].length) state = act(state, { do: 'view', thread });
+  if (visible.includes('utilities') && utilityLog(state).some((l) => !state.seenUtil[l.id])) state = act(state, { do: 'view', app: 'utilities' });
+}
+
 function render() {
+  noteWhatIsVisible();
   renderChrome(); renderWindows(); renderEnd(); renderNotificationCenter();
   requestAnimationFrame(() => {
     if (!ui.scrollThreadToBottom || ui.selectedThread !== ui.scrollThreadToBottom) return;

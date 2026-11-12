@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { newGame, act, ending, START, END, nextEvent, chatOptions, requestChoices, KEY_PAGE, handoffRisks } from './day.js';
+import { newGame, act, ending, START, END, nextEvent, chatOptions, requestChoices, KEY_PAGE, handoffRisks, claims, artifacts } from './day.js';
 
 // Doing a task now means reading to a depth and then submitting
 // (REDESIGN_SPEC Change 3). These tests still talk in the old outcome names:
@@ -13,6 +13,27 @@ function work(state, id, approach) {
   const depth = id === 'handoff' ? 2 : KEY_PAGE[id];
   while (careful && (s.pages[id] || 1) < depth) s = act(s, { do: 'page', id });
   return act(s, { do: 'task', id, include: careful ? handoffRisks(s).map((r) => r.id) : [] });
+}
+
+// Phase 3: context on a NARC assessment needs evidence found with Compare,
+// and reporting a coworker means endorsing observations, then submitting.
+// These helpers do what a player who found the evidence would do.
+const EVIDENCE = {
+  narcFirstReview: (s) => ['firstRead', `page:${s.narc.firstQuiet.doc}:${KEY_PAGE[s.narc.firstQuiet.doc]}`],
+  priyaCase: () => ['priyaLoad', 'page:client:1'],
+  luisCase: () => ['luisGap1140', 'util:returns'],
+  marcusCase: () => ['marcusLate', 'util:transit'],
+};
+function withEvidence(state, req) {
+  let s = act(state, { do: 'open', id: 'client' });
+  s = act(s, { do: 'view', app: 'utilities' });
+  const [claim, artifact] = EVIDENCE[req](s);
+  return act(s, { do: 'compare', req, claim, artifact });
+}
+function report(state, req) {
+  let s = state;
+  claims(s, req).filter((c) => c.adverse).forEach((c) => { s = act(s, { do: 'endorse', req, obs: c.id }); });
+  return act(s, { do: 'respond', id: req, choice: 'submit' });
 }
 
 // The cheapest-choice loops below fall back to whatever the engine allows
@@ -64,6 +85,8 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
   assert.equal(careful.flags.firstNarcRead, true);
   assert.equal(careful.requests.narcFirstReview.status, 'open', 'NARC asks the player to deal with its first read instead of only logging it');
   assert.ok(careful.log.some((e) => e.kind === 'narc' && /low-input/i.test(e.text)), 'careful work gets an immediate proxy-based NARC read');
+  assert.deepEqual(requestChoices(careful, 'narcFirstReview'), ['accept'], 'no context to attach until the evidence is found');
+  careful = withEvidence(careful, 'narcFirstReview');
   careful = act(careful, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
   assert.equal(careful.requests.narcFirstReview.status, 'handled');
 
@@ -274,7 +297,7 @@ const allowed = (s, id, choice) => (requestChoices(s, id).includes(choice) ? cho
   const cheapest = {
     narcFirstReview: 'accept', danaMorning: 'skip', marcusFavor: 'decline', narcCheckpoint: 'ignore',
     rework: 'escalate', audit: 'clear', handoff: 'summary', danaCheckin: 'brief', marcusFallout: 'standby', narcResponse: 'ignore',
-    priyaCase: 'context', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
+    priyaCase: 'leave', luisCase: 'leave', marcusCase: 'leave', luisTip: 'thank', priyaDraft: 'later', luisCover: 'decline', marcusCredit: 'share',
   };
   for (let hops = 0; hops < 60 && consulted.phase !== 'end'; hops += 1) {
     const openReq = Object.entries(consulted.requests).find(([, r]) => r.status === 'open');
@@ -349,12 +372,12 @@ console.log('day.js tests passed');
 
   s = act(s, { do: 'idle', minutes: (12 * 60 + 40) - s.t });
   assert.equal(s.requests.priyaCase.status, 'open', 'Priya gets a consequential NARC case');
-  s = act(s, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  s = report(s, 'priyaCase');
   assert.equal(s.people.priya.status, 'protected', 'Culture Champion routes the harmful automatic action away from termination');
 
   let sabotage = newGame();
   sabotage = act(sabotage, { do: 'idle', minutes: (12 * 60 + 40) - sabotage.t });
-  sabotage = act(sabotage, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  sabotage = report(sabotage, 'priyaCase');
   assert.equal(sabotage.people.priya.status, 'fired', 'the player can weaponize NARC against a coworker');
   assert.equal(sabotage.flags.coworkerReports, 1);
 }
@@ -364,11 +387,13 @@ console.log('day.js tests passed');
   let s = newGame();
   s = act(s, { do: 'idle', minutes: (15 * 60 + 5) - s.t });
   assert.equal(s.requests.luisCase.status, 'open');
+  s = withEvidence(s, 'luisCase');
   s = act(s, { do: 'respond', id: 'luisCase', choice: 'context' });
   assert.equal(s.people.luis.status, 'employed');
 
   s = act(s, { do: 'idle', minutes: (16 * 60 + 20) - s.t });
   assert.equal(s.requests.marcusCase.status, 'open');
+  s = withEvidence(s, 'marcusCase');
   s = act(s, { do: 'respond', id: 'marcusCase', choice: 'evidence' });
   assert.equal(s.people.marcus.status, 'employed');
   assert.ok(ending(s).lines.some((line) => /Coworker outcomes/.test(line)), 'ending names what happened to coworkers');
@@ -378,20 +403,21 @@ console.log('day.js tests passed');
 {
   let s = act(newGame(), { do: 'idle', minutes: (12 * 60 + 40) - newGame().t });
   const before = s.index;
-  s = act(s, { do: 'respond', id: 'priyaCase', choice: 'report' });
+  s = report(s, 'priyaCase');
   assert.equal(s.people.priya.status, 'fired');
   assert.equal(s.flags.coworkerReports, 1);
   assert.equal(s.flags.informantNoted, undefined, 'a single report is not yet a pattern');
 
   s = act(s, { do: 'idle', minutes: (15 * 60 + 5) - s.t });
   const beforeSecond = s.index;
-  s = act(s, { do: 'respond', id: 'luisCase', choice: 'blame' });
+  s = report(s, 'luisCase');
   assert.equal(s.people.luis.status, 'fired');
   assert.equal(s.flags.coworkerReports, 2);
   assert.equal(s.flags.informantNoted, true, 'the second report is the distinct, nameable pattern');
   // blame's own visible:true accounts for 3 of this; the other 6 is the
   // one-time pattern bonus, on top of what each report already earns alone.
-  assert.equal(s.index, beforeSecond + 9, 'the pattern earns a one-time bump on top of the report itself being visible activity');
+  // Three adverse endorsements at +2 each, plus the one-time pattern bonus.
+  assert.equal(s.index, beforeSecond + 3 * 2 + 6, 'the pattern earns a one-time bump on top of the endorsements themselves');
   assert.ok(s.log.some((e) => /collaboration pattern/i.test(e.text)), 'the pattern is named once it is clearly a pattern');
   assert.ok(ending(s).lines.some((l) => /moved Visible Activity up 6 points/.test(l)), 'the ending states the mechanical benefit plainly, not just narratively');
 }
@@ -544,8 +570,9 @@ console.log('day.js tests passed');
   s = work(s, 'vendor', 'thorough');
   assert.equal(s.time.work, 15 + 40, 'page turns and the commit itself count as work time');
 
+  s = withEvidence(s, 'narcFirstReview');
   s = act(s, { do: 'respond', id: 'narcFirstReview', choice: 'context' });
-  assert.equal(s.time.narc, 5, 'answering a NARC assessment counts as NARC overhead, not work');
+  assert.equal(s.time.narc, 1 + 5, 'comparing and answering a NARC assessment count as NARC overhead, not work');
 
   s = act(s, { do: 'focus' });
   assert.equal(s.time.gamed, 5, 'Focus Time counts as gaming the metric');
@@ -831,7 +858,8 @@ console.log('softened Marcus and ending-line tests passed');
   const fast = work(newGame(), 'vendor', 'quick');
   assert.deepEqual(requestChoices(fast, 'narcFirstReview'), ['accept'], 'nothing to attach after a fast first task');
   const careful = work(newGame(), 'vendor', 'thorough');
-  assert.deepEqual(requestChoices(careful, 'narcFirstReview'), ['context', 'accept']);
+  assert.deepEqual(requestChoices(careful, 'narcFirstReview'), ['accept'], 'reading carefully is not yet evidence');
+  assert.deepEqual(requestChoices(withEvidence(careful, 'narcFirstReview'), 'narcFirstReview'), ['context', 'accept'], 'comparing the read with the page unlocks it');
 }
 
 // ------------------------- a coworker nudge stays in the fiction and conditional
@@ -863,6 +891,118 @@ console.log('softened Marcus and ending-line tests passed');
 }
 console.log('redesign phase 1-2 tests passed');
 
+// =============================================== REDESIGN_SPEC Phase 3
+const at = (s, hhmm) => act(s, { do: 'idle', minutes: hhmm - s.t });
+
+// ------------------------- Compare: only opened artifacts, never a "correct"
+{
+  let s = at(newGame(), 16 * 60 + 20);
+  assert.equal(s.requests.marcusCase.status, 'open');
+  assert.ok(!artifacts(s).some((x) => x.id === 'util:transit'), 'the transit alert is not in the picker until Utilities is opened');
+  const refused = act(s, { do: 'compare', req: 'marcusCase', claim: 'marcusLate', artifact: 'util:transit' });
+  assert.equal(refused.t, s.t, 'an artifact the player never opened cannot be compared');
+  s = act(s, { do: 'view', app: 'utilities' });
+  assert.equal(s.t, 16 * 60 + 20, 'looking is free');
+  const miss = act(s, { do: 'compare', req: 'marcusCase', claim: 'marcusStandup', artifact: 'util:transit' });
+  assert.equal(miss.t, s.t + 1, 'a non-matching pair costs one minute');
+  assert.equal(miss.log.length, s.log.length, 'and says nothing');
+  assert.ok(!requestChoices(miss, 'marcusCase').includes('evidence'));
+  const hit = act(s, { do: 'compare', req: 'marcusCase', claim: 'marcusLate', artifact: 'util:transit' });
+  assert.ok(requestChoices(hit, 'marcusCase').includes('evidence'), 'the matching pair unlocks Submit evidence');
+  assert.ok(!hit.log.slice(s.log.length).some((e) => e.kind === 'narc' || /correct/i.test(e.text)), 'no NARC message, no "correct"');
+}
+
+// ------------------------------- every pair has a second channel
+{
+  let s = at(newGame(), 16 * 60 + 20);
+  s = act(s, { do: 'view', thread: 'marcus' });
+  assert.ok(artifacts(s).some((x) => x.id === 'msg:marcusRaccoon'));
+  s = act(s, { do: 'compare', req: 'marcusCase', claim: 'marcusLate', artifact: 'msg:marcusRaccoon' });
+  assert.ok(s.evidence.marcusCase, 'Marcus’s own raccoon message works as well as the system log');
+
+  let l = at(newGame(), 15 * 60 + 5);
+  l = act(l, { do: 'view', thread: 'luis' });
+  assert.ok(l.threads.luis.some((m) => /Desert Line/.test(m.text)), 'Luis says what the 11:40 gap was');
+  l = act(l, { do: 'compare', req: 'luisCase', claim: 'luisGap1140', artifact: 'msg:luisCarrier' });
+  assert.ok(requestChoices(l, 'luisCase').includes('context'));
+
+  let p = act(newGame(), { do: 'open', id: 'client' });
+  p = at(p, 11 * 60 + 40);
+  p = act(p, { do: 'compare', req: 'priyaCase', claim: 'priyaLoad', artifact: 'page:client:1' });
+  assert.ok(requestChoices(p, 'priyaCase').includes('context'), 'the thread header on page 1 reclassifies Priya');
+}
+
+// --------------------------- the first read's evidence is the page you were on
+{
+  let s = act(newGame(), { do: 'idle', minutes: 2 });
+  s = work(s, 'vendor', 'thorough');
+  const claim = claims(s, 'narcFirstReview')[0];
+  assert.match(claim.text, /Low-input stretch 9:02 AM–/, 'NARC names the stretch from the first page turn');
+  const wrongPage = act(s, { do: 'compare', req: 'narcFirstReview', claim: 'firstRead', artifact: 'page:vendor:2' });
+  assert.ok(!wrongPage.evidence.narcFirstReview);
+  const rightPage = act(s, { do: 'compare', req: 'narcFirstReview', claim: 'firstRead', artifact: 'page:vendor:4' });
+  assert.ok(rightPage.evidence.narcFirstReview);
+}
+
+// ---------------------- endorsing authors the record; outcomes follow from it
+{
+  let s = at(newGame(), 15 * 60 + 5);
+  const before = { t: s.t, index: s.index };
+  s = act(s, { do: 'endorse', req: 'luisCase', obs: 'luisGap1015' });
+  assert.equal(s.t, before.t + 1, 'an endorsement is one minute');
+  assert.equal(s.index, before.index + 2, 'and NARC reads it as collaboration');
+  assert.equal(act(s, { do: 'endorse', req: 'luisCase', obs: 'luisGap1015' }).t, s.t, 'once per observation');
+  assert.ok(!requestChoices(s, 'luisCase').includes('leave'), 'staying out is no longer possible once something is endorsed');
+  const oneGap = act(s, { do: 'respond', id: 'luisCase', choice: 'submit' });
+  assert.equal(oneGap.people.luis.status, 'warning', 'one gap is a warning');
+  s = act(s, { do: 'endorse', req: 'luisCase', obs: 'luisGap1140' });
+  const twoGaps = act(s, { do: 'respond', id: 'luisCase', choice: 'submit' });
+  assert.equal(twoGaps.people.luis.status, 'fired', 'two gaps and no work context fires him');
+  assert.equal(twoGaps.flags.coworkerReports, 1);
+
+  let kind = at(newGame(), 15 * 60 + 5);
+  kind = act(kind, { do: 'endorse', req: 'luisCase', obs: 'luisReturns' });
+  assert.equal(act(kind, { do: 'respond', id: 'luisCase', choice: 'submit' }).people.luis.status, 'employed', 'endorsing the returns line saves him');
+
+  let covered = at(newGame(), 13 * 60 + 50);
+  covered = act(covered, { do: 'respond', id: 'luisCover', choice: 'cover' });
+  covered = at(covered, 15 * 60 + 5);
+  assert.equal(claims(covered, 'luisCase').find((c) => c.id === 'luisAway').adverse, false, 'with the cover, his afternoon reads as a vendor meeting');
+}
+
+// ----------------------------- outcomes arrive in the next hour-block
+{
+  let s = at(newGame(), 15 * 60 + 5);
+  s = report(s, 'luisCase');
+  assert.equal(s.people.luis.status, 'fired');
+  assert.ok(!s.inbox.length, 'nothing announced yet');
+  assert.ok(!s.threads.luis.some((m) => /There goes my afternoon/.test(m.text)), 'no instant quip');
+  s = at(s, 16 * 60 + 4);
+  assert.ok(!s.inbox.length);
+  s = at(s, 16 * 60 + 5);
+  assert.equal(s.inbox[0].subject, 'Headcount adjustment: Customer Operations', '4:05: People Operations email');
+  assert.equal(s.people.luis.announced, true);
+
+  let p = at(newGame(), 11 * 60 + 40);
+  p = act(p, { do: 'respond', id: 'priyaCase', choice: 'leave' });
+  assert.equal(p.outcomes[0].at, 12 * 60 + 5, 'Priya’s 11:40 case is heard about at 12:05');
+
+  let m = at(newGame(), 16 * 60 + 20);
+  m = withEvidence(m, 'marcusCase');
+  m = act(m, { do: 'respond', id: 'marcusCase', choice: 'evidence' });
+  m = at(m, END);
+  const marcus = ending(m).peopleList.find((x) => x.id === 'marcus');
+  assert.match(marcus.line, /RACCOON/, 'Marcus’s outcome lands on the end screen, in his words');
+  assert.equal(m.flags.raccoonWitness, true);
+}
+
+// -------------------------- Culture Champion nominations open at 10:30
+{
+  assert.equal(at(newGame(), 10 * 60 + 29).flags.cultureEmailAvailable, undefined);
+  assert.equal(at(newGame(), 10 * 60 + 30).flags.cultureEmailAvailable, true, 'before Priya’s case, with less information');
+}
+console.log('redesign phase 3 tests passed');
+
 // ======================================================== bot suite (REDESIGN_SPEC)
 // Five constant-policy bots plus one random bot (run over several seeds), each
 // played to 5:00. The suite reports every run, then fails if any of the
@@ -889,7 +1029,7 @@ console.log('redesign phase 1-2 tests passed');
   const VISIBLE = {
     narcFirstReview: ['accept'], narcCheckpoint: ['ignore'], danaMorning: ['skip'], priyaDraft: ['later'], luisCover: ['decline'],
     marcusCredit: ['share'], luisTip: ['ignore'], marcusFavor: ['decline'], danaCheckin: ['trustNarc', 'brief'], marcusFallout: ['standby'],
-    priyaCase: ['report'], luisCase: ['blame'], marcusCase: ['confirm'], narcResponse: ['ignore'], marcusLoop: ['skip'], priyaDraft2: ['skip'], luisCalendar: ['stand'],
+    priyaCase: ['submit'], luisCase: ['submit'], marcusCase: ['submit'], narcResponse: ['ignore'], marcusLoop: ['skip'], priyaDraft2: ['skip'], luisCalendar: ['stand'],
   };
   const PASSIVE = {
     narcFirstReview: ['accept'], narcCheckpoint: ['ignore'], danaMorning: ['skip'], priyaDraft: ['later'], luisCover: ['decline'],
@@ -909,7 +1049,8 @@ console.log('redesign phase 1-2 tests passed');
 
   const ALL_CHOICES = ['context', 'accept', 'ignore', 'skip', 'help', 'later', 'deflect', 'cover', 'decline', 'share', 'own', 'thank',
     'update', 'brief', 'trustNarc', 'review', 'apologize', 'standby', 'quiet', 'report', 'leave', 'blame', 'evidence', 'confirm',
-    'explain', 'join', 'read', 'stand'];
+    'explain', 'join', 'read', 'stand', 'submit'];
+  const CASES = ['priyaCase', 'luisCase', 'marcusCase'];
 
   function respond(s, id, prefs) {
     for (const choice of [...prefs, ...ALL_CHOICES]) {
@@ -955,18 +1096,21 @@ console.log('redesign phase 1-2 tests passed');
   }
 
   const POLICIES = {
-    careful: { label: 'Always careful, always kind', prefs: KIND, careful: true, fill: 'chat' },
-    fast: { label: 'Always fast, always visible', prefs: VISIBLE, careful: false, fill: 'chat' },
-    gamer: { label: 'Focus Time + keepalive', prefs: VISIBLE, careful: true, fill: 'game', game: true },
+    careful: { label: 'Always careful, always kind', prefs: KIND, careful: true, fill: 'chat', seek: true },
+    fast: { label: 'Always fast, always visible', prefs: VISIBLE, careful: false, fill: 'chat', endorse: true },
+    gamer: { label: 'Focus Time + keepalive', prefs: VISIBLE, careful: true, fill: 'game', game: true, endorse: true },
     passive: { label: 'Never acts', prefs: PASSIVE, careful: null, fill: 'idle' },
-    informant: { label: 'Careful work, reports coworkers', prefs: INFORMANT, careful: true, fill: 'chat', nominate: 'luis' },
+    informant: { label: 'Careful work, reports coworkers', prefs: INFORMANT, careful: true, fill: 'chat', nominate: 'luis', endorse: true },
   };
 
   function play(policy, seed = null) {
     const rng = seed === null ? null : mulberry32(seed);
     let s = newGame();
-    const run = { skips: 0, reviewEver: false, maxIndex: s.index, choices: {}, openedAt: {}, answeredLate: 0, trustedLost: false, wasTrusted: false };
+    const run = { tried: {}, skips: 0, reviewEver: false, maxIndex: s.index, choices: {}, openedAt: {}, answeredLate: 0, trustedLost: false, wasTrusted: false };
     for (let step = 0; step < 500 && s.phase !== 'end'; step += 1) {
+      // Looking at threads and Utilities is free; every bot keeps up.
+      ['luis', 'marcus', 'priya', 'dana'].forEach((thread) => { s = act(s, { do: 'view', thread }); });
+      s = act(s, { do: 'view', app: 'utilities' });
       const before = s;
       const openReq = Object.entries(s.requests).find(([, r]) => r.status === 'open');
       const pendingTask = Object.entries(s.tasks).find(([, t]) => t.status === 'pending');
@@ -976,6 +1120,16 @@ console.log('redesign phase 1-2 tests passed');
         s = act(s, { do: 'nominate', who: ['luis', 'marcus', 'priya'][Math.floor(rng() * 3)] });
       } else if (policy.game && s.flags.keepaliveAvailable && !s.flags.keepaliveUsed) {
         s = act(s, { do: 'keepalive' });
+      } else if (openReq && (policy.seek || rng) && EVIDENCE[openReq[0]] && !s.evidence[openReq[0]] && !run.tried[openReq[0]]
+        && (openReq[0] !== 'narcFirstReview' || s.narc.firstQuiet) && (!rng || rng() < 0.5)) {
+        // Looks for the discrepancy once: compares the right pair if the
+        // player has the artifact open, which a careful reader usually does.
+        run.tried[openReq[0]] = true;
+        const [claim, artifact] = EVIDENCE[openReq[0]](s);
+        if (artifacts(s).some((x) => x.id === artifact) && claims(s, openReq[0]).some((c) => c.id === claim)) s = act(s, { do: 'compare', req: openReq[0], claim, artifact });
+      } else if (openReq && CASES.includes(openReq[0]) && (policy.endorse || (rng && rng() < 0.5)) && !s.cases[openReq[0]].endorsed.length) {
+        claims(s, openReq[0]).filter((c) => (rng ? rng() < 0.5 : c.adverse)).forEach((c) => { s = act(s, { do: 'endorse', req: openReq[0], obs: c.id }); });
+        if (!s.cases[openReq[0]].endorsed.length) s = act(s, { do: 'endorse', req: openReq[0], obs: claims(s, openReq[0])[0].id });
       } else if (openReq) {
         const prefs = rng ? [...ALL_CHOICES].sort(() => rng() - 0.5) : policy.prefs[openReq[0]] || [];
         const { next, choice } = respond(s, openReq[0], prefs);
