@@ -952,9 +952,9 @@ Change 6 says to cut the instant quip when a coworker is fired. These lines no l
 
 | # | Source | Current text | Now arrives | Edited text |
 | ---: | --- | --- | --- | --- |
-| E1 | `day.js` CASE_LINES · Luis fired | Well. There goes my afternoon. | 4:05, before the headcount email |  |
-| E2 | `day.js` CASE_LINES · Priya fired | Okay. That’s the version of me that’s on the record now. | 12:05, before the headcount email |  |
-| E3 | `day.js` CASE_LINES · Marcus fired | Tell the raccoon I forgive him. | End screen |  |
+| E1 | `day.js` CASE_LINES · Luis fired | Well. There goes my afternoon. | 4:05, before the headcount email | KEEP, deferred (Paige, 2026-11-11) |
+| E2 | `day.js` CASE_LINES · Priya fired | Okay. That’s the version of me that’s on the record now. | 12:05, before the headcount email | KEEP, deferred (Paige, 2026-11-11) |
+| E3 | `day.js` CASE_LINES · Marcus fired | Tell the raccoon I forgive him. | End screen | KEEP, deferred (Paige, 2026-11-11) |
 
 ### Changed text
 
@@ -1004,13 +1004,13 @@ Change 8 replaces "The contradiction" section with the facts side by side and th
 
 | # | Source | Current text | Edited text |
 | ---: | --- | --- | --- |
-| F1 | `day.js` contradictions | NARC rated the day well. Some of that rushed work will surface as a problem later this quarter. |  |
-| F2 | `day.js` contradictions | NARC calls this a strong day. A coworker lost their job during it. |  |
-| F3 | `day.js` contradictions | Reporting on two coworkers raised your Visible Activity by 6 points. It also cost their trust. |  |
-| F4 | `day.js` contradictions | Visible Activity ended at ${index}/100. Real contribution credit for the day: 0 -- NARC doesn't track that number at all. |  |
-| F5 | `day.js` contradictions | A meeting that never happened raised your collaboration signal while Luis was at the dentist. |  |
-| F6 | `day.js` contradictions | You made the scope call alone and shared the credit. NARC recorded two contributors. |  |
-| F7 | `day.js` contradictions | You did the work carefully and missed nothing. NARC still isn’t impressed. |  |
+| F1 | `day.js` contradictions | NARC rated the day well. Some of that rushed work will surface as a problem later this quarter. | Leave out (Paige, 2026-11-11) |
+| F2 | `day.js` contradictions | NARC calls this a strong day. A coworker lost their job during it. | Leave out (Paige, 2026-11-11) |
+| F3 | `day.js` contradictions | Reporting on two coworkers raised your Visible Activity by 6 points. It also cost their trust. | Leave out (Paige, 2026-11-11) |
+| F4 | `day.js` contradictions | Visible Activity ended at ${index}/100. Real contribution credit for the day: 0 -- NARC doesn't track that number at all. | Leave out (Paige, 2026-11-11) |
+| F5 | `day.js` contradictions | A meeting that never happened raised your collaboration signal while Luis was at the dentist. | Leave out (Paige, 2026-11-11) |
+| F6 | `day.js` contradictions | You made the scope call alone and shared the credit. NARC recorded two contributors. | Leave out (Paige, 2026-11-11) |
+| F7 | `day.js` contradictions | You did the work carefully and missed nothing. NARC still isn’t impressed. | Leave out (Paige, 2026-11-11) |
 
 ### Changed text
 
