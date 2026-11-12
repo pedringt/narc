@@ -252,3 +252,13 @@ Settled with Paige on 2026-10-21. These are inputs to the build, not open items.
 | Thesis lines | Cut as scripted beats; the funny ones move to optional chat replies | Keeps the voice; nobody hears the thesis without asking |
 | Employee of the Month | Outcomes only: no review, no flag, nobody fired | The time budget makes the "can't do everything" point; the rank shouldn't restate it |
 | First playtest | After Phases 1 and 2 together | The first run should be the real thing, with paged documents, not pressure on top of labeled buttons |
+| Tuning levers (Oct 21) | Skipped idle time drifts like quiet work; context on coworker cases is quiet | The spec's numbers left careful play dominant (bot suite) |
+| Budget-binds check (Oct 22) | Replaced "≥440 minutes by choice" with "no run reads everything, misses nothing and stays clean" | The day holds about 380 choosable minutes, so 440 was unreachable by construction |
+| Calls with people (Nov 11) | Joining Marcus's 2:40 call counts as visible activity | Brings the careful run into its 45–55 target without moving the others |
+| Wellness module (#125, Nov 11) | Precedes Dana's review meeting, 5 in-game minutes, one variant per kind of review | Satire in the system's own voice, in-game time only |
+| Gaming pattern rule (#126, Nov 11) | keepalive is repeatable; two Focus Time or keepalive uses in one read window set the Synthetic flag; Focus Time follows the same rule after NARC 2.0 | Makes gaming a timing game, traceable to the minute |
+| Shareable summary (#124, Nov 11) | Emoji grid, coworkers named, built with Phase 4 | Players compare runs |
+| Logging off early (Nov 11) | With work still pending: no bonuses, rank "Session Incomplete" | Logging off at 9:00 otherwise read as a perfect day |
+| Contradiction lines (Nov 11) | Not shown on the end screen | The facts sit side by side; the closing question does the work |
+| Fired coworkers' last lines (Nov 11) | Kept, but deferred to the outcome (Marcus's on the end screen) instead of cut | Keeps the voice without an instant quip |
+| Dana's old "review is open" check-in line (Nov 11) | Removed | Any open review makes the check-in the review meeting, so it can never fire |

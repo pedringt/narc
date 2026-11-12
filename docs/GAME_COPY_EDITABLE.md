@@ -534,7 +534,7 @@ Under Change 1 every open review turns Dana's check-in into the review meeting, 
 
 | # | Source | Removed text | Edited text |
 | ---: | --- | --- | --- |
-| R14 | `day.js` danaCheckin | Quick check-in. NARC still has a review open. Give me the real picture if the record is missing something; otherwise keep it short. | DELETE |
+| R14 | `day.js` danaCheckin | Quick check-in. NARC still has a review open. Give me the real picture if the record is missing something; otherwise keep it short. | DELETE (confirmed by Paige, 2026-11-11) |
 
 ### Changed text
 
