@@ -942,6 +942,58 @@ New coworker acknowledgments (one line each, after the player's reply):
 | A22 | `day.js` REQUEST_ACKS · standby | (new) | Sure. |  |
 | A23 | `day.js` REQUEST_ACKS · context | (new) | Got it. I’ll note it on my end too. |  |
 
+## Redesign Phase 3 (branch `redesign-phase-3`, 2026-11-11)
+
+Evidence pairs and the Compare picker (Change 4), coworker reviews with Endorse and outcomes that arrive in the next hour-block (Change 6).
+
+### Lines the spec says to cut — still in the game, needs your OK
+
+Change 6 says to cut the instant quip when a coworker is fired. These lines no longer fire instantly: they now arrive with the outcome, in the next hour-block, just before the thread goes quiet (Marcus's on the end screen). They have **not** been cut. Write **DELETE** to cut one.
+
+| # | Source | Current text | Now arrives | Edited text |
+| ---: | --- | --- | --- | --- |
+| E1 | `day.js` CASE_LINES · Luis fired | Well. There goes my afternoon. | 4:05, before the headcount email |  |
+| E2 | `day.js` CASE_LINES · Priya fired | Okay. That’s the version of me that’s on the record now. | 12:05, before the headcount email |  |
+| E3 | `day.js` CASE_LINES · Marcus fired | Tell the raccoon I forgive him. | End screen |  |
+
+### Changed text
+
+| # | Source | Was | Now | Edited text |
+| ---: | --- | --- | --- | --- |
+| E4 | `day.js` Luis, 11:45 | Back. That’s another gap on the record. Nobody’s asked what it was. | Back. Six minutes in the stairwell on the phone with Desert Line about the Salem holds. That’s another gap on the record. |  |
+| E5 | `day-desktop-app.js` priyaCase | Attach context / Tell Priya to post less / Confirm the flag | Reclassify / Tell Priya to post less / Submit the record / Stay out |  |
+| E6 | `day-desktop-app.js` luisCase | Attach context / Endorse: likely gaming / Stay out | Add work context / Submit the record / Stay out |  |
+| E7 | `day-desktop-app.js` marcusCase | Attach the transit alert / Confirm the late arrival / Stay out | Submit evidence / Submit the record / Stay out |  |
+| E8 | `day-desktop-app.js` case action lines | Add context, advise Priya to reduce volume, or confirm the flag. (and the Luis/Marcus versions) | Endorse what the record should say, or stay out. |  |
+| E9 | `day.js` priyaCase context result | Context added to Priya’s review: 31 of 52 threads are Brightline and onboarding. Eight minutes. | Priya’s review reclassified: 31 of 52 threads are tagged client. Eight minutes. |  |
+| E10 | `day.js` luisCase context result | Context added to Luis’s review: carrier calls and returns during the gaps. Six minutes. | Work context added to Luis’s review: the carrier call and the returns he closed during the gaps. Six minutes. |  |
+
+### New copy
+
+| # | Source | Current text | Edited text |
+| ---: | --- | --- | --- |
+| E11 | `day.js` System log | 6:02 AM · Carrier routing · 3 shipments held by rule RR-0457 |  |
+| E12 | `day.js` System log | 8:14 AM · Transit feed · Route 14 service suspended 22 min (animal on vehicle) |  |
+| E13 | `day.js` System log | 9:00 AM · NARC agent · monitoring started |  |
+| E14 | `day.js` System log | 11:41 AM · Returns queue · RMA-3318 closed by l.perez (phone) |  |
+| E15 | `day.js` System log | 11:44 AM · Returns queue · RMA-3321 closed by l.perez (phone) |  |
+| E16 | `day.js` first review claim | Low-input stretch ${from}–${to} during document work |  |
+| E17 | `day.js` Priya observations | 52 message threads this week · Communication Load elevated / 14 messages in a lunch thread with Claire / Median reply time: 3 minutes / 19 messages to Brightline during the escalation |  |
+| E18 | `day.js` Luis observations | 6-minute presence gap at 10:15 / Presence gap 11:40–11:46 / Away 1:50–3:00 · calendar: Vendor meeting (or: no entry / Focus Time) / Returns queue: 14 RMAs closed before 1:50 |  |
+| E19 | `day.js` Marcus observations | Late arrival 9:09 · pattern: 4 of 5 days / Missed standup 9:00–9:09 / Standup notes posted by Marcus, 9:25 |  |
+| E20 | `day.js` evidence log | Evidence logged against “${claim}”. |  |
+| E21 | `day.js` endorse log | Endorsed on ${name}’s review: ${observation}. |  |
+| E22 | `day.js` submit results | Endorsed observations submitted on Priya’s / Luis’s / Marcus’s review. |  |
+| E23 | `day.js` Priya stays out | Stayed out of Priya’s review. |  |
+| E24 | `day.js` headcount email | Headcount adjustment: ${department} / Effective today, ${name} is no longer with Meridian. / Please route ${department} requests to the team queue until coverage is confirmed. / Thank you for your continued focus. |  |
+| E25 | `day.js` headcount log | People Operations: ${name} is no longer with Meridian. |  |
+| E26 | `day.js` Priya outcomes | Review closed. Someone put the client threads on the record. Thank you. / Review closed with a warning. So, fewer threads, I guess. / Someone else added context. You stayed out. Noted. / Nobody added anything. So 52 threads meant what NARC said. |  |
+| E27 | `day.js` Luis outcomes | Review closed. Someone put the returns on the record. Thanks. / Warning on file. Could have been worse. |  |
+| E28 | `day.js` Marcus outcomes | Review closed. Someone remembered I post the standup notes. Thanks. / Warning on file. The raccoon and I will be more punctual. |  |
+| E29 | `day-desktop-app.js` NARC | WHAT NARC SAW / Compare with… / Endorse / Endorsed / Compare with something you’ve opened today / Nothing opened yet. |  |
+| E30 | `day-desktop-app.js` Messages | No longer with Meridian / ${name} is no longer with Meridian. |  |
+| E31 | `day-desktop-app.js` Utilities | System log |  |
+
 ## Editing notes
 
 - You can replace only the text you want changed and leave the rest of the **Edited text** column blank.

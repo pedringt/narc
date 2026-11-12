@@ -888,3 +888,61 @@
   color: #fff;
   font-weight: 800;
 }
+
+/* What NARC saw, Compare and Endorse (REDESIGN_SPEC Changes 4 and 6) */
+.narc-saw { margin: 4px 0 14px; }
+.narc-saw-h { margin-bottom: 6px; color: var(--n-muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
+.narc-saw-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--n-line);
+}
+.narc-saw-row:first-of-type { border-top: 0; }
+.narc-saw-row > p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+.narc-saw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.narc-saw-tools .btn.small { padding: 4px 10px; font-size: 12px; }
+.narc-endorsed { color: var(--n-warn); font-size: 12px; font-weight: 700; }
+.compare-picker {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--n-line);
+  border-radius: 8px;
+  background: var(--n-panel2);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.compare-picker-h { margin-bottom: 6px; color: var(--n-muted); font-size: 12px; }
+.compare-group { margin: 10px 0 4px; color: var(--n-accent); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.compare-item {
+  display: block;
+  width: 100%;
+  margin: 2px 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--n-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+.compare-item:hover, .compare-item:focus-visible { border-color: var(--n-line); background: var(--n-panel); }
+.compare-empty { margin: 0; color: var(--n-muted); font-size: 12px; }
+
+/* Utilities system log */
+.system-log .log-line {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid var(--app-line);
+  font-size: 12px;
+}
+.system-log .log-line:first-of-type { border-top: 0; }
+.system-log time { color: var(--app-muted); font-variant-numeric: tabular-nums; }
+
+/* A coworker who is gone */
+.message-row.is-gone { opacity: .55; }
+.thread.is-gone .scroll { opacity: .6; }
+.end-person-line { margin: 2px 0 8px; color: var(--app-muted); font-size: 13px; font-style: italic; }

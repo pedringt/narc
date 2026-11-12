@@ -74,3 +74,22 @@ assert.match(app, /tick-synthetic/, 'the Visible Activity meter shows the synthe
 assert.match(app, /Review opens in \$\{left\} min unless activity recovers\./, 'the grace window shows an in-game countdown');
 assert.match(app, /notification-source/, 'notifications should render an explicit unread indicator');
 assert.match(app, /primary-decision/, 'consequential NARC choices should have a stronger visual hierarchy');
+
+// REDESIGN_SPEC Phase 3: evidence and cases
+assert.match(app, /btn\('Compare with…'/, 'every line NARC saw can be compared with an opened artifact');
+assert.match(app, /btn\('Endorse'/, 'coworker review observations are endorsed, not reported');
+assert.doesNotMatch(app, /'report', 'Confirm the flag'|'blame'|'confirm', 'Confirm/, 'the old report/blame/confirm buttons are gone');
+assert.match(app, /artifacts\(state\)/, 'the Compare picker lists only what the engine says the player has opened');
+assert.doesNotMatch(app, /You found|Match found|That’s correct|Evidence found/i, 'a working comparison is never announced as correct');
+assert.match(app, /'System log'/, 'Utilities has the system log that carries the transit alert');
+assert.match(app, /state\.inbox\.forEach/, 'engine emails (headcount notices) reach the Email app');
+assert.match(app, /No longer with Meridian/, 'a fired coworker’s thread goes quiet once it is announced');
+assert.match(app, /noteWhatIsVisible\(\)/, 'what is on screen is recorded as seen for the Compare picker');
+console.log('phase 3 desktop checks passed');
+
+// Salvaged from #118
+assert.match(app, /finalDelivered/, 'the final tutorial message is delivered as a toast like every earlier step');
+assert.match(app, /toastQueue/, 'toasts queue instead of replacing each other');
+assert.match(app, /TOAST_QUEUE_MAX/, 'the toast backlog is bounded');
+assert.doesNotMatch(app, /els\.toasts\.replaceChildren\(toast\);\s*toastTimer = setTimeout\(\(\) => els\.toasts\.replaceChildren\(\), 6000\)/, 'the single-slot 6s replacement is gone');
+console.log('toast queue checks passed');

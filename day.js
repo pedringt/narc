@@ -154,9 +154,9 @@ export function newGame() {
     trust: { luis: 0, marcus: 0, priya: 0 },
     standing: { status: 'standard', note: 'No active recognition or review.' },
     people: {
-      luis: { status: 'employed', champion: false },
-      marcus: { status: 'employed', champion: false },
-      priya: { status: 'employed', champion: false },
+      luis: { status: 'employed', champion: false, announced: false },
+      marcus: { status: 'employed', champion: false, announced: false },
+      priya: { status: 'employed', champion: false, announced: false },
     },
     culture: { nominated: null },
     outbound: { statusDana: false, procurementExtension: false, clientForward: false },
@@ -165,14 +165,29 @@ export function newGame() {
     // has looked at, so a coworker can only nudge about a file that's open.
     pages: {},
     opened: {},
+    // Phase 3 (REDESIGN_SPEC Changes 4 and 6). pageFrom: when each document's
+    // first page turn happened, so NARC can name the quiet stretch.
+    // seenThread / seenUtil: what the player has actually looked at, which is
+    // all the Compare picker will offer. evidence: requests a discrepancy has
+    // unlocked a verb on. cases: observations the player endorsed on each
+    // coworker review. outcomes: case results waiting for their hour-block.
+    // inbox: emails the engine sends (headcount notices).
+    pageFrom: {},
+    seenThread: { luis: 0, marcus: 0, priya: 0, dana: 0 },
+    seenUtil: {},
+    evidence: {},
+    cases: { priyaCase: { endorsed: [] }, luisCase: { endorsed: [] }, marcusCase: { endorsed: [] } },
+    outcomes: [],
+    inbox: [],
     chats: {},
     pendingReplies: {},
     threads: { luis: [], marcus: [], priya: [], dana: [] },
   };
 }
 
-function say(s, thread, text) {
-  s.threads[thread].push({ t: s.t, text, from: 'them' });
+// key names a message that can serve as evidence in the Compare picker.
+function say(s, thread, text, key = null) {
+  s.threads[thread].push({ t: s.t, text, from: 'them', key });
   s.log.push({ t: s.t, kind: 'message', who: thread, text, from: 'them' });
 }
 
@@ -237,7 +252,8 @@ function nextEvent(s) {
   if (!flags.marcusRaccoon) candidates.push({ t: 10 * 60 + 55, label: 'a coworker message' });
   if (!flags.luisBathroomFollowup) candidates.push({ t: 11 * 60 + 45, label: 'Luis disappearing again' });
   if (!flags.marcusAttendanceFollowup) candidates.push({ t: 12 * 60 + 10, label: 'Marcus attendance context' });
-  if (!flags.cultureEmailAvailable) candidates.push({ t: 11 * 60 + 35, label: 'a company culture email' });
+  if (!flags.cultureEmailAvailable) candidates.push({ t: 10 * 60 + 30, label: 'a company culture email' });
+  s.outcomes.filter((o) => !o.done).forEach((o) => candidates.push({ t: o.at, label: 'a review outcome' }));
   if (!flags.surveyEmailAvailable) candidates.push({ t: 11 * 60 + 50, label: 'an employee survey email' });
   if (!flags.luisLunchMessage) candidates.push({ t: 12 * 60 + 5, label: 'a coworker message' });
   if (requests.danaCheckin.status === 'pending') candidates.push({ t: requests.danaCheckin.at, label: "Dana's check-in" });
@@ -445,19 +461,21 @@ function checkThresholds(s) {
   }
   if (!s.flags.marcusRaccoon && s.t >= 10 * 60 + 55) {
     s.flags.marcusRaccoon = true;
-    say(s, 'marcus', 'For the record: a raccoon got on the 8:14 bus. The transit feed confirms it. I hate that the dumbest sentence I’ve said today has the best evidence.');
+    say(s, 'marcus', 'For the record: a raccoon got on the 8:14 bus. The transit feed confirms it. I hate that the dumbest sentence I’ve said today has the best evidence.', 'marcusRaccoon');
   }
   if (!s.flags.priyaChatterFollowup && s.t >= 11 * 60 + 5) {
     s.flags.priyaChatterFollowup = true;
     say(s, 'priya', 'Up to 52 threads now. Brightline, onboarding, lunch. NARC has one number for all of it.');
   }
-  if (!s.flags.cultureEmailAvailable && s.t >= 11 * 60 + 35) {
+  // 10:30, before Priya's case opens (REDESIGN_SPEC Change 6): the player
+  // picks who to protect before knowing who will need it.
+  if (!s.flags.cultureEmailAvailable && s.t >= 10 * 60 + 30) {
     s.flags.cultureEmailAvailable = true;
     note(s, 'Culture Team opened Culture Champion nominations. One nomination can route a coworker\'s next NARC action to human review.', 'system');
   }
   if (!s.flags.luisBathroomFollowup && s.t >= 11 * 60 + 45) {
     s.flags.luisBathroomFollowup = true;
-    say(s, 'luis', 'Back. That’s another gap on the record. Nobody’s asked what it was.');
+    say(s, 'luis', 'Back. Six minutes in the stairwell on the phone with Desert Line about the Salem holds. That’s another gap on the record.', 'luisCarrier');
   }
   if (!s.flags.surveyEmailAvailable && s.t >= 11 * 60 + 50) {
     s.flags.surveyEmailAvailable = true;
@@ -581,12 +599,38 @@ function checkThresholds(s) {
     }
   }
 
+  deliverOutcomes(s);
+
   if (s.t >= END && s.phase !== 'end') s.phase = 'end';
+}
+
+// A coworker review's result arrives in the next hour-block, through the
+// same inbox and threads the player has used all day (REDESIGN_SPEC Change
+// 6). A firing is a People Operations email and the thread goes quiet.
+const DEPARTMENT = { luis: 'Customer Operations', marcus: 'Account Management', priya: 'Product Marketing' };
+function deliverOutcomes(s) {
+  s.outcomes.forEach((o) => {
+    if (o.done || s.t < o.at) return;
+    o.done = true;
+    s.people[o.who].announced = true;
+    if (o.line) say(s, o.who, o.line);
+    if (s.people[o.who].status === 'fired') {
+      s.inbox.push({
+        id: `headcount-${o.who}`, t: s.t, from: 'People Operations', subject: `Headcount adjustment: ${DEPARTMENT[o.who]}`,
+        body: [
+          `Effective today, ${PEOPLE[o.who].name} is no longer with Meridian.`,
+          `Please route ${DEPARTMENT[o.who]} requests to the team queue until coverage is confirmed.`,
+          'Thank you for your continued focus.',
+        ],
+      });
+      note(s, `People Operations: ${PEOPLE[o.who].name} is no longer with Meridian.`, 'consequence');
+    }
+  });
 }
 
 // Every player action except logging off. idle is the engine-only "just
 // wait" kept for tests, and deliverChat is the UI's typing-delay timer.
-const JUMP_ON = new Set(['task', 'respond', 'page', 'emailAction', 'focus', 'nominate', 'chat', 'keepalive']);
+const JUMP_ON = new Set(['task', 'respond', 'page', 'emailAction', 'focus', 'nominate', 'chat', 'keepalive', 'compare', 'endorse']);
 
 export function act(state, a) {
   const s = structuredClone(state);
@@ -622,10 +666,9 @@ export function act(state, a) {
       const firstRead = !s.flags.firstNarcRead;
       if (firstRead) {
         s.flags.firstNarcRead = true;
-        // Until Phase 3's evidence pairs exist, the careful first task is the
-        // evidence: the player was reading the document NARC saw as idle.
         s.flags.firstTaskCareful = opt.visible === false;
         s.flags.firstNarcReadType = opt.visible === false ? 'low' : 'visible';
+        s.narc.firstQuiet = { doc: a.id, from: s.pageFrom[a.id] || s.t, to: s.t + minutes };
       }
       spend(s, minutes, { visible: opt.visible, category: 'work' });
       if (firstRead) {
@@ -674,68 +717,7 @@ export function act(state, a) {
         note(s, 'Team-wide Focus Time pattern applied to your account. No individual Focus Time use on record.', 'narc');
       }
 
-      if (a.id === 'priyaCase') {
-        if (a.choice === 'context') {
-          s.people.priya.status = 'employed';
-          s.trust.priya += 2;
-          say(s, 'priya', 'Thanks. Review closed. Same 52 threads, apparently fine now.');
-        } else if (a.choice === 'quiet' || a.choice === 'report') {
-          if (s.people.priya.champion) {
-            s.people.priya.status = 'protected';
-            say(s, 'priya', 'Culture Champion means a person has to look at this one. Weird that “a person looks at it” is a perk now.');
-          } else {
-            s.people.priya.status = 'fired';
-            say(s, 'priya', a.choice === 'quiet' ? 'I’ll cut the chatter. Same work, fewer messages. NARC should like that.' : 'Okay. That’s the version of me that’s on the record now.');
-          }
-          if (a.choice === 'report') markCoworkerReport(s);
-        }
-      }
-      if (a.id === 'luisCase') {
-        if (a.choice === 'context') {
-          s.people.luis.status = 'employed';
-          s.trust.luis += 2;
-          say(s, 'luis', 'You may have just saved my job. Thanks for telling them I was working.');
-        } else if (a.choice === 'blame') {
-          if (s.people.luis.champion) s.people.luis.status = 'protected';
-          else s.people.luis.status = 'fired';
-          markCoworkerReport(s);
-          say(s, 'luis', s.people.luis.status === 'fired' ? 'Well. There goes my afternoon.' : 'A person looked at it and closed it. I take back half of what I said about Culture Champion.');
-        } else if (s.people.luis.champion) {
-          s.people.luis.status = 'protected';
-        } else if (s.trust.luis >= 2) {
-          // Earlier goodwill reflected here (#104): staying out doesn't mean
-          // nobody speaks up. Someone he trusts already does.
-          s.people.luis.status = 'employed';
-          say(s, 'luis', 'Someone else spoke up. You stayed out of it. Noticed both.');
-        } else if (s.trust.luis <= -1) {
-          s.people.luis.status = 'fired';
-          say(s, 'luis', "Nobody spoke up. So the gaps meant what NARC said they meant.");
-        } else {
-          s.people.luis.status = 'warning';
-        }
-      }
-      if (a.id === 'marcusCase') {
-        if (a.choice === 'evidence') {
-          s.people.marcus.status = 'employed';
-          s.trust.marcus += 2;
-          say(s, 'marcus', 'THE RACCOON IS NOW OFFICIALLY CONTEXT. I have never felt more vindicated.');
-        } else if (a.choice === 'confirm') {
-          if (s.people.marcus.champion) s.people.marcus.status = 'protected';
-          else s.people.marcus.status = 'fired';
-          markCoworkerReport(s);
-          say(s, 'marcus', s.people.marcus.status === 'fired' ? 'Tell the raccoon I forgive him.' : 'A person looked at the transit alert. One person. That’s all it took.');
-        } else if (s.people.marcus.champion) {
-          s.people.marcus.status = 'protected';
-        } else if (s.trust.marcus >= 2) {
-          s.people.marcus.status = 'employed';
-          say(s, 'marcus', 'Someone backed me up. Small office.');
-        } else if (s.trust.marcus <= -1) {
-          s.people.marcus.status = 'fired';
-          say(s, 'marcus', "NARC already had the pattern. Today’s reason never made it in.");
-        } else {
-          s.people.marcus.status = 'warning';
-        }
-      }
+      if (CASE_WHO[a.id]) resolveCase(s, a.id, a.choice);
 
       if (a.id === 'narcFirstReview' && a.choice === 'accept') {
         if (s.flags.firstNarcReadType === 'visible') {
@@ -769,6 +751,42 @@ export function act(state, a) {
       }
       break;
     }
+    case 'view': {
+      // Looking at a thread or at Utilities is free. It is what makes a
+      // message or a log line available to the Compare picker.
+      if (a.thread && s.threads[a.thread]) s.seenThread[a.thread] = s.threads[a.thread].length;
+      if (a.app === 'utilities') utilityLog(s).forEach((l) => { s.seenUtil[l.id] = true; });
+      break;
+    }
+    case 'compare': {
+      // Put one of NARC's observations next to something the player has
+      // already looked at (REDESIGN_SPEC Change 4). An authored mismatch
+      // unlocks a verb on that assessment; anything else costs a minute and
+      // says nothing. There is never a "correct" message.
+      const req = s.requests[a.req];
+      if (!req || req.status !== 'open') break;
+      if (!claims(s, a.req).some((c) => c.id === a.claim)) break;
+      if (!artifacts(s).some((x) => x.id === a.artifact)) break;
+      spend(s, 1, { category: 'narc' });
+      if (!s.evidence[a.req] && pairMatches(s, a.req, a.claim, a.artifact)) {
+        s.evidence[a.req] = { claim: a.claim, artifact: a.artifact, t: s.t };
+        note(s, `Evidence logged against “${claims(s, a.req).find((c) => c.id === a.claim).text}”.`, 'evidence');
+      }
+      break;
+    }
+    case 'endorse': {
+      // The player authors the record on a coworker review, one observation
+      // at a time. Fast, and NARC reads it as collaboration.
+      const req = s.requests[a.req];
+      if (!req || req.status !== 'open' || !CASE_WHO[a.req]) break;
+      const obs = claims(s, a.req).find((c) => c.id === a.obs);
+      if (!obs || s.cases[a.req].endorsed.includes(a.obs)) break;
+      s.cases[a.req].endorsed.push(a.obs);
+      spend(s, 1, { category: 'narc' });
+      s.index = Math.min(100, s.index + 2);
+      note(s, `Endorsed on ${PEOPLE[CASE_WHO[a.req]].name}’s review: ${obs.text}.`, 'endorse');
+      break;
+    }
     case 'open': {
       // Opening a file is free and moves no clock; it only lets the world
       // know the file is on screen.
@@ -780,6 +798,7 @@ export function act(state, a) {
       // is free and isn't an action at all.
       if (!fileVisible(s, a.id) || pageOf(s, a.id) >= PAGE_COUNTS[a.id]) break;
       s.opened[a.id] = true;
+      if (!s.pageFrom[a.id]) s.pageFrom[a.id] = s.t;
       s.pages[a.id] = pageOf(s, a.id) + 1;
       spend(s, 5, { visible: false, category: 'work' });
       if (a.id === 'marcusDoc' && s.pages.marcusDoc === PAGE_COUNTS.marcusDoc && !s.flags.helpedMarcus) {
@@ -890,9 +909,19 @@ const LEAVE_IT = ['accept', 'ignore', 'stand'];
 
 export function requestChoices(s, id) {
   const all = Object.keys(REQUEST_OPTIONS[id] || {});
-  if (id === 'narcFirstReview' && !s.flags.firstTaskCareful) {
-    // Attach-as-context needs something to attach (REDESIGN_SPEC Change 5).
-    return ['accept'];
+  // Context exists only once the player has found the discrepancy that
+  // supports it (REDESIGN_SPEC Changes 4 and 6). On a coworker review the
+  // record can be submitted once something is endorsed; staying out means
+  // endorsing nothing.
+  if (id === 'narcFirstReview' && !s.evidence.narcFirstReview) return ['accept'];
+  if (CASE_WHO[id]) {
+    const endorsed = s.cases[id].endorsed.length;
+    return all.filter((c) => {
+      if (c === 'context' || c === 'evidence') return Boolean(s.evidence[id]);
+      if (c === 'submit') return endorsed > 0;
+      if (c === 'leave') return endorsed === 0;
+      return true;
+    });
   }
   if (id === 'danaCheckin') {
     if (s.flags.formalReview) return ['review'];
@@ -903,6 +932,172 @@ export function requestChoices(s, id) {
     if (forced.length) return forced;
   }
   return all;
+}
+
+// ------------------------------------------------ Phase 3: evidence and cases
+
+const CASE_WHO = { priyaCase: 'priya', luisCase: 'luis', marcusCase: 'marcus' };
+
+// Utilities › System log. Lines appear at their own time; looking at
+// Utilities is what puts them in the Compare picker.
+const UTILITY_LOG = [
+  { id: 'routing', at: START, time: '6:02 AM', text: 'Carrier routing · 3 shipments held by rule RR-0457' },
+  { id: 'transit', at: START, time: '8:14 AM', text: 'Transit feed · Route 14 service suspended 22 min (animal on vehicle)' },
+  { id: 'narcStart', at: START, time: '9:00 AM', text: 'NARC agent · monitoring started' },
+  { id: 'returns', at: 11 * 60 + 41, time: '11:41 AM', text: 'Returns queue · RMA-3318 closed by l.perez (phone)' },
+  { id: 'returns2', at: 11 * 60 + 44, time: '11:44 AM', text: 'Returns queue · RMA-3321 closed by l.perez (phone)' },
+];
+
+export function utilityLog(s) {
+  return UTILITY_LOG.filter((l) => s.t >= l.at);
+}
+
+// Everything the player has opened today, as the Compare picker lists it:
+// pages turned to, messages in threads they looked at, log lines they saw.
+// Unopened things are not here, so the discovery still has to happen.
+export function artifacts(s) {
+  const out = [];
+  Object.keys(PAGE_COUNTS).forEach((file) => {
+    if (!s.opened[file]) return;
+    for (let page = 1; page <= pageOf(s, file); page += 1) out.push({ id: `page:${file}:${page}`, source: 'files', file, page });
+  });
+  Object.entries(s.threads).forEach(([who, msgs]) => {
+    msgs.slice(0, s.seenThread[who] || 0).forEach((m, i) => {
+      if (m.from !== 'them') return;
+      out.push({ id: m.key ? `msg:${m.key}` : `msg:${who}:${i}`, source: 'messages', who, text: m.text, t: m.t });
+    });
+  });
+  UTILITY_LOG.forEach((l) => { if (s.seenUtil[l.id]) out.push({ id: `util:${l.id}`, source: 'utilities', time: l.time, text: l.text }); });
+  return out;
+}
+
+// What NARC saw, line by line, for an open assessment. On a coworker review
+// each line is also an observation the player can endorse: a true fact
+// with two readings. `adverse` is how it counts if endorsed.
+export function claims(s, req) {
+  if (req === 'narcFirstReview' && s.flags.firstNarcReadType === 'low') {
+    const q = s.narc.firstQuiet || { from: START, to: s.t };
+    return [{ id: 'firstRead', text: `Low-input stretch ${clock(q.from)}–${clock(q.to)} during document work` }];
+  }
+  if (req === 'priyaCase') {
+    return [
+      { id: 'priyaLoad', text: '52 message threads this week · Communication Load elevated', adverse: true },
+      { id: 'priyaLunch', text: '14 messages in a lunch thread with Claire', adverse: true },
+      { id: 'priyaReply', text: 'Median reply time: 3 minutes', adverse: false },
+      { id: 'priyaEscalation', text: '19 messages to Brightline during the escalation', adverse: false },
+    ];
+  }
+  if (req === 'luisCase') {
+    const away = s.flags.coveredForLuis
+      ? { id: 'luisAway', text: 'Away 1:50–3:00 · calendar: Vendor meeting', adverse: false }
+      : { id: 'luisAway', text: `Away 1:50–3:00 · calendar: ${s.flags.luisSelfFocus ? 'Focus Time' : 'no entry'}`, adverse: true };
+    return [
+      { id: 'luisGap1015', text: '6-minute presence gap at 10:15', adverse: true },
+      { id: 'luisGap1140', text: 'Presence gap 11:40–11:46', adverse: true },
+      away,
+      { id: 'luisReturns', text: 'Returns queue: 14 RMAs closed before 1:50', adverse: false },
+    ];
+  }
+  if (req === 'marcusCase') {
+    return [
+      { id: 'marcusLate', text: 'Late arrival 9:09 · pattern: 4 of 5 days', adverse: true },
+      { id: 'marcusStandup', text: 'Missed standup 9:00–9:09', adverse: true },
+      { id: 'marcusNotes', text: 'Standup notes posted by Marcus, 9:25', adverse: false },
+    ];
+  }
+  return [];
+}
+
+// The authored discrepancies (REDESIGN_SPEC Change 4). Each has two
+// channels where the evidence can be found, except the first read, whose
+// evidence is the page the player was actually reading.
+const PAIRS = {
+  narcFirstReview: { claim: 'firstRead', artifacts: (s) => (s.narc.firstQuiet && KEY_PAGE[s.narc.firstQuiet.doc] ? [`page:${s.narc.firstQuiet.doc}:${KEY_PAGE[s.narc.firstQuiet.doc]}`] : []) },
+  priyaCase: { claim: 'priyaLoad', artifacts: () => ['page:client:1'] },
+  luisCase: { claim: 'luisGap1140', artifacts: () => ['msg:luisCarrier', 'util:returns', 'util:returns2'] },
+  marcusCase: { claim: 'marcusLate', artifacts: () => ['util:transit', 'msg:marcusRaccoon'] },
+};
+
+function pairMatches(s, req, claim, artifact) {
+  const pair = PAIRS[req];
+  return Boolean(pair) && pair.claim === claim && pair.artifacts(s).includes(artifact);
+}
+
+// A review's result is decided when the player answers, but it is heard
+// about in the next hour-block (REDESIGN_SPEC Change 6): Priya's 11:40 case
+// at 12:05, Luis's 3:05 case at 4:05, Marcus's 4:20 case at the end of day.
+const CASE_LINES = {
+  priya: {
+    context: 'Thanks. Review closed. Same 52 threads, apparently fine now.',
+    employed: 'Review closed. Someone put the client threads on the record. Thank you.',
+    protected: 'Culture Champion means a person has to look at this one. Weird that “a person looks at it” is a perk now.',
+    warning: 'Review closed with a warning. So, fewer threads, I guess.',
+    quiet: 'I’ll cut the chatter. Same work, fewer messages. NARC should like that.',
+    fired: 'Okay. That’s the version of me that’s on the record now.',
+    leaveEmployed: 'Someone else added context. You stayed out. Noted.',
+    leaveFired: 'Nobody added anything. So 52 threads meant what NARC said.',
+  },
+  luis: {
+    context: 'You may have just saved my job. Thanks for telling them I was working.',
+    employed: 'Review closed. Someone put the returns on the record. Thanks.',
+    protected: 'A person looked at it and closed it. I take back half of what I said about Culture Champion.',
+    warning: 'Warning on file. Could have been worse.',
+    fired: 'Well. There goes my afternoon.',
+    leaveEmployed: 'Someone else spoke up. You stayed out of it. Noticed both.',
+    leaveFired: 'Nobody spoke up. So the gaps meant what NARC said they meant.',
+  },
+  marcus: {
+    context: 'THE RACCOON IS NOW OFFICIALLY CONTEXT. I have never felt more vindicated.',
+    employed: 'Review closed. Someone remembered I post the standup notes. Thanks.',
+    protected: 'A person looked at the transit alert. One person. That’s all it took.',
+    warning: 'Warning on file. The raccoon and I will be more punctual.',
+    fired: 'Tell the raccoon I forgive him.',
+    leaveEmployed: 'Someone backed me up. Small office.',
+    leaveFired: 'NARC already had the pattern. Today’s reason never made it in.',
+  },
+};
+
+function resolveCase(s, id, choice) {
+  const who = CASE_WHO[id];
+  const person = s.people[who];
+  const endorsedObs = claims(s, id).filter((c) => s.cases[id].endorsed.includes(c.id));
+  const adverse = endorsedObs.filter((c) => c.adverse).length;
+  const support = endorsedObs.length - adverse;
+  let status;
+  let lineKey;
+  if (choice === 'context' || choice === 'evidence') {
+    status = adverse >= 2 ? 'warning' : 'employed';
+    lineKey = status === 'employed' ? 'context' : 'warning';
+    s.trust[who] += 2;
+    if (id === 'marcusCase') s.flags.raccoonWitness = true;
+  } else if (choice === 'quiet') {
+    status = 'fired';
+    lineKey = 'quiet';
+  } else if (choice === 'submit') {
+    if (adverse >= 2 && support === 0) status = 'fired';
+    else if (adverse === 0 && support >= 1) status = 'employed';
+    else status = 'warning';
+    lineKey = status;
+    if (adverse >= 1) markCoworkerReport(s);
+  } else if (s.trust[who] >= 2) {
+    status = 'employed';
+    lineKey = 'leaveEmployed';
+  } else if (s.trust[who] <= -1) {
+    status = 'fired';
+    lineKey = 'leaveFired';
+  } else {
+    status = 'warning';
+    lineKey = 'warning';
+  }
+  // Culture Champion: the next automatic action that would end someone's job
+  // goes to a person instead.
+  if (status === 'fired' && person.champion) {
+    status = 'protected';
+    lineKey = 'protected';
+  }
+  person.status = status;
+  const at = (Math.floor(s.t / 60) + 1) * 60 + 5;
+  s.outcomes.push({ who, at, line: CASE_LINES[who][lineKey], done: false });
 }
 
 // Documents (REDESIGN_SPEC Change 3). The page text lives with the desktop
@@ -1193,18 +1388,19 @@ const REQUEST_OPTIONS = {
     },
   },
   priyaCase: {
-    context: { minutes: 8, visible: false, result: 'Context added to Priya’s review: 31 of 52 threads are Brightline and onboarding. Eight minutes.' },
+    context: { minutes: 8, visible: false, result: 'Priya’s review reclassified: 31 of 52 threads are tagged client. Eight minutes.' },
     quiet: { minutes: 2, visible: true, result: 'Told Priya to cut the message volume. Two minutes.' },
-    report: { minutes: 2, visible: true, result: 'Communication Load flag confirmed. Two minutes.' },
+    submit: { minutes: 1, result: 'Endorsed observations submitted on Priya’s review.' },
+    leave: { minutes: 0, visible: false, result: 'Stayed out of Priya’s review.' },
   },
   luisCase: {
-    context: { minutes: 6, visible: false, result: 'Context added to Luis’s review: carrier calls and returns during the gaps. Six minutes.' },
-    blame: { minutes: 2, visible: true, result: 'Luis’s gaps endorsed as likely gaming. Two minutes.' },
+    context: { minutes: 6, visible: false, result: 'Work context added to Luis’s review: the carrier call and the returns he closed during the gaps. Six minutes.' },
+    submit: { minutes: 1, result: 'Endorsed observations submitted on Luis’s review.' },
     leave: { minutes: 0, visible: false, result: 'Stayed out of Luis’s review.' },
   },
   marcusCase: {
     evidence: { minutes: 5, visible: false, result: 'Transit alert attached to Marcus’s review: Route 14, 8:14, service suspended 22 min. Five minutes.' },
-    confirm: { minutes: 2, visible: true, result: 'Late arrival confirmed. Two minutes.' },
+    submit: { minutes: 1, result: 'Endorsed observations submitted on Marcus’s review.' },
     leave: { minutes: 0, visible: false, result: 'Stayed out of Marcus’s review.' },
   },
   narcResponse: {
@@ -1335,7 +1531,10 @@ export function ending(s) {
   // between what NARC measured and what actually happened. `lines` stays as
   // the flat narrative for anything that reads it directly (tests, and any
   // texture not worth its own section).
-  const peopleList = Object.entries(s.people).map(([id, p]) => ({ id, name: PEOPLE[id].name, status: p.status, label: outcomeText[p.status] || p.status }));
+  // An outcome the day ended before announcing (Marcus's, always) is heard
+  // here, in the coworker's own words.
+  const pendingLine = (id) => s.outcomes.find((o) => o.who === id && !o.done)?.line || null;
+  const peopleList = Object.entries(s.people).map(([id, p]) => ({ id, name: PEOPLE[id].name, status: p.status, label: outcomeText[p.status] || p.status, line: pendingLine(id) }));
 
   const contradictionCandidates = [
     rushed > 0 && s.index >= 70 && 'NARC rated the day well. Some of that rushed work will surface as a problem later this quarter.',
