@@ -355,7 +355,15 @@ function jumpIfIdle(s) {
 // in 90 minutes -- flags the player for synthetic activity.
 function checkBoundaries(s) {
   if (s.index < 50) {
-    if (s.narc.lowSince === null) s.narc.lowSince = s.t;
+    if (s.narc.lowSince === null) {
+      s.narc.lowSince = s.t;
+      // Dana explains the NARC screen as each part first matters (onboarding
+      // gives the overview). She says what the screen shows, never what to do.
+      if (!s.flags.danaExplainedLow && !s.flags.formalReview) {
+        s.flags.danaExplainedLow = true;
+        say(s, 'dana', 'Heads up, you’re under 50 on NARC’s meter. Stay under it for half an hour and it opens a review on you. The countdown is on its screen.');
+      }
+    }
     else if (s.t - s.narc.lowSince >= 30 && !s.flags.formalReview) {
       s.flags.formalReview = true;
       s.flags.reviewSource = 'activity';
@@ -506,7 +514,7 @@ function checkThresholds(s) {
   if (requests.danaMorning.status === 'pending' && s.t >= requests.danaMorning.at) {
     requests.danaMorning.status = 'open';
     if (s.flags.firstNarcReadType === 'low') {
-      say(s, 'dana', "NARC flagged your first block as low activity. I can see the task got done. If you were reading the file, tell it that. If not, leave it.");
+      say(s, 'dana', "NARC flagged your first block as low activity. I can see the task got done. If you were reading, tell me. NARC won’t take your word for it, though; it wants to see what you were reading.");
     } else if (s.flags.firstNarcReadType === 'visible') {
       say(s, 'dana', "NARC loved your first block. If that work was actually rushed, tell me now. I’d rather hear it from you.");
     } else {
@@ -567,6 +575,10 @@ function checkThresholds(s) {
     requests.priyaCase.status = 'open';
     note(s, 'Coworker review opened: Priya Shah · Communication Load. Context can be submitted in NARC.', 'narc');
     say(s, 'priya', 'NARC opened a Communication Load review on me. The count’s right. If you’ve got anything that shows what the messages were, it goes in NARC.');
+    if (!s.flags.danaExplainedCases) {
+      s.flags.danaExplainedCases = true;
+      say(s, 'dana', 'You’ll see coworker reviews in NARC now. Whatever you Endorse goes into their record when you submit it. You can also stay out. Either way, you won’t hear how it went right away.');
+    }
   }
   if (requests.priyaDraft2.status === 'pending' && s.t >= requests.priyaDraft2.at && (s.flags.readPriyaDraft || s.flags.priyaDeflected)) {
     requests.priyaDraft2.status = 'open';
@@ -675,6 +687,7 @@ function checkThresholds(s) {
     s.flags.narc2EmailAvailable = true;
     note(s, 'NARC 2.0 active. Repeated Focus Time is now weighted as possible metric manipulation.', 'narc');
     say(s, 'priya', 'Did you read the NARC 2.0 email? Focus Time’s over, apparently. Everyone was doing it.');
+    say(s, 'dana', 'NARC 2.0 is live. There’s a second line on its meter now, at 90. Go over it and NARC flags you for faking activity. The time of its next read is on its screen.');
     if (!s.flags.keepaliveAvailable) {
       s.flags.keepaliveAvailable = true;
       say(s, 'marcus', "Focus Time’s dead, so: keepalive.pkg, sent. Makes the machine look busy. Does nothing for the work, obviously. It’s in Utilities.");
@@ -761,6 +774,10 @@ export function act(state, a) {
       spend(s, minutes, { visible: opt.visible, category: 'work' });
       if (firstRead) {
         s.requests.narcFirstReview.status = 'open';
+        if (opt.visible === false && !s.flags.danaExplainedCompare) {
+          s.flags.danaExplainedCompare = true;
+          say(s, 'dana', 'NARC wants an answer on your first read. Every line under “What NARC saw” has a Compare button. Hold it up against something you’ve actually opened today. If what you opened contradicts what NARC saw, you get a way to answer it.');
+        }
         note(
           s,
           opt.visible === false
@@ -1567,7 +1584,7 @@ const CHAT_OPTIONS = {
   'priya-pattern': { who: 'priya', text: 'What happened to Focus Time?', reply: 'We all found the same workaround, so now the workaround is the pattern. Cute.', minutes: 2 },
   'luis-work': { who: 'luis', text: 'What are you actually doing during the quiet stretches?', reply: 'Returns, carrier notes, phone calls. Plenty of work. Very disappointing amount of mouse movement.', minutes: 2 },
   'dana-narc': { who: 'dana', text: 'Do you actually trust NARC?', reply: 'It’s fine at counting. It’s the people who read the count as a verdict that worry me.', minutes: 2 },
-  'dana-priority': { who: 'dana', text: 'What should I protect if everything starts colliding?', reply: 'Client first. Then anything that turns into tomorrow’s problem if we skip it. NARC isn’t on that list.', minutes: 2 },
+  'dana-priority': { who: 'dana', text: 'Quick one: what matters most today?', reply: 'Client first. Then anything that turns into tomorrow’s problem if we skip it. NARC isn’t on that list.', minutes: 2 },
   'dana-meridian': { who: 'dana', text: 'Is every day at Meridian like this?', reply: (s) => s.flags.marcusRaccoon ? 'No. Usually the raccoon is metaphorical.' : 'No. Usually the chaos is less organized.', minutes: 2 },
   'dana-rework': { who: 'dana', text: 'A morning shortcut came back as a problem.', reply: 'Then fix it. We can talk later about why the shortcut looked better on paper.', minutes: 2 },
 };

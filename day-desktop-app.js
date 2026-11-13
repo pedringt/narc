@@ -119,7 +119,7 @@ function narcAssessment(id) {
       inference: 'Consistent with disengagement.',
       missing: 'What was on screen. Whether the document was read.',
       consequence: 'Uncorrected, this read opens a review.',
-      action: 'Attach what you were reading, or acknowledge the read.',
+      action: 'Compare the read with what you were reading to attach it as context, or acknowledge the read.',
     };
   }
   if (id === 'luisCalendar') {
@@ -507,7 +507,9 @@ const TUTORIAL_STEPS = [
   { target: 'files', text: 'Files next. That’s where the actual work is. Heads up: reading looks like nothing to NARC.', label: 'Open Files' },
   { target: 'calendar', text: 'Calendar. NARC reads it. Luis will tell you what that means.', label: 'Open Calendar' },
   { target: 'narc', text: 'Open NARC and see what it has on you so far. It’s usually not nothing.', label: 'Open NARC' },
-  { target: 'intranet', text: 'That’s enough tour. Three things are waiting in The Loop. Pick one.', label: 'Go to The Loop', final: true },
+  // Delivered when NARC is first opened: the overview of its screen. Dana
+  // adds detail later as each part first matters (see day.js).
+  { target: 'intranet', text: 'That’s NARC. The big number is your Visible Activity: how busy your laptop looks to it. The red line on the meter is 50; stay under it too long and it opens a review on you. It reads your desk every half hour, and the panel under the meter shows what it saw last time. When it wants something from you, it shows up in the middle and you answer there. That’s the tour. Three things are waiting in The Loop. Pick one.', label: 'Go to The Loop', final: true },
 ];
 
 let state = newGame();
@@ -1385,8 +1387,13 @@ function artifactLabel(x) {
 }
 
 function renderClaims(req, list) {
-  const box = h('div', 'narc-saw', h('div', 'narc-saw-h', 'WHAT NARC SAW'));
   const isCase = ['priyaCase', 'luisCase', 'marcusCase'].includes(req);
+  // How to answer, on the card itself: Compare is how a line gets answered,
+  // Endorse is how a line goes into a coworker's record.
+  const hint = isCase
+    ? 'Compare a line with something you’ve opened today to answer it. Endorse puts a line in the record.'
+    : 'Compare a line with something you’ve opened today to answer it.';
+  const box = h('div', 'narc-saw', h('div', 'narc-saw-h', 'WHAT NARC SAW'), h('p', 'narc-saw-hint', hint));
   const endorsed = isCase ? state.cases[req].endorsed : [];
   list.forEach((c) => {
     const row = h('div', 'narc-saw-row', h('p', null, c.text));
