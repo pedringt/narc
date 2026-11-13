@@ -1142,6 +1142,26 @@ function DUE_PROJECT() { return 11 * 60 + 30; }
   assert.equal(e.rank, 'Session Incomplete');
   assert.equal(e.bonuses.filter((b) => b.earned).length, 0);
 }
+// ------------- Dana explains the NARC screen as each part first matters
+{
+  let s = act(newGame(), { do: 'idle', minutes: 15 });
+  s = work(s, 'vendor', 'thorough');
+  const dana = () => s.threads.dana.map((m) => m.text).join(' | ');
+  assert.match(dana(), /it wants to see what you were reading/, 'her 9:50 line points at proof, not at a button that is not there yet');
+  assert.match(dana(), /Every line under “What NARC saw” has a Compare button/, 'the first low read explains Compare');
+  assert.doesNotMatch(dana(), /page 4|rate table/, 'and never which comparison works');
+  s.index = 45;
+  s = act(s, { do: 'idle', minutes: 5 });
+  assert.match(dana(), /under 50 on NARC’s meter/, 'dropping under 50 explains the review line, once');
+  const count = s.threads.dana.filter((m) => /under 50/.test(m.text)).length;
+  s.index = 60; s = act(s, { do: 'idle', minutes: 5 }); s.index = 45; s = act(s, { do: 'idle', minutes: 5 });
+  assert.equal(s.threads.dana.filter((m) => /under 50/.test(m.text)).length, count, 'only the first time');
+  s = at(s, 11 * 60 + 40);
+  assert.match(dana(), /Whatever you Endorse goes into their record/, 'the first coworker review explains Endorse');
+  s = at(s, 14 * 60 + 30);
+  assert.match(dana(), /second line on its meter now, at 90/, 'NARC 2.0 explains the synthetic line');
+  assert.ok(chatOptions(newGame(), 'dana').some(([, text]) => text === 'Quick one: what matters most today?'), 'the reworded priority chat');
+}
 console.log('redesign phase 4 tests passed');
 
 // ======================================================== bot suite (REDESIGN_SPEC)

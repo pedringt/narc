@@ -891,6 +891,7 @@
 
 /* What NARC saw, Compare and Endorse (REDESIGN_SPEC Changes 4 and 6) */
 .narc-saw { margin: 4px 0 14px; }
+.narc-saw-hint { margin: 0 0 6px; color: var(--n-muted); font-size: 12px; }
 .narc-saw-h { margin-bottom: 6px; color: var(--n-muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
 .narc-saw-row {
   padding: 10px 0;

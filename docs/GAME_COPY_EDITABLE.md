@@ -1039,6 +1039,30 @@ Change 8 replaces "The contradiction" section with the facts side by side and th
 | F23 | `day.js` summary reality lines | caught Halcyon’s rate change (about $404,000 a year) / a low-input stretch, ${n} quiet minutes by 5:00 / Halcyon renewed at $18.20 a position, up from $14.00 / a fast, visible morning / Halcyon auto-renewed at $18.20 a position / a missed deadline / a raccoon stopped the 8:14 bus / Marcus late 4 of 5 days / ${name} was working / presence gaps and message counts / keepalive.pkg / sustained input, cadence 112 ms |  |
 | F24 | `day-desktop-app.js` login | Previous session / NARC rank: ${rank} / Bonuses found: ${n} of 8 / Best Visible Activity: ${index}/100 |  |
 
+## Dana explains the NARC screen (branch `dana-explains-narc`, 2026-11-12)
+
+An overview when NARC is first opened during onboarding, then short Dana messages the first time each part matters. She says what the screen shows and does; she never hints at which comparison works.
+
+### Changed text
+
+| # | Source | Was | Now | Edited text |
+| ---: | --- | --- | --- | --- |
+| G1 | `day-desktop-app.js` tutorial, final step (on opening NARC) | That’s enough tour. Three things are waiting in The Loop. Pick one. | That’s NARC. The big number is your Visible Activity: how busy your laptop looks to it. The red line on the meter is 50; stay under it too long and it opens a review on you. It reads your desk every half hour, and the panel under the meter shows what it saw last time. When it wants something from you, it shows up in the middle and you answer there. That’s the tour. Three things are waiting in The Loop. Pick one. |  |
+| G2 | `day.js` Dana, 9:50 after a low first read | NARC flagged your first block as low activity. I can see the task got done. If you were reading the file, tell it that. If not, leave it. | NARC flagged your first block as low activity. I can see the task got done. If you were reading, tell me. NARC won’t take your word for it, though; it wants to see what you were reading. |  |
+| G3 | `day.js` chat dana-priority | What should I protect if everything starts colliding? | Quick one: what matters most today? |  |
+
+### New copy
+
+| # | Source | Current text | Edited text |
+| ---: | --- | --- | --- |
+| G4 | `day.js` Dana, first time under 50 | Heads up, you’re under 50 on NARC’s meter. Stay under it for half an hour and it opens a review on you. The countdown is on its screen. |  |
+| G5 | `day.js` Dana, first low read opens | NARC wants an answer on your first read. Every line under “What NARC saw” has a Compare button. Hold it up against something you’ve actually opened today. If what you opened contradicts what NARC saw, you get a way to answer it. |  |
+| G6 | `day.js` Dana, first coworker review (11:40) | You’ll see coworker reviews in NARC now. Whatever you Endorse goes into their record when you submit it. You can also stay out. Either way, you won’t hear how it went right away. |  |
+| G7 | `day.js` Dana, NARC 2.0 | NARC 2.0 is live. There’s a second line on its meter now, at 90. Go over it and NARC flags you for faking activity. The time of its next read is on its screen. |  |
+| G8 | `day-desktop-app.js` card hint (NARC requests) | Compare a line with something you’ve opened today to answer it. |  |
+| G9 | `day-desktop-app.js` card hint (coworker reviews) | Compare a line with something you’ve opened today to answer it. Endorse puts a line in the record. |  |
+| G10 | `day-desktop-app.js` first-review action (not displayed) | Compare the read with what you were reading to attach it as context, or acknowledge the read. |  |
+
 ## Editing notes
 
 - You can replace only the text you want changed and leave the rest of the **Edited text** column blank.
